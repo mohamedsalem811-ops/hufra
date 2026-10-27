@@ -1,9 +1,8 @@
+
 name: CI
 
 # HUFRA / حفرة CI pipeline.
-# Runs on every push and pull request against main: typecheck -> build -> test
-# (with coverage). This mirrors exactly what a contributor should run locally
-# before opening a PR (see package.json scripts) so CI never surprises anyone.
+# Typecheck -> build -> test -> deploy to Cloudflare Pages.
 on:
   push:
     branches: [main]
@@ -29,15 +28,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        # --legacy-peer-deps: @vitest/coverage-v8 currently has a peer dependency
-        # range that conflicts with wrangler/@cloudflare/workers-types; this
-        # matches the flag used when the dependency was first installed.
+        # Matches the dependency installation used by this project.
         run: npm ci --legacy-peer-deps
 
       - name: Typecheck
         run: npx tsc --noEmit
 
-      - name: Build (Vite -> Cloudflare Pages worker bundle)
+      - name: Build (Vite -> Cloudflare Pages)
         run: npm run build
 
       - name: Run test suite with coverage
@@ -63,3 +60,33 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 14
+
+  deploy:
+    name: Deploy to Cloudflare Pages
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build for production
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy dist --project-name hufra --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
