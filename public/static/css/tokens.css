@@ -1,0 +1,155 @@
+/*
+  HUFRA design tokens.
+  Brand palette and typography scale from the MASTER BUILD PROMPT, section 3.
+  Light and dark themes are both first-class; [dir] controls RTL/LTR mirroring.
+*/
+
+:root {
+  /* Brand colors.
+     WCAG 2.2 AA CONTRAST FIX (computed via relative-luminance/contrast-ratio
+     math, see docs/ACCESSIBILITY.md): the ORIGINAL --color-primary/-success/
+     -danger values (#F57C1F / #2E9E5B / #E53E3E) fail 4.5:1 when used as TEXT
+     or as badge-text-on-tint (e.g. #F57C1F on white = 2.70:1). Per an explicit
+     user decision, light and dark themes get SEPARATE accessible values below
+     rather than one dual-purpose color, because a single hue/lightness that
+     passes 4.5:1 on a light background regresses badly on the dark theme's
+     dark surfaces (and vice versa). --color-info was already accessible in
+     light mode and is unchanged there.
+     --color-warning is new: used only by the decorative (non-text, 3:1)
+     severity-minor dot, which previously used a raw hex with no token. */
+  --color-primary: #AE5008;
+  --color-primary-dark: #A14A07;
+  --color-primary-light: #FDEAD3;
+  --color-asphalt: #1F2933;
+  --color-sand: #F4EBDD;
+  --color-success: #247B47;
+  --color-info: #2B6CB0;
+  --color-cloud: #FFFFFF;
+  --color-cloud-alt: #F7FAFC;
+  --color-danger: #D41D1D;
+  --color-warning: #B27E09;
+
+  /* Status colors (map pins + badges). Kept numerically equal to the
+     corresponding --color-* above so a status and its themed color always
+     match; see docs/ACCESSIBILITY.md for the per-status badge-on-tint math. */
+  --status-reported: #D41D1D;
+  --status-verified: #2B6CB0;
+  --status-under-repair: #AE5008;
+  --status-fixed: #247B47;
+
+  /* Button background tokens. DELIBERATELY theme-independent (never
+     overridden under [data-theme='dark']) and DISTINCT from
+     --color-primary/-success/-danger above.
+     WHY: white button text needs contrast(white, bg) >= 4.5:1, and that
+     contrast is a property of the raw color alone - it does not change
+     between themes. Meanwhile --color-primary-dark etc. above must stay
+     BRIGHT in dark mode so it still reads as TEXT on dark surfaces/tints
+     (e.g. chip-option-selected text). One variable cannot satisfy both
+     "dark enough for white text" and "bright enough for dark-mode text" at
+     once, so buttons get their own always-dark tokens instead of reusing
+     --color-primary-dark. See docs/ACCESSIBILITY.md for the full writeup. */
+  --btn-primary-bg: #AE5008;
+  --btn-primary-bg-hover: #A14A07;
+  --btn-success-bg: #247B47;
+  --btn-success-bg-hover: #217041;
+  --btn-danger-bg: #D41D1D;
+  --btn-danger-bg-hover: #C31B1B;
+
+  /* Semantic surface/text tokens (light theme default) */
+  --bg-page: var(--color-cloud-alt);
+  --bg-surface: var(--color-cloud);
+  --bg-soft: var(--color-sand);
+  --text-primary: var(--color-asphalt);
+  --text-secondary: #52606D;
+  --text-inverse: #FFFFFF;
+  --border-color: #E2E8F0;
+  --shadow-color: rgba(31, 41, 51, 0.08);
+
+  --link-color: var(--color-info);
+  /* WCAG 2.4.11/1.4.11 non-text-indicator fix: the original
+     rgba(245, 124, 31, 0.45) blends to only ~1.56:1 against a white
+     background (fails the 3:1 minimum). Full-opacity --btn-primary-bg
+     blends to 5.32:1. See docs/ACCESSIBILITY.md. */
+  --focus-ring: 0 0 0 3px rgba(174, 80, 8, 1);
+
+  /* Typography */
+  --font-ar: 'IBM Plex Sans Arabic', 'Tahoma', sans-serif;
+  --font-en: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --line-height-base: 1.6;
+
+  /* Radius / spacing */
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Tap target minimum (WCAG 2.2 AA / elderly-friendly requirement) */
+  --tap-target-min: 44px;
+
+  --transition-fast: 150ms ease;
+  --transition-base: 220ms ease;
+}
+
+[data-theme='dark'] {
+  --bg-page: #14181D;
+  --bg-surface: #1C2229;
+  --bg-soft: #262E37;
+  --text-primary: #F2F5F7;
+  --text-secondary: #AEB8C2;
+  --text-inverse: #1F2933;
+  --border-color: #313B46;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --link-color: #6FA8DC;
+
+  /* Dark-mode-specific accessible values (see :root comment above for why
+     these differ from the light-mode values instead of sharing one color).
+     --btn-*-bg tokens are intentionally NOT overridden here - button
+     backgrounds stay identical in both themes since white-on-them contrast
+     never depends on the surrounding theme. */
+  --color-primary: #F57C1F;
+  --color-primary-dark: #F6832A;
+  --color-primary-light: #483116;
+  --color-success: #32AC63;
+  --color-danger: #EA6060;
+  --color-warning: #B27E09;
+
+  --status-reported: #EA6060;
+  --status-verified: #5795D6;
+  --status-under-repair: #F57C1F;
+  --status-fixed: #32AC63;
+
+  /* --color-info as text is too dim on dark surfaces (2.96:1 with the
+     light-mode value); lightened here for the same reason as the others. */
+  --color-info: #5795D6;
+
+  /* Focus ring override: the light-theme --focus-ring (opaque
+     --btn-primary-bg, #AE5008) only reaches 3.02:1 against dark surfaces
+     (barely passes 3:1). Using the dark-theme primary color instead gives
+     a safer 5.94-6.61:1 margin against dark backgrounds. */
+  --focus-ring: 0 0 0 3px rgba(245, 124, 31, 0.9);
+}
+
+/* Elderly-friendly "increase font size" toggle, applied on <html> */
+[data-font-size='large'] {
+  --font-size-base: 19px;
+  --font-size-lg: 22px;
+}
+
+[data-font-size='xlarge'] {
+  --font-size-base: 22px;
+  --font-size-lg: 26px;
+}
+
+html[dir='rtl'] body {
+  font-family: var(--font-ar);
+}
+html[dir='ltr'] body {
+  font-family: var(--font-en);
+}

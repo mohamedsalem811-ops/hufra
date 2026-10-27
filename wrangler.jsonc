@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hufra",
+  "compatibility_date": "2026-07-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "pages_build_output_dir": "./dist",
+
+  // D1 Database: relational + geospatial metadata (only tiny R2 keys are stored
+  // in D1, never raw image bytes).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hufra-production",
+      "database_id": "1a28d545-16ac-4062-ac5f-4348d9edf6cc"
+    }
+  ],
+
+  // R2 bucket: pothole photos (ultra-compressed WebP/JPEG originals + thumbnails).
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "hufra-photos"
+    }
+  ],
+
+  // KV: rate limiting counters + short-lived caches (e.g. live counters).
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "e926e97015c54e1e979ff8eb3ba0e92c"
+    }
+  ]
+
+  // Secrets (set via `npx wrangler pages secret put JWT_SECRET --project-name hufra`
+  // or automatically via `bash deploy.sh`):
+  // JWT_SECRET            - HMAC secret for signing access/refresh tokens
+  // ADMIN_WHATSAPP        - optional contact number for the admin WhatsApp button
+  // FCM_SERVER_KEY        - optional Firebase Cloud Messaging key for native push
+}

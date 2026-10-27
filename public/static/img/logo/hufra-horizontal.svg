@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100" width="360" height="100" role="img" aria-label="HUFRA logo">
+  <g transform="translate(10,10)">
+    <circle cx="40" cy="38" r="36" fill="#FFCE00"/>
+    <circle cx="40" cy="38" r="36" fill="none" stroke="#111111" stroke-width="2.4"/>
+    <path d="M40 29.4 L46.9 30.7 L47.5 38 L47.4 45.4 L40 46.2 L33.9 44.4 L32.5 38 L33.1 30.7 Z" fill="#111111"/>
+    <g stroke="#111111" stroke-width="2" stroke-linecap="round">
+      <line x1="40" y1="24.2" x2="40" y2="16.7"/>
+      <line x1="48" y1="26.8" x2="53.4" y2="20.7"/>
+      <line x1="53" y1="33.7" x2="60.9" y2="31.3"/>
+      <line x1="53" y1="42.3" x2="60.9" y2="44.7"/>
+      <line x1="48" y1="49.2" x2="53.4" y2="55.3"/>
+      <line x1="40" y1="51.8" x2="40" y2="59.3"/>
+      <line x1="32" y1="49.2" x2="26.6" y2="55.3"/>
+      <line x1="27" y1="42.3" x2="19.1" y2="44.7"/>
+      <line x1="27" y1="33.7" x2="19.1" y2="31.3"/>
+      <line x1="32" y1="26.8" x2="26.6" y2="20.7"/>
+    </g>
+  </g>
+  <text x="105" y="48" font-family="IBM Plex Sans Arabic, IBM Plex Sans, sans-serif" font-size="34" font-weight="700" fill="#111111">حفرة</text>
+  <text x="105" y="78" font-family="IBM Plex Sans, sans-serif" font-size="18" letter-spacing="2" fill="#AE5008">HUFRA</text>
+</svg>

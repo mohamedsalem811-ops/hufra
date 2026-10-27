@@ -1,0 +1,49 @@
+{
+  "name": "hufra",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:sandbox": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name hufra",
+    "mobile:init": "npx cap add android && npx cap add ios",
+    "mobile:sync": "npm run build && npx cap sync",
+    "mobile:android": "npm run build && npx cap sync android && npx cap open android",
+    "mobile:ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply hufra-production --local",
+    "db:migrate:prod": "wrangler d1 migrations apply hufra-production",
+    "db:console:local": "wrangler d1 execute hufra-production --local",
+    "db:console:prod": "wrangler d1 execute hufra-production",
+    "db:seed": "wrangler d1 execute hufra-production --local --file=./migrations/0003_seed_regions.sql",
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local"
+  },
+  "dependencies": {
+    "@capacitor/camera": "^6.1.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/geolocation": "^6.1.0",
+    "@capacitor/push-notifications": "^6.0.2",
+    "hono": "^4.12.33",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@cloudflare/workers-types": "^4.20250705.0",
+    "@hono/vite-build": "^1.11.1",
+    "@hono/vite-dev-server": "^0.26.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "better-sqlite3": "^13.0.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.110.0"
+  }
+}

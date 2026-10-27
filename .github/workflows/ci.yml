@@ -1,0 +1,65 @@
+name: CI
+
+# HUFRA / حفرة CI pipeline.
+# Runs on every push and pull request against main: typecheck -> build -> test
+# (with coverage). This mirrors exactly what a contributor should run locally
+# before opening a PR (see package.json scripts) so CI never surprises anyone.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Typecheck, build, and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # --legacy-peer-deps: @vitest/coverage-v8 currently has a peer dependency
+        # range that conflicts with wrangler/@cloudflare/workers-types; this
+        # matches the flag used when the dependency was first installed.
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build (Vite -> Cloudflare Pages worker bundle)
+        run: npm run build
+
+      - name: Run test suite with coverage
+        run: npm run test:coverage
+
+      - name: Enforce minimum coverage threshold (>=70% statements)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const pct = summary.total.statements.pct;
+            console.log('Statement coverage: ' + pct + '%');
+            if (pct < 70) {
+              console.error('Coverage ' + pct + '% is below the required 70% threshold.');
+              process.exit(1);
+            }
+          "
+
+      - name: Upload coverage report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14

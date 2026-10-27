@@ -1,0 +1,51 @@
+{
+  "name": "حفرة — HUFRA | بلاغات حفريات طرابلس الكبرى",
+  "short_name": "حفرة HUFRA",
+  "description": "منصة مجتمعية لرصد وإصلاح حفريات الطرق في طرابلس الكبرى بالخرائط والصور (تعمل مع أو بدون إنترنت)",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0F172A",
+  "theme_color": "#D97706",
+  "categories": ["utilities", "government", "navigation"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/img/logo/hufra-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "بلّغ عن حفرة الآن",
+      "short_name": "بلاغ جديد",
+      "description": "إرسال بلاغ حفرة جديد بالصور والموقع الجغرافي",
+      "url": "/report",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "خريطة البلاغات",
+      "short_name": "الخريطة",
+      "description": "استعراض خريطة الحفريات في طرابلس الكبرى",
+      "url": "/map",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "لوحة الإدارة الميدانية",
+      "short_name": "الإدارة",
+      "description": "مراجعة البلاغات وتحديث حالة الإصلاح ميدانياً",
+      "url": "/admin",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
