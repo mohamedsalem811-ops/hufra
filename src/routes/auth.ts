@@ -68,6 +68,50 @@ async function extractRefreshToken(c: any): Promise<string | null> {
   return null
 }
 
+/**
+ * Seconds during which a just-rotated refresh token is still treated as a
+ * benign race (two tabs or two parallel requests refreshing at once) rather
+ * than as reuse of a stolen token.
+ */
+export const REFRESH_REUSE_GRACE_SECONDS = 60
+
+/** Sign a new access + refresh token pair, record the refresh token and set the cookies. */
+async function issueSession(
+  c: any,
+  user: { id: number; role: UserRow['role']; code: string },
+  ipHash: string | null
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const iat = nowSeconds()
+  const expRefresh = iat + REFRESH_TOKEN_TTL_SECONDS
+  const accessToken = await signJwt(
+    { sub: user.id, role: user.role, code: user.code, iat, exp: iat + ACCESS_TOKEN_TTL_SECONDS, typ: 'access' },
+    c.env.JWT_SECRET
+  )
+  const refreshToken = await signJwt(
+    { sub: user.id, role: user.role, code: user.code, iat, exp: expRefresh, typ: 'refresh', jti: crypto.randomUUID() },
+    c.env.JWT_SECRET
+  )
+  await c.env.DB.prepare(
+    `INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip_hash, expires_at) VALUES (?, ?, ?, ?, ?)`
+  )
+    .bind(user.id, await hashToken(refreshToken), c.req.header('User-Agent') ?? null, ipHash, new Date(expRefresh * 1000).toISOString())
+    .run()
+  await setSessionCookies(c, accessToken, refreshToken)
+  return { accessToken, refreshToken }
+}
+
+function clearSessionCookies(c: any) {
+  const secure = new URL(c.req.url).protocol === 'https:'
+  const base = `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=0`
+  c.header('Set-Cookie', `${COOKIE_NAME}=; ${base}`, { append: true })
+  c.header('Set-Cookie', `hufra_refresh=; ${base}`, { append: true })
+}
+
+function refreshDenied(c: any, error: string, error_ar: string) {
+  clearSessionCookies(c)
+  return c.json({ error, error_ar }, 401)
+}
+
 auth.post('/register', async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = registerSchema.safeParse(body)
@@ -137,28 +181,8 @@ auth.post('/login', async (c) => {
     )
   }
 
-  const iat = nowSeconds()
-  const expRefresh = iat + REFRESH_TOKEN_TTL_SECONDS
-  const accessToken = await signJwt(
-    { sub: user.id, role: user.role, code: user.code, iat, exp: iat + ACCESS_TOKEN_TTL_SECONDS, typ: 'access' },
-    c.env.JWT_SECRET
-  )
-  const refreshToken = await signJwt(
-    { sub: user.id, role: user.role, code: user.code, iat, exp: expRefresh, typ: 'refresh' },
-    c.env.JWT_SECRET
-  )
-
   const ipHashed = await hashIp(ip, c.env.JWT_SECRET)
-  const tokenHash = await hashToken(refreshToken)
-  const expiresAtIso = new Date(expRefresh * 1000).toISOString()
-  await c.env.DB.prepare(
-    `INSERT OR IGNORE INTO refresh_tokens (user_id, token_hash, user_agent, ip_hash, expires_at)
-     VALUES (?, ?, ?, ?, ?)`
-  )
-    .bind(user.id, tokenHash, c.req.header('User-Agent') ?? null, ipHashed, expiresAtIso)
-    .run()
-
-  await setSessionCookies(c, accessToken, refreshToken)
+  const { accessToken, refreshToken } = await issueSession(c, user, ipHashed)
   await recordAudit(c.env.DB, { actorId: user.id, action: 'user.login', entity: 'users', entityId: user.id, ipHash: ipHashed })
 
   return c.json({
@@ -168,23 +192,49 @@ auth.post('/login', async (c) => {
   })
 })
 
+// Refresh-token rotation: each refresh token works exactly once. A successful
+// refresh retires it and returns a new one. Presenting a retired token again
+// (after a short grace period for parallel requests) means someone else holds
+// a copy, so every session of that account is signed out.
 auth.post('/refresh', async (c) => {
   const token = await extractRefreshToken(c)
   if (!token) return c.json({ error: 'No refresh token', error_ar: 'لا يوجد رمز تحديث' }, 401)
 
   const payload = await verifyJwt(token, c.env.JWT_SECRET)
   if (!payload || payload.typ !== 'refresh') {
-    return c.json({ error: 'Invalid refresh token', error_ar: 'رمز التحديث غير صالح' }, 401)
+    return refreshDenied(c, 'Invalid refresh token', 'رمز التحديث غير صالح')
   }
 
-  const tokenHash = await hashToken(token)
   const stored = await c.env.DB.prepare(
-    'SELECT revoked_at FROM refresh_tokens WHERE token_hash = ?'
+    'SELECT id, user_id, revoked_at, replaced_at FROM refresh_tokens WHERE token_hash = ?'
   )
-    .bind(tokenHash)
-    .first<{ revoked_at: string | null }>()
-  if (stored && stored.revoked_at !== null) {
-    return c.json({ error: 'Refresh token revoked', error_ar: 'تم إلغاء رمز التحديث' }, 401)
+    .bind(await hashToken(token))
+    .first<{ id: number; user_id: number; revoked_at: string | null; replaced_at: string | null }>()
+
+  // Only tokens this server issued and recorded are accepted.
+  if (!stored || stored.user_id !== payload.sub) {
+    return refreshDenied(c, 'Invalid refresh token', 'رمز التحديث غير صالح')
+  }
+
+  if (stored.revoked_at !== null) {
+    const retiredFor = stored.replaced_at ? nowSeconds() - Math.floor(Date.parse(stored.replaced_at) / 1000) : null
+    if (retiredFor !== null && retiredFor > REFRESH_REUSE_GRACE_SECONDS) {
+      // A token retired by rotation is being used again: it was copied. End every session.
+      await c.env.DB.prepare(
+        `UPDATE refresh_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ? AND revoked_at IS NULL`
+      )
+        .bind(stored.user_id)
+        .run()
+      await recordAudit(c.env.DB, {
+        actorId: stored.user_id,
+        action: 'session.refresh_token_reuse',
+        entity: 'users',
+        entityId: stored.user_id,
+        ipHash: await hashIp(clientIp(c), c.env.JWT_SECRET),
+      })
+      return refreshDenied(c, 'Session expired, please log in again', 'انتهت الجلسة، يرجى تسجيل الدخول من جديد')
+    }
+    return refreshDenied(c, 'Refresh token revoked', 'تم إلغاء رمز التحديث')
   }
 
   const currentUser = await c.env.DB.prepare(
@@ -193,16 +243,25 @@ auth.post('/refresh', async (c) => {
     .bind(payload.sub)
     .first<{ id: number; role: UserRow['role']; code: string }>()
   if (!currentUser) {
-    return c.json({ error: 'User not found', error_ar: 'المستخدم غير موجود' }, 401)
+    return refreshDenied(c, 'User not found', 'المستخدم غير موجود')
   }
 
-  const iat = nowSeconds()
-  const accessToken = await signJwt(
-    { sub: currentUser.id, role: currentUser.role, code: currentUser.code, iat, exp: iat + ACCESS_TOKEN_TTL_SECONDS, typ: 'access' },
-    c.env.JWT_SECRET
+  // Claim the token atomically: if two requests race with the same token,
+  // only the one whose UPDATE changes the row gets a new session.
+  const claimed = await c.env.DB.prepare(
+    `UPDATE refresh_tokens
+     SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), replaced_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     WHERE id = ? AND revoked_at IS NULL`
   )
-  await setSessionCookies(c, accessToken, token)
-  return c.json({ access_token: accessToken, refresh_token: token })
+    .bind(stored.id)
+    .run()
+  if (!claimed.meta.changes) {
+    // Lost a race with a parallel refresh: the other request already set the new cookies.
+    return c.json({ error: 'Refresh token already used', error_ar: 'تم استخدام رمز التحديث مسبقاً' }, 401)
+  }
+
+  const { accessToken, refreshToken } = await issueSession(c, currentUser, await hashIp(clientIp(c), c.env.JWT_SECRET))
+  return c.json({ access_token: accessToken, refresh_token: refreshToken })
 })
 
 auth.post('/logout', async (c) => {
@@ -215,8 +274,7 @@ auth.post('/logout', async (c) => {
       .bind(tokenHash)
       .run()
   }
-  c.header('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`, { append: true })
-  c.header('Set-Cookie', `hufra_refresh=; Path=/; HttpOnly; Max-Age=0`, { append: true })
+  clearSessionCookies(c)
   return c.json({ ok: true })
 })
 
@@ -299,8 +357,7 @@ auth.post('/me/delete', requireAuth(), async (c) => {
     .bind(authCtx.userId)
     .run()
   await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'user.self_delete', entity: 'users', entityId: authCtx.userId })
-  c.header('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`, { append: true })
-  c.header('Set-Cookie', `hufra_refresh=; Path=/; HttpOnly; Max-Age=0`, { append: true })
+  clearSessionCookies(c)
   return c.json({ ok: true })
 })
 

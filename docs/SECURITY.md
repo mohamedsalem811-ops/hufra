@@ -168,3 +168,26 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
   branch together with `Access-Control-Allow-Credentials: true`, so any website
   was trusted. Even the intended rule (`*.pages.dev`) would have trusted sites
   that anyone can publish for free.
+
+## 8. Refresh tokens — rotation and theft detection
+
+- A refresh token is accepted only if it is correctly signed **and** recorded
+  in `refresh_tokens` for the same user, and not revoked. (Previously a token
+  missing from the table was accepted.)
+- **Rotation:** every successful `POST /api/auth/refresh` retires the presented
+  token (`revoked_at` + `replaced_at`) and returns a new one in the JSON and
+  the `hufra_refresh` cookie. The retire step is a conditional `UPDATE ... WHERE
+  revoked_at IS NULL`, so two parallel refreshes cannot both succeed.
+- **Reuse detection:** presenting a token that was retired by rotation more
+  than 60 seconds ago (`REFRESH_REUSE_GRACE_SECONDS`) means a copy exists, so
+  all of that account's refresh tokens are revoked and a
+  `session.refresh_token_reuse` audit entry is written. Within the grace period
+  (two tabs refreshing at once) the late request just gets 401. Tokens revoked
+  by logout or a password change are refused without signing out other devices.
+- Every refresh token has a random `jti`, so two logins in the same second
+  never produce the same token.
+- The web/app client (`public/static/js/api.js`) shares one in-flight refresh
+  between parallel 401s and retries with an already-refreshed access token,
+  so rotation never logs a user out by accident.
+- Malformed tokens (bad base64, wrong shape) are treated as "not logged in"
+  (401) instead of causing a 500.

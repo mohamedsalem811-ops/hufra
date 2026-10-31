@@ -58,6 +58,7 @@
   async function request(path, options) {
     options = options || {};
     var isJson = options.body !== undefined && options.body !== null && !(options.body instanceof FormData);
+    var sentToken = getAccessToken();
     var headers = buildHeaders(options.headers, isJson);
     if (options.headers && options.headers.Authorization) {
       headers.Authorization = options.headers.Authorization;
@@ -70,7 +71,9 @@
     });
 
     if (res.status === 401 && !options._retried && path !== '/auth/login' && path !== '/auth/refresh') {
-      var refreshed = await tryRefresh();
+      // If another request already refreshed while this one was in flight,
+      // just retry with the new access token instead of refreshing again.
+      var refreshed = getAccessToken() !== sentToken || (await tryRefresh());
       if (refreshed) {
         return request(path, Object.assign({}, options, { _retried: true }));
       }
@@ -89,7 +92,18 @@
     return data;
   }
 
-  async function tryRefresh() {
+  // Refresh tokens are single-use (the server rotates them), so parallel 401s
+  // must share ONE refresh call instead of each spending the same token.
+  var refreshInFlight = null;
+
+  function tryRefresh() {
+    if (!refreshInFlight) {
+      refreshInFlight = doRefresh().finally(function () { refreshInFlight = null; });
+    }
+    return refreshInFlight;
+  }
+
+  async function doRefresh() {
     try {
       var refreshToken = getRefreshToken();
       var headers = { 'Content-Type': 'application/json' };

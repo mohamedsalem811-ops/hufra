@@ -40,10 +40,13 @@ describe('Mobile Auth & Refresh Token Rotation', () => {
     expect(refreshRes1.status).toBe(200)
     const refreshed1 = await json(refreshRes1)
     expect(refreshed1.access_token).toBeTruthy()
+    // Rotation: the response carries a NEW refresh token, which is the one to use next.
+    expect(refreshed1.refresh_token).toBeTruthy()
+    expect(refreshed1.refresh_token).not.toBe(loginData.refresh_token)
 
     const refreshRes2 = await request(t.env, '/api/auth/refresh', {
       method: 'POST',
-      headers: { 'X-Refresh-Token': loginData.refresh_token },
+      headers: { 'X-Refresh-Token': refreshed1.refresh_token },
     })
     expect(refreshRes2.status).toBe(200)
   })

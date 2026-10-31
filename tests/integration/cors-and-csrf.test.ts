@@ -58,7 +58,8 @@ describe('cross-site write protection (CSRF)', () => {
 
   it('still accepts same-origin, native-app and Origin-less requests', async () => {
     const { env } = createTestEnv()
-    for (const headers of [{ Origin: SELF }, { Origin: 'capacitor://localhost' }, {}]) {
+    const variants: Record<string, string>[] = [{ Origin: SELF }, { Origin: 'capacitor://localhost' }, {}]
+    for (const headers of variants) {
       const res = await request(env, '/api/potholes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
