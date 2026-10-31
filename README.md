@@ -178,18 +178,24 @@ review incoming reports, resolve flagged duplicates, transition report
 status, and (for `super_admin`) manage other admins and view the immutable
 audit log.
 
-**Default login (testing):** the first super admin is created by migration
-`0006` and auto-repaired on login:
+**First admin account:** there is no default login. Create your super admin
+(or reset its password) directly in D1 with:
 
-| | |
-|---|---|
-| Email | `admin@hufra.ly` |
-| Password | `Hufra@Admin2026!` |
-| Role | `super_admin` (login at `/login`, dashboard at `/admin`) |
+```bash
+npm run admin:set-password -- --email you@example.com            # production
+npm run admin:set-password -- --email you@example.com --local    # local dev
+```
 
-This credential is public in the repository. Change it right away from
-`/account` -> *Change password*, and always set a strong `JWT_SECRET`
+The password is prompted for without echo (or read from `ADMIN_PASSWORD`),
+must be at least 12 characters, and every existing session of that account
+is signed out. `bash deploy.sh` does the same when you set `ADMIN_EMAIL`.
+Also always set a strong `JWT_SECRET`
 (`wrangler pages secret put JWT_SECRET`; locally put it in `.dev.vars`).
+
+> Older versions shipped a public default account (`admin@hufra.ly`) whose
+> password was printed in this README. Migration `0007` disables it and signs
+> its sessions out, and the server refuses that password at login, so run the
+> command above once after upgrading.
 
 **Admin delete controls** (every delete asks for confirmation and is audited):
 reports (card and detail), individual photos, regions (blocked while reports

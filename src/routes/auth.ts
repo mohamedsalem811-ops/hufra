@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings, UserRow } from '../lib/types'
 import { registerSchema, loginSchema, changePasswordSchema } from '../lib/validation'
-import { hashPassword, verifyPassword } from '../lib/password'
+import { hashPassword, verifyPassword, isKnownPublicPassword } from '../lib/password'
 import {
   signJwt,
   verifyJwt,
@@ -115,36 +115,26 @@ auth.post('/login', async (c) => {
   }
   const { email, password } = parsed.data
 
-  let user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
     .bind(email)
     .first<UserRow>()
 
-  // Auto-bootstrap or auto-repair the default super_admin account (`admin@hufra.ly`)
-  // if the database had migration 0006 applied before the seed was added or if
-  // an older >100k PBKDF2 iteration hash was stored.
-  if (email === 'admin@hufra.ly' && password === 'Hufra@Admin2026!') {
-    if (!user) {
-      const freshHash = await hashPassword('Hufra@Admin2026!')
-      await c.env.DB.prepare(
-        `INSERT OR IGNORE INTO users (email, password_hash, role, code, locale, display_name, consent_at)
-         VALUES ('admin@hufra.ly', ?, 'super_admin', '', 'ar', 'إدارة حفرة', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
-      )
-        .bind(freshHash)
-        .run()
-      user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
-        .bind(email)
-        .first<UserRow>()
-    } else if (user.password_hash.startsWith('pbkdf2$210000$')) {
-      const freshHash = await hashPassword('Hufra@Admin2026!')
-      await c.env.DB.prepare('UPDATE users SET password_hash = ?, role = ? WHERE id = ?')
-        .bind(freshHash, 'super_admin', user.id)
-        .run()
-      user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(user.id).first<UserRow>()
-    }
-  }
-
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     return c.json({ error: 'Invalid credentials', error_ar: 'بيانات الدخول غير صحيحة' }, 401)
+  }
+
+  // A password that has been published (e.g. the old default admin password in
+  // this repository) is no protection at all, so it never opens a session even
+  // when it matches the stored hash. The owner sets a new one out-of-band with
+  // `npm run admin:set-password`.
+  if (isKnownPublicPassword(password)) {
+    return c.json(
+      {
+        error: 'This password is publicly known and has been disabled. Set a new one with `npm run admin:set-password`.',
+        error_ar: 'كلمة المرور هذه منشورة علناً وتم تعطيلها. عيّن كلمة مرور جديدة عبر npm run admin:set-password',
+      },
+      403
+    )
   }
 
   const iat = nowSeconds()
@@ -240,6 +230,9 @@ auth.post('/change-password', requireAuth(), async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = changePasswordSchema.safeParse(body)
   if (!parsed.success) {
+    if (typeof body?.new_password === 'string' && isKnownPublicPassword(body.new_password)) {
+      return c.json({ error: 'This password is publicly known; choose another one', error_ar: 'كلمة المرور هذه منشورة علناً، اختر غيرها' }, 400)
+    }
     return c.json({ error: 'Password must be at least 8 characters', error_ar: 'كلمة المرور 8 أحرف على الأقل' }, 400)
   }
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL').bind(authCtx.userId).first<UserRow>()

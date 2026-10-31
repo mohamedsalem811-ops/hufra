@@ -22,6 +22,7 @@
     "db:console:prod": "wrangler d1 execute hufra-production",
     "db:seed": "wrangler d1 execute hufra-production --local --file=./migrations/0003_seed_regions.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local",
+    "admin:set-password": "node scripts/set-admin-password.mjs",
     "build:app": "npm run build && node scripts/build-app.mjs",
     "capacitor:sync:before": "npm run build:app"
   },

@@ -1,7 +1,12 @@
 import { z } from 'zod'
+import { isKnownPublicPassword } from './password'
 
 export const emailSchema = z.string().trim().toLowerCase().email().max(200)
-export const passwordSchema = z.string().min(8).max(128)
+export const passwordSchema = z
+  .string()
+  .min(8)
+  .max(128)
+  .refine((p) => !isKnownPublicPassword(p), { message: 'This password is publicly known; choose another one' })
 
 export const registerSchema = z.object({
   email: emailSchema,

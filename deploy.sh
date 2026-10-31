@@ -6,8 +6,9 @@
 #   1. Checks you are authenticated (API token or `wrangler login`)
 #   2. Finds or creates: R2 bucket, D1 database, KV namespace in YOUR account
 #   3. Writes the real D1 / KV ids into wrangler.jsonc
-#   4. Applies D1 migrations (also creates the default super admin)
+#   4. Applies D1 migrations
 #   5. Creates the Pages project, sets JWT_SECRET once, builds and deploys
+#   6. Optionally creates / resets your super admin (ADMIN_EMAIL=...)
 #
 # Auth (pick one):
 #   export CLOUDFLARE_API_TOKEN=...   # recommended, works in WSL/CI
@@ -17,6 +18,8 @@
 #   PROJECT=hufra            Pages project name (-> https://<PROJECT>.pages.dev)
 #   CLOUDFLARE_ACCOUNT_ID=.. required only if your login has several accounts
 #   RUN_TESTS=1              run the test suite first
+#   ADMIN_EMAIL=you@x.com    create (or reset the password of) this super admin;
+#                            the password is prompted for, or read from ADMIN_PASSWORD
 # =============================================================================
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -107,7 +110,7 @@ DB_ID="$DB_ID" KV_ID="$KV_ID" node -e '
 '
 grep -nE '"database_id"|"id"' wrangler.jsonc
 
-step "[7/8] Applying D1 migrations (creates the default super admin too)"
+step "[7/8] Applying D1 migrations"
 wr d1 migrations apply "$DB_NAME" --remote
 
 step "[8/8] Pages project '$PROJECT': create, secret, build, deploy"
@@ -130,11 +133,20 @@ npm run build
 wr pages deploy dist --project-name "$PROJECT" --branch main --commit-dirty=true
 
 URL="https://${PROJECT}.pages.dev"
+
+if [ -n "${ADMIN_EMAIL:-}" ]; then
+  step "Super admin account '$ADMIN_EMAIL'"
+  node scripts/set-admin-password.mjs --email "$ADMIN_EMAIL" --remote
+  ADMIN_LINE="Admin login:  $ADMIN_EMAIL / the password you just set"
+else
+  ADMIN_LINE="Admin login:  none created. Run: npm run admin:set-password -- --email you@example.com"
+fi
+
 cat <<EOF
 
 =============================================================================
 DONE. Site:   $URL
-Admin login:  admin@hufra.ly / Hufra@Admin2026!   (change it in Account -> Change password)
+$ADMIN_LINE
 Admin panel:  $URL/admin
 
 iOS app: GitHub -> Actions -> Mobile Build -> Run workflow -> server_url = $URL
@@ -144,6 +156,4 @@ EOF
 echo "Smoke test (may take ~20s for the first request to warm up):"
 sleep 8
 curl -s -o /dev/null -w "home: HTTP %{http_code}\n" "$URL/" || true
-curl -s -o /dev/null -w "login: HTTP %{http_code}\n" -X POST "$URL/api/auth/login" \
-  -H 'content-type: application/json' \
-  -d '{"email":"admin@hufra.ly","password":"Hufra@Admin2026!"}' || true
+curl -s -o /dev/null -w "regions API: HTTP %{http_code}\n" "$URL/api/regions" || true

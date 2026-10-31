@@ -131,3 +131,23 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
   `.dev.vars` (gitignored, never committed) with a clearly-labeled
   insecure placeholder value for `JWT_SECRET`. In production they must be
   set via `wrangler secret put` — never hardcoded in source.
+
+## 6. Admin accounts — no default credentials
+
+- There is **no default admin login**. The first super admin, and any later
+  password reset, is done out-of-band with `npm run admin:set-password --
+  --email <you> [--local]` (`scripts/set-admin-password.mjs`). It hashes the
+  password locally (same PBKDF2 format as `src/lib/password.ts`), writes it to
+  D1 through `wrangler d1 execute`, requires 12+ characters, and revokes all of
+  that account's refresh tokens.
+- **History:** earlier versions seeded `admin@hufra.ly` with a password that
+  was printed in the README, `deploy.sh` and migration `0006`, and the login
+  route re-created that super admin whenever someone logged in with it and the
+  account was missing. That meant anyone who had read the repository could
+  become super admin. The fix:
+  - the re-create/repair code was removed from `/api/auth/login`;
+  - `isKnownPublicPassword()` makes login refuse a published password (403)
+    even when it matches the stored hash, and registration / change-password
+    refuse to set one;
+  - migration `0007` replaces the seeded hash with a value that can never
+    verify and revokes that account's refresh tokens.
