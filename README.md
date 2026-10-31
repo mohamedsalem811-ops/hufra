@@ -230,7 +230,11 @@ npm run test:coverage   # + v8 coverage report (text/html/lcov/json-summary)
 
 CI (`.github/workflows/ci.yml`) runs `tsc --noEmit` → `npm run build` →
 `npm run test:coverage` on every push/PR to `main`, and fails the build if
-statement coverage drops below 70%.
+statement coverage drops below 70%. On a push to `main` it then applies any
+new D1 migrations to production (`wrangler d1 migrations apply --remote`)
+and only after they succeed deploys the site. This needs the repository
+secrets `CLOUDFLARE_API_TOKEN` (with *Cloudflare Pages: Edit* and *D1: Edit*)
+and `CLOUDFLARE_ACCOUNT_ID`.
 
 See also:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, ER diagram,
@@ -255,9 +259,6 @@ see the repository's task history for the two supported deploy paths
   is harder to exercise without a real R2-compatible multipart request; a
   future pass could add integration tests using synthetic `File`/multipart
   bodies against the fake R2 bucket.
-- No CI job currently deploys automatically on merge to `main` — deployment
-  is a manual, explicit step by design (per the project's Cloudflare
-  deployment workflow) until a deploy target/account is confirmed.
 - Accessibility audit found a small number of open items (see
   [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) §5) — none are blocking,
   all are tracked with concrete fixes.
