@@ -1,5 +1,7 @@
 // HUFRA Service Worker (public/sw.js)
-const CACHE_VERSION = 'hufra-v4';
+// v5: drops v4 data caches, which held report responses that still included
+// reporters' phone numbers.
+const CACHE_VERSION = 'hufra-v5';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const DATA_CACHE = `${CACHE_VERSION}-data`;
 const TILE_CACHE = `${CACHE_VERSION}-tiles`;
@@ -86,7 +88,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok) {
+          // Admin responses carry private fields and are marked no-store: keep them off disk.
+          const noStore = /no-store/i.test(res.headers.get('Cache-Control') || '');
+          if (res.ok && !noStore) {
             const copy = res.clone();
             caches.open(DATA_CACHE).then((c) => c.put(req, copy));
           }

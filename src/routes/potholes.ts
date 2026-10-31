@@ -20,6 +20,24 @@ function clientIp(c: any): string {
   return c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown'
 }
 
+// Columns that identify or contact the person who filed a report. They are
+// never part of a public response: reporter_contact is the optional phone
+// number from the report form, reporter_id links a report to an account, and
+// client_report_uuid is the reporting device's offline-sync id. Only admins
+// (who may need to call the reporter) receive them.
+const PRIVATE_REPORT_FIELDS = ['reporter_contact', 'reporter_id', 'client_report_uuid'] as const
+
+function isAdmin(c: any): boolean {
+  const role = c.get('auth')?.role
+  return role === 'admin' || role === 'super_admin'
+}
+
+export function toPublicReport<T extends object>(row: T): Omit<T, (typeof PRIVATE_REPORT_FIELDS)[number]> {
+  const copy: Record<string, unknown> = { ...(row as Record<string, unknown>) }
+  for (const field of PRIVATE_REPORT_FIELDS) delete copy[field]
+  return copy as Omit<T, (typeof PRIVATE_REPORT_FIELDS)[number]>
+}
+
 
 // ---------------------------------------------------------------------------
 // GET /api/potholes - list with filters (status, region, severity, bbox, near)
@@ -77,7 +95,7 @@ potholes.get('/', attachAuth, async (c) => {
   `
   const rows = await c.env.DB.prepare(sql).bind(...params, limit, offset).all()
 
-  let results = rows.results as any[]
+  let results = (rows.results as any[]).map((row) => (isAdmin(c) ? row : toPublicReport(row)))
 
   if (near_lat !== undefined && near_lng !== undefined) {
     const radius = radius_m ?? 2000
@@ -87,6 +105,7 @@ potholes.get('/', attachAuth, async (c) => {
       .sort((a, b) => a.distance_m - b.distance_m)
   }
 
+  if (isAdmin(c)) c.header('Cache-Control', 'private, no-store')
   return c.json({ results, limit, offset })
 })
 
@@ -222,7 +241,7 @@ potholes.get('/top-reporter', async (c) => {
 // ---------------------------------------------------------------------------
 // GET /api/potholes/:id - detail (public)
 // ---------------------------------------------------------------------------
-potholes.get('/:id', async (c) => {
+potholes.get('/:id', attachAuth, async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
 
@@ -250,7 +269,9 @@ potholes.get('/:id', async (c) => {
     .bind(id)
     .all()
 
-  return c.json({ pothole, photos: photos.results, history: history.results })
+  const admin = isAdmin(c)
+  if (admin) c.header('Cache-Control', 'private, no-store')
+  return c.json({ pothole: admin ? pothole : toPublicReport(pothole), photos: photos.results, history: history.results })
 })
 
 // ---------------------------------------------------------------------------
