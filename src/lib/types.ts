@@ -16,7 +16,8 @@ export interface Bindings {
   JWT_SECRET: string
   ADMIN_WHATSAPP?: string
   PUSH_WEBHOOK_URL?: string
-  FCM_SERVER_KEY?: string
+  /** Firebase service-account key (the whole JSON file) for FCM HTTP v1 push. See src/lib/fcm.ts. */
+  FCM_SERVICE_ACCOUNT?: string
   /** Optional tile URL template overriding OpenStreetMap, e.g. https://.../{z}/{x}/{y}.png?key=... */
   TILE_UPSTREAM?: string
   /** Extra origins allowed to call the API (comma-separated), e.g. a custom domain. See src/lib/origins.ts. */

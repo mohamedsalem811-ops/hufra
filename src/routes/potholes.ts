@@ -10,7 +10,7 @@ import {
 } from '../lib/geo'
 import { checkRateLimit, REPORT_LIMIT_PER_IP, REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
 import { recordAudit, hashIp } from '../lib/audit'
-import { notifyAdmins, notifyUser } from '../lib/notifications'
+import { notifyAdmins, notifyUser, deferFrom } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { invalidatePublicCaches } from '../lib/cache'
 import { createUploadToken } from '../lib/upload-token'
@@ -431,7 +431,7 @@ potholes.post('/', attachAuth, async (c) => {
   }
 
   await invalidatePublicCaches(c.env.KV)
-  await notifyAdmins(c.env.DB, 'new_report', { pothole_id: potholeId, severity: data.severity, region_id: regionId }, c.env)
+  await notifyAdmins(c.env.DB, 'new_report', { pothole_id: potholeId, severity: data.severity, region_id: regionId }, c.env, deferFrom(c))
   await recordAudit(c.env.DB, {
     actorId: authCtx?.userId ?? null,
     action: 'pothole.create',
@@ -490,7 +490,7 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
   })
 
   if (existing.reporter_id) {
-    await notifyUser(c.env.DB, existing.reporter_id, 'status_change', { pothole_id: id, status }, c.env)
+    await notifyUser(c.env.DB, existing.reporter_id, 'status_change', { pothole_id: id, status }, c.env, deferFrom(c))
   }
 
   return c.json({ ok: true, status })

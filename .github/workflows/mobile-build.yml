@@ -102,6 +102,23 @@ jobs:
           fi
           npx cap sync android
 
+      # Push notifications on Android need the Firebase config of YOUR project.
+      # Add it as the repository secret GOOGLE_SERVICES_JSON (the full contents of
+      # google-services.json from Firebase console -> Project settings -> Your apps
+      # -> Android app "ly.tripoli.hufra"). Capacitor's Android template applies the
+      # Google services Gradle plugin automatically when this file exists.
+      # Without the secret the APK still builds, just without push.
+      - name: Add Firebase config (google-services.json) for push
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            node -e 'const j=require("./android/app/google-services.json"); const ok=(j.client||[]).some(c=>c.client_info?.android_client_info?.package_name==="ly.tripoli.hufra"); if(!ok){console.error("google-services.json has no Android app with package ly.tripoli.hufra"); process.exit(1)} console.log("Firebase project:", j.project_info.project_id)'
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set - the APK will build without push notifications."
+          fi
+
       - name: Build Android APK
         run: |
           cd android
