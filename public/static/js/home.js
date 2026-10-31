@@ -20,40 +20,60 @@
     if (el) el.textContent = value;
   }
 
-  async function loadRecentFixed() {
-    var section = document.getElementById('home-recent-fixed-section');
-    var listEl = document.getElementById('home-recent-fixed-list');
+  function shot(key, cls, label) {
+    if (!key) return '';
+    return '<div class="ba-shot"><img src="' + window.HufraMap.mediaUrl(key) + '" alt="" loading="lazy">' +
+      '<span class="ba-tag ' + cls + '">' + label + '</span></div>';
+  }
+
+  function showcaseCard(item, kind) {
+    var locale = window.HufraI18n.getLocale();
+    var t = window.HufraI18n.t;
+    var regionName = locale === 'ar' ? item.region_name_ar : item.region_name_en;
+    var street = locale === 'ar' ? (item.street_ar || item.street_en) : (item.street_en || item.street_ar);
+    var shots = shot(item.before_thumb_key, 'ba-tag--before', t('stage_before'));
+    if (kind === 'fixed') {
+      shots += shot(item.after_thumb_key, 'ba-tag--after', t('stage_after'));
+    } else {
+      // Under repair: show the original report photo and, once crews upload it, the work-in-progress shot.
+      shots += shot(item.during_thumb_key, 'ba-tag--during', t('stage_during'));
+    }
+    var badge = kind === 'fixed' ? 'badge-fixed' : 'badge-under_repair';
+    var label = kind === 'fixed' ? t('status_fixed') : t('status_under_repair');
+    return '<a href="/pothole/' + item.id + '" class="card card-hover card-link">' +
+      '<div class="flex justify-between items-center mb-2">' +
+        '<strong>#' + item.id + ' · ' + escapeHtml(regionName || '') + '</strong>' +
+        '<span class="badge ' + badge + '">' + label + '</span>' +
+      '</div>' +
+      (street ? '<div class="text-secondary mb-2 small">' + escapeHtml(street) + '</div>' : '') +
+      (shots ? '<div class="flex gap-2 mt-2">' + shots + '</div>' : '') +
+    '</a>';
+  }
+
+  function fillShowcase(sectionId, listId, items, kind) {
+    var section = document.getElementById(sectionId);
+    var listEl = document.getElementById(listId);
     if (!section || !listEl) return;
-    try {
-      var data = await window.HufraApi.get('/potholes/recent-fixed');
-      var items = data.results || [];
-      if (!items.length) {
-        section.classList.add('hidden');
-        return;
-      }
-      section.classList.remove('hidden');
-      var locale = window.HufraI18n.getLocale();
-      var t = window.HufraI18n.t;
-      listEl.innerHTML = items.map(function (item) {
-        var regionName = locale === 'ar' ? item.region_name_ar : item.region_name_en;
-        var street = locale === 'ar' ? (item.street_ar || item.street_en) : (item.street_en || item.street_ar);
-        var beforeImg = item.before_thumb_key
-          ? '<div style="flex:1;position:relative;"><img src="/media/' + item.before_thumb_key + '" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;"><span style="position:absolute;bottom:4px;inset-inline-start:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:2px 6px;border-radius:4px;">' + t('stage_before') + '</span></div>'
-          : '';
-        var afterImg = item.after_thumb_key
-          ? '<div style="flex:1;position:relative;"><img src="/media/' + item.after_thumb_key + '" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;"><span style="position:absolute;bottom:4px;inset-inline-start:4px;background:rgba(36,123,71,0.88);color:#fff;font-size:0.7rem;padding:2px 6px;border-radius:4px;">' + t('stage_after') + '</span></div>'
-          : '';
-        return '<a href="/pothole/' + item.id + '" class="card card-hover" style="display:block;color:inherit;text-decoration:none;">' +
-          '<div class="flex justify-between items-center mb-2">' +
-            '<strong>#' + item.id + ' · ' + escapeHtml(regionName || '') + '</strong>' +
-            '<span class="badge badge-fixed">' + t('status_fixed') + '</span>' +
-          '</div>' +
-          (street ? '<div class="text-secondary mb-2" style="font-size:0.85rem;">' + escapeHtml(street) + '</div>' : '') +
-          ((beforeImg || afterImg) ? '<div class="flex gap-2 mt-2">' + beforeImg + afterImg + '</div>' : '') +
-        '</a>';
-      }).join('');
-    } catch (e) {
+    if (!items.length) {
       section.classList.add('hidden');
+      listEl.innerHTML = '';
+      return;
+    }
+    listEl.innerHTML = items.map(function (item) { return showcaseCard(item, kind); }).join('');
+    section.classList.remove('hidden');
+  }
+
+  // Homepage photo showcase: reports under repair + recently fixed (before / after).
+  async function loadShowcase() {
+    try {
+      var data = await window.HufraApi.get('/potholes/showcase');
+      fillShowcase('home-in-progress-section', 'home-in-progress-list', data.in_progress || [], 'in_progress');
+      fillShowcase('home-recent-fixed-section', 'home-recent-fixed-list', data.fixed || [], 'fixed');
+    } catch (e) {
+      ['home-in-progress-section', 'home-recent-fixed-section'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
     }
   }
 
@@ -65,7 +85,7 @@
       var locale = window.HufraI18n.getLocale();
       container.innerHTML = data.results.map(function (region) {
         var name = locale === 'ar' ? region.name_ar : region.name_en;
-        return '<span class="chip-option" style="cursor:default;">' + escapeHtml(name) + '</span>';
+        return '<span class="chip-option chip-static">' + escapeHtml(name) + '</span>';
       }).join('');
     } catch (e) {
       container.innerHTML = '';
@@ -81,7 +101,7 @@
       var skeleton = container.querySelector('.skeleton');
       if (data.donor) {
         var amount = Math.round(data.donor.amount_lyd).toLocaleString(window.HufraI18n.getLocale() === 'ar' ? 'ar-LY' : 'en-GB');
-        skeleton.outerHTML = '<div class="mt-2" style="font-size:1.4rem; font-weight:700;">' + escapeHtml(data.donor.name) + '</div>' +
+        skeleton.outerHTML = '<div class="highlight-name">' + escapeHtml(data.donor.name) + '</div>' +
           '<div class="text-secondary mt-1">' + amount + ' ' + t('currency_lyd') + '</div>';
       } else {
         skeleton.outerHTML = '<div class="text-secondary mt-2">' + t('empty_no_results') + '</div>';
@@ -100,7 +120,7 @@
       var data = await window.HufraApi.get('/potholes/top-reporter');
       var skeleton = container.querySelector('.skeleton');
       if (data.reporter) {
-        skeleton.outerHTML = '<div class="mt-2" style="font-size:1.4rem; font-weight:700;">' + escapeHtml(data.reporter.name) + '</div>' +
+        skeleton.outerHTML = '<div class="highlight-name">' + escapeHtml(data.reporter.name) + '</div>' +
           '<div class="text-secondary mt-1">' + data.reporter.report_count + ' ' + t('reports_count_suffix') + '</div>';
       } else {
         skeleton.outerHTML = '<div class="text-secondary mt-2">' + t('empty_no_results') + '</div>';
@@ -119,17 +139,23 @@
 
   function initPreviewMap() {
     var el = document.getElementById('home-map-preview');
-    if (!el || !window.L) return;
-    var map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false });
-    map.setView([32.8500, 13.2000], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+    if (!el || !window.L || !window.HufraMap) return;
+    var map = window.HufraMap.createMap(el, {
+      zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false,
+      doubleClickZoom: false, touchZoom: false, keyboard: false,
+    });
+    map.setView(window.HufraMap.DEFAULT_CENTER, 10);
     map.on('click', function () { location.href = '/map'; });
-    el.style.cursor = 'pointer';
+    window.HufraApi.get('/potholes?limit=60').then(function (data) {
+      (data.results || []).forEach(function (p) {
+        window.L.marker([p.lat, p.lng], { icon: window.HufraMap.pinIcon(p.status), interactive: false }).addTo(map);
+      });
+    }).catch(function () {});
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     loadCounters();
-    loadRecentFixed();
+    loadShowcase();
     loadRegions();
     initPreviewMap();
     loadTopDonor();

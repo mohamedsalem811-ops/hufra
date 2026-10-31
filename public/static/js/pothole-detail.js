@@ -36,21 +36,22 @@
     var afterPhoto = groups.after[groups.after.length - 1];
     if (!beforePhoto || !afterPhoto) return '';
 
+    var media = window.HufraMap.mediaUrl;
     return (
       '<div class="card mt-4">' +
-        '<div class="flex justify-between items-center mb-3" style="flex-wrap:wrap;gap:8px;">' +
-          '<h2 style="margin:0;font-size:1.15rem;">' + t('before_after_title') + '</h2>' +
+        '<div class="flex justify-between items-center mb-3 wrap-gap">' +
+          '<h2 class="card-title">' + t('before_after_title') + '</h2>' +
           '<span class="badge badge-fixed">' + t('status_fixed') + '</span>' +
         '</div>' +
-        '<div id="ba-compare-box" style="position:relative;width:100%;aspect-ratio:16/10;border-radius:var(--radius-control);overflow:hidden;user-select:none;background:var(--bg-soft);">' +
-          '<img src="/media/' + afterPhoto.r2_key + '" alt="After" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">' +
-          '<div id="ba-before-clip" style="position:absolute;inset:0;width:50%;overflow:hidden;border-right:3px solid #fff;">' +
-            '<img src="/media/' + beforePhoto.r2_key + '" alt="Before" style="width:100%;height:100%;object-fit:cover;">' +
+        '<div id="ba-compare-box" class="ba-compare">' +
+          '<img src="' + media(afterPhoto.r2_key) + '" alt="After">' +
+          '<div id="ba-before-clip" class="ba-compare__before">' +
+            '<img src="' + media(beforePhoto.r2_key) + '" alt="Before">' +
           '</div>' +
-          '<span style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.78rem;font-weight:700;padding:3px 10px;border-radius:999px;">' + t('stage_before') + '</span>' +
-          '<span style="position:absolute;top:10px;right:10px;background:rgba(36,123,71,0.88);color:#fff;font-size:0.78rem;font-weight:700;padding:3px 10px;border-radius:999px;">' + t('stage_after') + '</span>' +
+          '<span class="ba-pill ba-pill--before">' + t('stage_before') + '</span>' +
+          '<span class="ba-pill ba-pill--after">' + t('stage_after') + '</span>' +
         '</div>' +
-        '<input type="range" id="ba-slider" min="5" max="95" value="50" aria-label="Before and after comparison slider" style="width:100%;margin-top:10px;accent-color:var(--color-primary);cursor:ew-resize;">' +
+        '<input type="range" id="ba-slider" class="ba-slider" min="5" max="95" value="50" aria-label="Before and after comparison slider">' +
       '</div>'
     );
   }
@@ -70,8 +71,8 @@
       html += '<h3 class="mt-4 mb-2">' + t(stageKeys[stage]) + '</h3>';
       html += '<div class="grid grid-3">';
       groups[stage].forEach(function (photo) {
-        html += '<a href="/media/' + photo.r2_key + '" target="_blank" rel="noopener">' +
-          '<img src="/media/' + photo.thumb_key + '" loading="lazy" alt="" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius: var(--radius-control);">' +
+        html += '<a href="' + window.HufraMap.mediaUrl(photo.r2_key) + '" target="_blank" rel="noopener" class="gallery-thumb">' +
+          '<img src="' + window.HufraMap.mediaUrl(photo.thumb_key) + '" loading="lazy" alt="">' +
           '</a>';
       });
       html += '</div>';
@@ -82,12 +83,12 @@
   function historyHtml(history) {
     var t = window.HufraI18n.t;
     if (!history.length) return '<p class="text-secondary">' + t('empty_no_results') + '</p>';
-    return '<ul style="list-style:none; padding:0; margin:0;">' + history.map(function (item) {
+    return '<ul class="history-list">' + history.map(function (item) {
       var date = new Date(item.at).toLocaleString(window.HufraI18n.getLocale() === 'ar' ? 'ar-LY' : 'en-GB');
-      return '<li class="flex gap-3 items-center mb-2" style="flex-wrap:wrap;">' +
+      return '<li class="flex gap-3 items-center mb-2 wrap-gap">' +
         '<span class="badge badge-' + item.to_status + '">' + t('status_' + item.to_status) + '</span>' +
-        '<span class="text-secondary" style="font-size:0.85rem;">' + date + '</span>' +
-        (item.note ? '<span style="font-size:0.85rem;">' + escapeHtml(item.note) + '</span>' : '') +
+        '<span class="text-secondary small">' + date + '</span>' +
+        (item.note ? '<span class="small">' + escapeHtml(item.note) + '</span>' : '') +
         '</li>';
     }).join('') + '</ul>';
   }
@@ -118,20 +119,20 @@
       if (pothole.depth_cm) dims.push(t('report_depth') + ': ' + pothole.depth_cm);
 
       root.innerHTML =
-        '<div id="pothole-map" style="height:260px; border-radius: var(--radius-card); overflow:hidden;"></div>' +
-        '<div class="flex justify-between items-center mt-4" style="flex-wrap:wrap; gap:8px;">' +
+        '<div id="pothole-map" class="detail-map"></div>' +
+        '<div class="flex justify-between items-center mt-4 wrap-gap">' +
           '<div>' +
-            '<h1 style="margin:0;">#' + pothole.id + ' · ' + escapeHtml(regionName || '') + '</h1>' +
-            (street ? '<div class="text-secondary mt-1" style="font-weight:600;">' + escapeHtml(street) + '</div>' : '') +
+            '<h2 class="detail-title">#' + pothole.id + ' · ' + escapeHtml(regionName || '') + '</h2>' +
+            (street ? '<div class="text-secondary mt-1 strong">' + escapeHtml(street) + '</div>' : '') +
           '</div>' +
           '<span class="badge badge-' + pothole.status + '">' + t('status_' + pothole.status) + '</span>' +
         '</div>' +
-        '<div class="flex gap-3 mt-3 items-center" style="flex-wrap:wrap;">' +
+        '<div class="flex gap-3 mt-3 items-center wrap-gap">' +
           '<span class="flex gap-2 items-center"><span class="severity-dot severity-' + pothole.severity + '"></span><strong>' + t('severity_' + pothole.severity) + '</strong></span>' +
-          (dims.length ? '<span class="text-secondary" style="font-size:0.9rem;">(' + escapeHtml(dims.join(' · ')) + ')</span>' : '') +
+          (dims.length ? '<span class="text-secondary small">(' + escapeHtml(dims.join(' · ')) + ')</span>' : '') +
         '</div>' +
         (description ? '<p class="mt-3">' + escapeHtml(description) + '</p>' : '') +
-        '<div class="flex gap-2 mt-4" style="flex-wrap:wrap;">' +
+        '<div class="flex gap-2 mt-4 wrap-gap">' +
           '<button type="button" class="btn btn-primary" id="upvote-pothole-btn">' +
             '<i data-lucide="thumbs-up" class="icon"></i> ' +
             '<span id="upvote-btn-label">' + t('pothole_upvote_btn') + ' (' + upvotes + ')</span>' +
@@ -155,10 +156,9 @@
         '<h2 class="mt-5" data-i18n="timeline_title">' + t('timeline_title') + '</h2>' +
         '<div class="card">' + historyHtml(data.history) + '</div>';
 
-      var map = L.map('pothole-map', { zoomControl: true });
+      var map = window.HufraMap.createMap('pothole-map', { zoomControl: true });
       map.setView([pothole.lat, pothole.lng], 16);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      L.marker([pothole.lat, pothole.lng]).addTo(map);
+      L.marker([pothole.lat, pothole.lng], { icon: window.HufraMap.pinIcon(pothole.status, { large: true }) }).addTo(map);
 
       var baSlider = document.getElementById('ba-slider');
       var baClip = document.getElementById('ba-before-clip');
@@ -174,6 +174,7 @@
           upvoteBtn.disabled = true;
           try {
             var res = await window.HufraApi.post('/potholes/' + id + '/upvote', {});
+            window.HufraUI.haptic('success');
             document.getElementById('upvote-btn-label').textContent =
               t('pothole_upvote_btn') + ' (' + res.upvotes_count + ')';
             window.HufraUI.showToast(

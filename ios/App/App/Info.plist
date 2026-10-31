@@ -28,14 +28,20 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos of potholes to attach to your report. / التقاط صور للحفرة وإرفاقها بالبلاغ.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose pothole photos from your library. / اختيار صور الحفرة من مكتبة الصور.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Pin the pothole location on the map. / تحديد موقع الحفرة على الخريطة.</string>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

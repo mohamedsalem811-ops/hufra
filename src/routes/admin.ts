@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Bindings } from '../lib/types'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
+import { invalidatePublicCaches } from '../lib/cache'
 import { z } from 'zod'
 
 const admin = new Hono<{ Bindings: Bindings }>()
@@ -79,10 +80,7 @@ admin.patch('/duplicates/:id', async (c) => {
       await c.env.DB.prepare(`UPDATE potholes SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
         .bind(flag.pothole_id)
         .run()
-      await Promise.allSettled([
-        c.env.KV.delete('counters:v1'),
-        c.env.KV.delete('top_reporter:v1'),
-      ])
+      await invalidatePublicCaches(c.env.KV)
     }
   }
 
@@ -176,6 +174,52 @@ admin.post('/admins/promote', requireRole('super_admin'), async (c) => {
 
   await c.env.DB.prepare('UPDATE users SET role = ? WHERE id = ?').bind(parsed.data.role, user.id).run()
   await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'user.promote', entity: 'users', entityId: user.id, before: { role: user.role }, after: { role: parsed.data.role } })
+  return c.json({ ok: true })
+})
+
+const demoteSchema = z.object({ email: z.string().email() })
+
+// Remove admin rights (account becomes a normal user). Guard rails: you cannot
+// demote yourself and the last remaining super_admin can never be demoted.
+admin.post('/admins/demote', requireRole('super_admin'), async (c) => {
+  const authCtx = c.get('auth')!
+  const body = await c.req.json().catch(() => null)
+  const parsed = demoteSchema.safeParse(body)
+  if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
+
+  const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE email = ? AND deleted_at IS NULL')
+    .bind(parsed.data.email)
+    .first<{ id: number; role: string }>()
+  if (!user) return c.json({ error: 'User not found', error_ar: 'المستخدم غير موجود' }, 404)
+  if (user.role === 'user') return c.json({ error: 'Account is not an admin', error_ar: 'الحساب ليس مشرفاً' }, 400)
+  if (user.id === authCtx.userId) {
+    return c.json({ error: 'You cannot remove your own admin rights', error_ar: 'لا يمكنك إزالة صلاحياتك بنفسك' }, 400)
+  }
+  if (user.role === 'super_admin') {
+    const remaining = await c.env.DB.prepare(
+      `SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL AND id != ?`
+    )
+      .bind(user.id)
+      .first<{ n: number }>()
+    if ((remaining?.n ?? 0) < 1) {
+      return c.json({ error: 'Cannot remove the last super admin', error_ar: 'لا يمكن إزالة آخر مسؤول عام' }, 400)
+    }
+  }
+
+  await c.env.DB.prepare(`UPDATE users SET role = 'user' WHERE id = ?`).bind(user.id).run()
+  await c.env.DB.prepare(
+    `UPDATE refresh_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ? AND revoked_at IS NULL`
+  )
+    .bind(user.id)
+    .run()
+  await recordAudit(c.env.DB, {
+    actorId: authCtx.userId,
+    action: 'user.demote',
+    entity: 'users',
+    entityId: user.id,
+    before: { role: user.role },
+    after: { role: 'user' },
+  })
   return c.json({ ok: true })
 })
 

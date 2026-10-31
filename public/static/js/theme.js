@@ -1,6 +1,12 @@
-// Theme (light/dark) and font-size (elderly-friendly) toggles.
+// Theme (light/dark) and text-size (elderly-friendly) preferences.
+// The early boot script in the layout applies these before first paint; this
+// module keeps them in sync afterwards and notifies listeners (status bar,
+// map pins, segmented controls).
 (function (global) {
   'use strict';
+
+  var THEME_COLORS = { light: '#FFFFFF', dark: '#15181C' };
+  var listeners = [];
 
   function getTheme() {
     var stored = localStorage.getItem('hufra_theme');
@@ -8,9 +14,16 @@
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
 
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    var meta = document.getElementById('meta-theme-color');
+    if (meta) meta.setAttribute('content', THEME_COLORS[theme] || THEME_COLORS.light);
+  }
+
   function setTheme(theme) {
     localStorage.setItem('hufra_theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
+    applyTheme(theme);
+    notify();
   }
 
   function toggleTheme() {
@@ -28,19 +41,27 @@
     } else {
       document.documentElement.setAttribute('data-font-size', size);
     }
+    notify();
   }
 
   function cycleFontSize() {
     var order = ['base', 'large', 'xlarge'];
-    var current = order.indexOf(getFontSize());
-    var next = order[(current + 1) % order.length];
+    var next = order[(order.indexOf(getFontSize()) + 1) % order.length];
     setFontSize(next);
     return next;
   }
 
-  // Apply immediately to avoid flash of wrong theme.
-  setTheme(getTheme());
-  if (getFontSize() !== 'base') setFontSize(getFontSize());
+  function onChange(fn) {
+    listeners.push(fn);
+  }
+
+  function notify() {
+    listeners.forEach(function (fn) {
+      try { fn({ theme: getTheme(), fontSize: getFontSize() }); } catch (e) {}
+    });
+  }
+
+  applyTheme(getTheme());
 
   global.HufraTheme = {
     getTheme: getTheme,
@@ -49,5 +70,6 @@
     getFontSize: getFontSize,
     setFontSize: setFontSize,
     cycleFontSize: cycleFontSize,
+    onChange: onChange,
   };
 })(window);

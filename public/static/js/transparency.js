@@ -26,7 +26,7 @@
   }
 
   function card(label, value) {
-    return '<div class="card text-center"><div style="font-size:1.8rem; font-weight:700;">' + value + '</div><div class="text-secondary">' + label + '</div></div>';
+    return '<div class="card stat-card"><div class="stat-num">' + value + '</div><div class="stat-label">' + label + '</div></div>';
   }
 
   document.addEventListener('DOMContentLoaded', load);

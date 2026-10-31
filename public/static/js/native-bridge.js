@@ -239,7 +239,51 @@
     });
   }
 
+  // Light tactile feedback on native; silently no-ops on the web.
+  function haptic(kind) {
+    var h = getPlugins().Haptics;
+    if (!isNativeApp() || !h) return;
+    try {
+      if (kind === 'selection') h.selectionChanged();
+      else if (kind === 'success' || kind === 'error' || kind === 'warning') h.notification({ type: kind.toUpperCase() });
+      else h.impact({ style: kind === 'heavy' ? 'HEAVY' : kind === 'medium' ? 'MEDIUM' : 'LIGHT' });
+    } catch (e) {}
+  }
+
+  // Keep the status bar legible against the current theme (dark content on
+  // light surface, light content on dark surface).
+  function syncStatusBar() {
+    var sb = getPlugins().StatusBar;
+    if (!isNativeApp() || !sb) return;
+    var dark = global.HufraTheme && global.HufraTheme.getTheme() === 'dark';
+    try {
+      sb.setStyle({ style: dark ? 'DARK' : 'LIGHT' });
+      if (getPlatform() === 'android') sb.setBackgroundColor({ color: dark ? '#15181C' : '#FFFFFF' });
+    } catch (e) {}
+  }
+
+  function initNativeChrome() {
+    if (!isNativeApp()) return;
+    syncStatusBar();
+    if (global.HufraTheme && global.HufraTheme.onChange) global.HufraTheme.onChange(syncStatusBar);
+    var app = getPlugins().App;
+    if (app && app.addListener) {
+      // Hardware/gesture back: close menu first, then navigate back, else exit (Android).
+      app.addListener('backButton', function () {
+        var panel = document.getElementById('mobile-nav-panel');
+        if (panel && panel.classList.contains('is-open') && global.HufraUI) { global.HufraUI.closeMenu(); return; }
+        if (global.history.length > 1) global.history.back();
+        else if (app.exitApp) app.exitApp();
+      });
+    }
+    var splash = getPlugins().SplashScreen;
+    if (splash && splash.hide) splash.hide().catch(function () {});
+  }
+
+  document.addEventListener('DOMContentLoaded', initNativeChrome);
+
   global.HufraBridge = {
+    haptic: haptic,
     isNativeApp: isNativeApp,
     getPlatform: getPlatform,
     getCurrentPosition: getCurrentPosition,

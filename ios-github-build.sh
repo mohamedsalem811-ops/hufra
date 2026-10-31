@@ -24,7 +24,7 @@ if [ ! -d ".git" ]; then
 fi
 git branch -M main
 git add .
-git commit -m "HUFRA final web + mobile (PWA + Capacitor) with 1-click admin delete" || true
+git commit -m "chore: update mobile build" || true
 
 if ! git remote get-url origin >/dev/null 2>&1; then
   gh repo create "$REPO_NAME" --private --source=. --remote=origin --push

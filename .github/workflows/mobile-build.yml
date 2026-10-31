@@ -6,9 +6,10 @@ name: Mobile Build (iOS IPA & Android APK)
 # Supports two iOS IPA modes automatically:
 #   1. Free / Unsigned IPA (Default, 0 secrets needed): produces `HUFRA-unsigned.ipa`,
 #      which can be installed on any iPhone using Sideloadly or AltStore with a free Apple ID.
-#   2. Signed Ad-Hoc / App Store IPA: if you add `APPLE_P12_BASE64`, `APPLE_P12_PASSWORD`,
-#      and `APPLE_PROVISIONING_PROFILE_BASE64` in GitHub Repo Settings -> Secrets, it also
-#      produces a signed `.ipa`.
+#      Sideloadly / AltStore re-sign it with your Apple ID when installing (valid 7 days on a
+#      free account). App Store distribution is intentionally out of scope for now.
+#
+# The app is a native Capacitor shell that loads the live site given in `server_url`.
 
 on:
   workflow_dispatch:
@@ -39,10 +40,7 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build web assets
-        run: npm run build
-
-      - name: Add and sync Capacitor iOS platform
+      - name: Sync Capacitor iOS platform (installs CocoaPods, bakes in server URL)
         run: |
           if [ ! -d "ios" ]; then
             npx cap add ios
@@ -56,6 +54,7 @@ jobs:
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -95,9 +94,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
-
-      - name: Build web assets
-        run: npm run build
 
       - name: Add and sync Capacitor Android platform
         run: |

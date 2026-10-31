@@ -1,69 +1,19 @@
-// Full interactive map: color-coded pins by status, clustering at zoom-out,
-// filters (status/region/severity), toggleable "near me" geolocation search,
-// and automatic marker popup opening on ?focus=ID deep links.
+// Full interactive map: colour-coded pins by status, clustering at zoom-out,
+// filters (status/region/severity), toggleable "near me" search, a bottom
+// sheet preview when a pin is tapped (native-feeling, replaces Leaflet
+// popups) and automatic selection on ?focus=ID deep links.
 (function () {
   'use strict';
-
-  var STATUS_COLORS = {
-    reported: '#E53E3E',
-    verified: '#2B6CB0',
-    under_repair: '#F57C1F',
-    fixed: '#2E9E5B',
-  };
 
   var map;
   var clusterGroup;
   var markersById = {};
+  var potholesById = {};
+  var selectedId = null;
   var userLocation = null;
+  var userMarker = null;
 
-  function statusLabel(status) {
-    return window.HufraI18n.t('status_' + status);
-  }
-
-  function buildDivIcon(status) {
-    var color = STATUS_COLORS[status] || STATUS_COLORS.reported;
-    return L.divIcon({
-      className: 'hufra-pin',
-      html:
-        '<svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">' +
-        '<path d="M15 1C7.8 1 2 6.8 2 14c0 9.6 13 22 13 22s13-12.4 13-22C28 6.8 22.2 1 15 1z" fill="' + color + '" stroke="#fff" stroke-width="1.5"/>' +
-        '<circle cx="15" cy="14" r="6" fill="#fff"/>' +
-        '</svg>',
-      iconSize: [30, 38],
-      iconAnchor: [15, 38],
-      popupAnchor: [0, -34],
-    });
-  }
-
-  function popupHtml(pothole) {
-    var locale = window.HufraI18n.getLocale();
-    var t = window.HufraI18n.t;
-    var regionName = locale === 'ar' ? pothole.region_name_ar : pothole.region_name_en;
-    var street = locale === 'ar' ? (pothole.street_ar || pothole.street_en) : (pothole.street_en || pothole.street_ar);
-    var description = locale === 'ar' ? pothole.description_ar : (pothole.description_en || pothole.description_ar);
-    var thumb = pothole.cover_thumb_key ? '/media/' + pothole.cover_thumb_key : null;
-    var upvotes = pothole.upvotes_count || 0;
-    var html = '<div style="min-width:210px;">';
-    if (thumb) {
-      html += '<img src="' + thumb + '" alt="" style="width:100%; height:110px; object-fit:cover; border-radius:8px; margin-bottom:8px;" loading="lazy">';
-    }
-    html += '<div class="flex justify-between items-center" style="gap:6px;">';
-    html += '<span class="badge badge-' + pothole.status + '">' + statusLabel(pothole.status) + '</span>';
-    if (upvotes > 0) {
-      html += '<span class="text-secondary" style="font-size:0.8rem;font-weight:600;">👍 ' + upvotes + '</span>';
-    }
-    html += '</div>';
-    html += '<p style="margin:8px 0 2px; font-weight:700;">#' + pothole.id + ' · ' + escapeHtml(regionName || '') + '</p>';
-    if (street) {
-      html += '<p style="margin:0 0 4px; font-size:0.82rem; font-weight:600; color:var(--text-primary);">' + escapeHtml(street) + '</p>';
-    }
-    if (description) {
-      html += '<p style="margin:0 0 8px; font-size:0.84rem; color:var(--text-secondary);">' + escapeHtml(description).slice(0, 120) + '</p>';
-    }
-    html += '<a href="/pothole/' + pothole.id + '" class="btn btn-primary" style="min-height:36px; padding:0 14px; font-size:0.85rem; color:#fff;">' + t('view_details') + '</a>';
-    html += '</div>';
-    return html;
-  }
+  function t(k) { return window.HufraI18n.t(k); }
 
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, function (c) {
@@ -71,16 +21,62 @@
     });
   }
 
-  function initMap() {
-    map = L.map('map-canvas', { zoomControl: true });
-    map.setView([32.8500, 13.2000], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
+  function sheetHtml(p) {
+    var locale = window.HufraI18n.getLocale();
+    var regionName = locale === 'ar' ? p.region_name_ar : p.region_name_en;
+    var street = locale === 'ar' ? (p.street_ar || p.street_en) : (p.street_en || p.street_ar);
+    var description = locale === 'ar' ? p.description_ar : (p.description_en || p.description_ar);
+    var upvotes = p.upvotes_count || 0;
+    var thumb = p.cover_thumb_key
+      ? '<img class="pothole-sheet__thumb" src="' + window.HufraMap.mediaUrl(p.cover_thumb_key) + '" alt="" loading="lazy">'
+      : '<div class="pothole-sheet__thumb pothole-sheet__thumb--empty"><i data-lucide="image-off" class="icon"></i></div>';
+    return '<div class="pothole-sheet__row">' + thumb +
+      '<div class="pothole-sheet__info">' +
+        '<div class="flex items-center gap-2">' +
+          '<span class="badge badge-' + p.status + '">' + t('status_' + p.status) + '</span>' +
+          (upvotes > 0 ? '<span class="text-secondary small"><i data-lucide="thumbs-up" class="icon icon-xs"></i> ' + upvotes + '</span>' : '') +
+        '</div>' +
+        '<div class="pothole-sheet__title">#' + p.id + ' · ' + escapeHtml(regionName || '') + '</div>' +
+        (street ? '<div class="small">' + escapeHtml(street) + '</div>' : '') +
+        (description ? '<div class="text-secondary small pothole-sheet__desc">' + escapeHtml(description).slice(0, 110) + '</div>' : '') +
+      '</div></div>' +
+      '<a href="/pothole/' + p.id + '" class="btn btn-primary btn-block mt-3">' + t('view_details') + '</a>';
+  }
 
+  function openSheet(id) {
+    var p = potholesById[String(id)];
+    if (!p) return;
+    deselect();
+    selectedId = String(id);
+    var m = markersById[selectedId];
+    if (m) m.setIcon(window.HufraMap.pinIcon(p.status, { selected: true, large: true }));
+    var body = document.getElementById('pothole-sheet-body');
+    body.innerHTML = sheetHtml(p);
+    if (window.lucide) window.lucide.createIcons(body);
+    document.getElementById('pothole-sheet').classList.add('is-open');
+    document.getElementById('map-fab').classList.add('hidden');
+    window.HufraUI.haptic('light');
+  }
+
+  function deselect() {
+    if (selectedId && markersById[selectedId] && potholesById[selectedId]) {
+      markersById[selectedId].setIcon(window.HufraMap.pinIcon(potholesById[selectedId].status));
+    }
+    selectedId = null;
+  }
+
+  function closeSheet() {
+    deselect();
+    document.getElementById('pothole-sheet').classList.remove('is-open');
+    document.getElementById('map-fab').classList.remove('hidden');
+  }
+
+  function initMap() {
+    map = window.HufraMap.createMap('map-canvas', { zoomControl: true });
     clusterGroup = L.markerClusterGroup({ maxClusterRadius: 60, disableClusteringAtZoom: 17 });
     map.addLayer(clusterGroup);
+    map.on('click', closeSheet);
+    document.getElementById('pothole-sheet-close').addEventListener('click', closeSheet);
   }
 
   function buildQuery() {
@@ -105,18 +101,31 @@
       var data = await window.HufraApi.get('/potholes?' + buildQuery());
       renderMarkers(data.results || []);
     } catch (e) {
-      window.HufraUI.showToast(window.HufraI18n.t('error_generic'), 'error');
+      window.HufraUI.showToast(t('error_generic'), 'error');
     }
   }
 
   function renderMarkers(potholes) {
+    closeSheet();
     clusterGroup.clearLayers();
     markersById = {};
-    potholes.forEach(function (pothole) {
-      var marker = L.marker([pothole.lat, pothole.lng], { icon: buildDivIcon(pothole.status) });
-      marker.bindPopup(popupHtml(pothole));
+    potholesById = {};
+    potholes.forEach(function (p) {
+      var marker = L.marker([p.lat, p.lng], { icon: window.HufraMap.pinIcon(p.status), keyboard: true, title: '#' + p.id });
+      marker.on('click', function (e) {
+        if (e.originalEvent) L.DomEvent.stopPropagation(e);
+        openSheet(p.id);
+      });
       clusterGroup.addLayer(marker);
-      markersById[String(pothole.id)] = marker;
+      markersById[String(p.id)] = marker;
+      potholesById[String(p.id)] = p;
+    });
+  }
+
+  function refreshPins() {
+    Object.keys(markersById).forEach(function (id) {
+      var p = potholesById[id];
+      markersById[id].setIcon(window.HufraMap.pinIcon(p.status, { selected: id === selectedId, large: id === selectedId }));
     });
   }
 
@@ -134,35 +143,39 @@
     } catch (e) { /* ignore */ }
   }
 
+  function setNearMeActive(btn, active) {
+    btn.classList.toggle('btn-primary', active);
+    btn.classList.toggle('btn-secondary', !active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  function showUserDot() {
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([userLocation.lat, userLocation.lng], {
+      radius: 8, weight: 3, color: '#fff', fillColor: window.HufraMap.pinColor('verified'), fillOpacity: 1,
+    }).addTo(map);
+  }
+
   function initNearMe() {
     var btn = document.getElementById('near-me-btn');
     btn.addEventListener('click', async function () {
       if (userLocation) {
         userLocation = null;
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-secondary');
+        if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+        setNearMeActive(btn, false);
         loadPotholes();
         return;
       }
       btn.disabled = true;
       try {
-        var coords = window.HufraBridge
-          ? await window.HufraBridge.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 })
-          : await new Promise(function (resolve, reject) {
-              if (!navigator.geolocation) return reject(new Error('No geolocation'));
-              navigator.geolocation.getCurrentPosition(
-                function (pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
-                reject,
-                { enableHighAccuracy: true, timeout: 10000 }
-              );
-            });
+        var coords = await window.HufraBridge.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
         userLocation = { lat: coords.lat, lng: coords.lng };
-        btn.classList.remove('btn-secondary');
-        btn.classList.add('btn-primary');
+        setNearMeActive(btn, true);
+        showUserDot();
         map.setView([userLocation.lat, userLocation.lng], 14);
         await loadPotholes();
       } catch (err) {
-        window.HufraUI.showToast(window.HufraI18n.t('report_location_error'), 'error');
+        window.HufraUI.showToast(t('report_location_error'), 'error');
       } finally {
         btn.disabled = false;
       }
@@ -175,17 +188,29 @@
     });
   }
 
+  function initLegend() {
+    var legend = document.getElementById('map-legend');
+    var toggle = document.getElementById('map-legend-toggle');
+    toggle.addEventListener('click', function () {
+      var collapsed = legend.classList.toggle('is-collapsed');
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    });
+  }
+
   async function focusOnQueryParam() {
-    var params = new URLSearchParams(location.search);
-    var focusId = params.get('focus');
+    var focusId = new URLSearchParams(location.search).get('focus');
     if (!focusId) return;
     try {
       var data = await window.HufraApi.get('/potholes/' + focusId);
       map.setView([data.pothole.lat, data.pothole.lng], 17);
-      var m = markersById[String(focusId)];
-      if (m) {
-        setTimeout(function () { m.openPopup(); }, 250);
+      if (!potholesById[String(focusId)]) {
+        potholesById[String(focusId)] = data.pothole;
+        var m = L.marker([data.pothole.lat, data.pothole.lng], { icon: window.HufraMap.pinIcon(data.pothole.status) });
+        m.on('click', function () { openSheet(focusId); });
+        clusterGroup.addLayer(m);
+        markersById[String(focusId)] = m;
       }
+      setTimeout(function () { openSheet(focusId); }, 250);
     } catch (e) { /* ignore */ }
   }
 
@@ -193,7 +218,9 @@
     initMap();
     initFilters();
     initNearMe();
+    initLegend();
     loadRegionsFilter();
+    window.HufraTheme.onChange(refreshPins);
     await loadPotholes();
     focusOnQueryParam();
   });

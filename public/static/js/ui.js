@@ -1,5 +1,4 @@
-// Shared header/footer interactivity: mobile nav (with outside-click & Escape
-// close + icon swap), theme toggle, language toggle, font-size toggle,
+// Shared shell interactivity: menu sheet, language/theme/text-size preferences,
 // auth-aware nav slot, unified citizen/admin notification bell + push opt-in
 // drawer, and offline queue status banner.
 (function () {
@@ -8,74 +7,76 @@
   var lastSeenNotificationId = Number(localStorage.getItem('hufra_last_notif_id') || 0);
   var notifPollTimer = null;
 
-  function initMobileNav() {
+  function haptic(kind) {
+    if (window.HufraBridge && window.HufraBridge.haptic) window.HufraBridge.haptic(kind);
+  }
+
+  // Menu: bottom sheet on phones, dropdown on desktop. Closes on backdrop,
+  // outside click, Escape, or following a link.
+  function initMenu() {
     var toggle = document.getElementById('mobile-nav-toggle');
     var panel = document.getElementById('mobile-nav-panel');
+    var backdrop = document.getElementById('sheet-backdrop');
     if (!toggle || !panel) return;
 
     function setOpen(open) {
       panel.classList.toggle('is-open', open);
+      if (backdrop) backdrop.classList.toggle('is-open', open);
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       toggle.innerHTML = '<i data-lucide="' + (open ? 'x' : 'menu') + '" class="icon"></i>';
-      if (window.lucide) window.lucide.createIcons();
+      if (window.lucide) window.lucide.createIcons(toggle);
+      if (open) haptic('light');
     }
 
     toggle.addEventListener('click', function (e) {
       e.stopPropagation();
-      var nextOpen = !panel.classList.contains('is-open');
-      setOpen(nextOpen);
+      setOpen(!panel.classList.contains('is-open'));
     });
-
+    if (backdrop) backdrop.addEventListener('click', function () { setOpen(false); });
     document.addEventListener('click', function (e) {
-      if (panel.classList.contains('is-open') && !panel.contains(e.target) && !toggle.contains(e.target)) {
-        setOpen(false);
-      }
+      if (panel.classList.contains('is-open') && !panel.contains(e.target) && !toggle.contains(e.target)) setOpen(false);
     });
-
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && panel.classList.contains('is-open')) {
-        setOpen(false);
-      }
+      if (e.key === 'Escape' && panel.classList.contains('is-open')) { setOpen(false); toggle.focus(); }
     });
-
     panel.addEventListener('click', function (e) {
-      if (e.target.closest('a')) {
-        setOpen(false);
-      }
+      if (e.target.closest('a')) setOpen(false);
     });
+    window.HufraUI.closeMenu = function () { setOpen(false); };
   }
 
-  function initThemeToggle() {
-    var btn = document.getElementById('theme-toggle');
-    if (!btn) return;
-    function updateIcon() {
-      var isDark = window.HufraTheme.getTheme() === 'dark';
-      btn.innerHTML = '<i data-lucide="' + (isDark ? 'sun' : 'moon') + '" class="icon"></i>';
-      if (window.lucide) window.lucide.createIcons();
+  // Language / theme / text-size segmented controls inside the menu.
+  function initPrefs() {
+    var buttons = document.querySelectorAll('button[data-pref]');
+    if (!buttons.length) return;
+
+    function current(pref) {
+      if (pref === 'lang') return window.HufraI18n.getLocale();
+      if (pref === 'theme') return window.HufraTheme.getTheme();
+      return window.HufraTheme.getFontSize();
     }
-    updateIcon();
-    btn.addEventListener('click', function () {
-      window.HufraTheme.toggleTheme();
-      updateIcon();
+    function sync() {
+      buttons.forEach(function (b) {
+        b.setAttribute('aria-pressed', current(b.getAttribute('data-pref')) === b.getAttribute('data-value') ? 'true' : 'false');
+      });
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var pref = b.getAttribute('data-pref');
+        var value = b.getAttribute('data-value');
+        if (current(pref) === value) return;
+        haptic('selection');
+        if (pref === 'lang') {
+          window.HufraI18n.setLocale(value);
+          location.reload();
+          return;
+        }
+        if (pref === 'theme') window.HufraTheme.setTheme(value);
+        else window.HufraTheme.setFontSize(value);
+        sync();
+      });
     });
-  }
-
-  function initFontSizeToggle() {
-    var btn = document.getElementById('font-size-toggle');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      window.HufraTheme.cycleFontSize();
-    });
-  }
-
-  function initLangToggle() {
-    var btn = document.getElementById('lang-toggle');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      var current = window.HufraI18n.getLocale();
-      window.HufraI18n.setLocale(current === 'ar' ? 'en' : 'ar');
-      location.reload();
-    });
+    sync();
   }
 
   function renderAuthSlot(user) {
@@ -83,27 +84,19 @@
     var t = window.HufraI18n.t;
     var isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
 
-    var bottomAdminLink = document.getElementById('bottom-nav-admin');
-    if (bottomAdminLink) {
-      bottomAdminLink.classList.toggle('hidden', !isAdmin);
-    }
-
     var headerNotifWrapper = document.getElementById('header-notif-wrapper');
-    if (headerNotifWrapper) {
-      headerNotifWrapper.classList.toggle('hidden', !user);
-    }
+    if (headerNotifWrapper) headerNotifWrapper.classList.toggle('hidden', !user);
 
     slots.forEach(function (slot, idx) {
       if (!slot) return;
+      var isMobile = idx === 1;
+      var cls = isMobile ? 'menu-link-primary' : '';
       if (user) {
-        var adminLink = isAdmin
-          ? '<a href="/admin" data-i18n="nav_admin">' + t('nav_admin') + '</a>'
-          : '';
         var logoutId = 'logout-link-' + idx;
         slot.innerHTML =
-          adminLink +
-          '<a href="/account" data-i18n="nav_account">' + t('nav_account') + '</a>' +
-          '<a href="#" id="' + logoutId + '" data-i18n="nav_logout">' + t('nav_logout') + '</a>';
+          (isAdmin ? '<a href="/admin" class="' + cls + '" data-i18n="nav_admin">' + t('nav_admin') + '</a>' : '') +
+          '<a href="/account" class="' + cls + '" data-i18n="nav_account">' + t('nav_account') + '</a>' +
+          '<a href="#" id="' + logoutId + '" class="' + cls + '" data-i18n="nav_logout">' + t('nav_logout') + '</a>';
         var logoutLink = document.getElementById(logoutId);
         if (logoutLink) {
           logoutLink.addEventListener('click', async function (e) {
@@ -119,8 +112,8 @@
         }
       } else {
         slot.innerHTML =
-          '<a href="/login" data-i18n="nav_login">' + t('nav_login') + '</a>' +
-          '<a href="/register" class="btn btn-primary" style="padding:0 16px;min-height:38px;color:#fff;" data-i18n="nav_register">' + t('nav_register') + '</a>';
+          '<a href="/login" class="' + cls + '" data-i18n="nav_login">' + t('nav_login') + '</a>' +
+          '<a href="/register" class="' + (isMobile ? 'menu-link-primary menu-link-cta' : 'btn btn-primary btn-sm') + '" data-i18n="nav_register">' + t('nav_register') + '</a>';
       }
     });
   }
@@ -161,7 +154,7 @@
       }
 
       if (!results.length) {
-        listEl.innerHTML = '<div class="text-secondary text-center" style="padding:16px;font-size:0.9rem;">' + t('notifications_empty') + '</div>';
+        listEl.innerHTML = '<div class="text-secondary text-center notif-empty">' + t('notifications_empty') + '</div>';
         return;
       }
 
@@ -178,9 +171,9 @@
         var isUnread = !item.read_at;
         var timeStr = new Date(item.created_at).toLocaleString(locale === 'ar' ? 'ar-LY' : 'en-GB');
         return '<a href="' + url + '" class="notif-item ' + (isUnread ? 'is-unread' : '') + '">' +
-          '<div style="font-weight:600;font-size:0.9rem;">' + escapeHtml(title) + '</div>' +
-          (body ? '<div class="text-secondary" style="font-size:0.83rem;margin-top:2px;">' + escapeHtml(body) + '</div>' : '') +
-          '<div class="text-secondary" style="font-size:0.75rem;margin-top:4px;">' + escapeHtml(timeStr) + '</div>' +
+          '<div class="notif-title">' + escapeHtml(title) + '</div>' +
+          (body ? '<div class="text-secondary notif-body">' + escapeHtml(body) + '</div>' : '') +
+          '<div class="text-secondary notif-time">' + escapeHtml(timeStr) + '</div>' +
         '</a>';
       }).join('');
     } catch (e) {}
@@ -192,7 +185,7 @@
     var enabled = window.HufraBridge.isPushEnabled();
     var t = window.HufraI18n.t;
     pushBtn.textContent = enabled ? t('push_enabled') : t('push_enable');
-    pushBtn.className = enabled ? 'btn btn-success btn-block' : 'btn btn-outline btn-block';
+    pushBtn.className = enabled ? 'btn btn-success btn-block btn-sm' : 'btn btn-outline btn-block btn-sm';
   }
 
   function initNotificationDrawer() {
@@ -297,11 +290,54 @@
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + (type || 'info');
     toast.textContent = message;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
     region.appendChild(toast);
+    haptic(type === 'error' ? 'error' : type === 'success' ? 'success' : 'light');
     setTimeout(function () {
-      toast.style.opacity = '0';
+      toast.classList.add('is-leaving');
       setTimeout(function () { toast.remove(); }, 300);
     }, 4000);
+  }
+
+  // Promise-based confirmation dialog (replaces window.confirm, which is
+  // blocked/ugly inside WKWebView). Resolves true on confirm, false otherwise.
+  function confirmDialog(message, opts) {
+    opts = opts || {};
+    var t = window.HufraI18n.t;
+    return new Promise(function (resolve) {
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay confirm-overlay';
+      overlay.innerHTML =
+        '<div class="card modal-card confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-msg">' +
+          '<h2 class="card-title" id="confirm-title"></h2>' +
+          '<p id="confirm-msg" class="confirm-msg"></p>' +
+          '<div class="confirm-actions">' +
+            '<button type="button" class="btn btn-secondary" data-confirm="no"></button>' +
+            '<button type="button" class="btn ' + (opts.danger === false ? 'btn-primary' : 'btn-danger') + '" data-confirm="yes"></button>' +
+          '</div>' +
+        '</div>';
+      overlay.querySelector('#confirm-title').textContent = opts.title || t('confirm_delete_title');
+      overlay.querySelector('#confirm-msg').textContent = message;
+      overlay.querySelector('[data-confirm="no"]').textContent = opts.cancelLabel || t('cancel');
+      overlay.querySelector('[data-confirm="yes"]').textContent = opts.confirmLabel || t('confirm_yes_delete');
+      var previous = document.activeElement;
+      function done(result) {
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        if (previous && previous.focus) { try { previous.focus(); } catch (e) {} }
+        resolve(result);
+      }
+      function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); done(false); } }
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) return done(false);
+        var btn = e.target.closest('[data-confirm]');
+        if (btn) done(btn.getAttribute('data-confirm') === 'yes');
+      });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(overlay);
+      haptic('warning');
+      overlay.querySelector('[data-confirm="no"]').focus();
+    });
   }
 
   function escapeHtml(s) {
@@ -311,17 +347,18 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    initMobileNav();
-    initThemeToggle();
-    initFontSizeToggle();
-    initLangToggle();
+    initMenu();
+    initPrefs();
     initNotificationDrawer();
     initOfflineBanner();
     loadCurrentUser();
   });
 
   window.HufraUI = {
+    closeMenu: function () {},
+    haptic: haptic,
     showToast: showToast,
+    confirm: confirmDialog,
     loadCurrentUser: loadCurrentUser,
     refreshNotifications: refreshNotifications,
   };

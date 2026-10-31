@@ -11,6 +11,12 @@
     return global.HUFRA_API_BASE || localStorage.getItem('hufra_api_base') || '';
   }
 
+  // Absolute origin that serves /media/* (R2 proxy). Empty on the website
+  // (same origin); the bundled native app points it at the production API.
+  function mediaBase() {
+    return getApiBase();
+  }
+
   function getAccessToken() {
     return localStorage.getItem(ACCESS_TOKEN_KEY);
   }
@@ -122,5 +128,7 @@
     setAccessToken: setAccessToken,
     getRefreshToken: getRefreshToken,
     setTokens: setTokens,
+    getApiBase: getApiBase,
+    mediaBase: mediaBase,
   };
 })(window);

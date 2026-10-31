@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
+  <rect width="2732" height="2732" fill="#111418"/>
+  <defs><pattern id="s" width="120" height="120" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+    <rect width="60" height="120" fill="#FFCE00"/></pattern></defs>
+  <rect y="0" width="2732" height="44" fill="url(#s)"/>
+  <rect y="2688" width="2732" height="44" fill="url(#s)"/>
+  <g transform="translate(1366 1260)">
+    <circle r="330" fill="#FFCE00"/>
+    <g stroke="#111111" stroke-width="22" stroke-linecap="round">
+      <line x1="0" y1="-205" x2="0" y2="-265"/><line x1="78" y1="-189" x2="112" y2="-240"/><line x1="140" y1="-128" x2="198" y2="-150"/>
+      <line x1="140" y1="128" x2="198" y2="150"/><line x1="78" y1="189" x2="112" y2="240"/><line x1="0" y1="205" x2="0" y2="265"/>
+      <line x1="-78" y1="189" x2="-112" y2="240"/><line x1="-140" y1="128" x2="-198" y2="150"/><line x1="-140" y1="-128" x2="-198" y2="-150"/><line x1="-78" y1="-189" x2="-112" y2="-240"/>
+    </g>
+    <path d="M0 -140 L80 -124 L142 -34 L130 80 L34 142 L-76 132 L-138 58 L-134 -58 L-70 -124 Z" fill="#111111"/>
+  </g>
+  <text x="1366" y="1790" text-anchor="middle" font-family="IBM Plex Sans Arabic, Geeza Pro, Arial" font-weight="700" font-size="190" fill="#FFFFFF">حفرة</text>
+  <text x="1366" y="1930" text-anchor="middle" font-family="IBM Plex Sans Arabic, Arial" font-weight="600" font-size="78" letter-spacing="20" fill="#FFCE00">HUFRA</text>
+</svg>

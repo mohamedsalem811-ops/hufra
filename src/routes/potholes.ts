@@ -12,6 +12,7 @@ import { checkRateLimit, REPORT_LIMIT_PER_IP, REPORT_LIMIT_PER_USER, REPORT_LIMI
 import { recordAudit, hashIp } from '../lib/audit'
 import { notifyAdmins, notifyUser } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
+import { invalidatePublicCaches } from '../lib/cache'
 
 const potholes = new Hono<{ Bindings: Bindings }>()
 
@@ -19,13 +20,6 @@ function clientIp(c: any): string {
   return c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown'
 }
 
-async function invalidatePublicCaches(kv: Bindings['KV']) {
-  await Promise.allSettled([
-    kv.delete('counters:v1'),
-    kv.delete('top_reporter:v1'),
-    kv.delete('recent_fixed:v1'),
-  ])
-}
 
 // ---------------------------------------------------------------------------
 // GET /api/potholes - list with filters (status, region, severity, bbox, near)
@@ -161,6 +155,41 @@ potholes.get('/recent-fixed', async (c) => {
   ).all()
 
   const payload = { results: rows.results }
+  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+  return c.json(payload)
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/potholes/showcase - homepage photo showcase (public, cached 60s).
+//   fixed:       latest repaired reports that have photos (before / after)
+//   in_progress: reports currently under repair that have photos
+//                (before / during / report shots)
+// Each item carries up to 3 thumbnails ordered by stage so the UI can show
+// the repair progress without a second request.
+// ---------------------------------------------------------------------------
+potholes.get('/showcase', async (c) => {
+  const cacheKey = 'showcase:v1'
+  const cached = await c.env.KV.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
+
+  const select = `SELECT p.id, p.status, p.street_ar, p.street_en, p.fixed_at, p.under_repair_at, p.created_at,
+       r.name_ar as region_name_ar, r.name_en as region_name_en,
+       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
+       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'during' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as during_thumb_key,
+       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
+     FROM potholes p
+     JOIN regions r ON r.id = p.region_id
+     WHERE p.status = ? AND p.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL)
+     ORDER BY COALESCE(p.fixed_at, p.under_repair_at, p.updated_at) DESC
+     LIMIT 6`
+
+  const [fixed, inProgress] = await Promise.all([
+    c.env.DB.prepare(select).bind('fixed').all(),
+    c.env.DB.prepare(select).bind('under_repair').all(),
+  ])
+
+  const payload = { fixed: fixed.results, in_progress: inProgress.results }
   await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
   return c.json(payload)
 })

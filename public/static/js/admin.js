@@ -3,6 +3,11 @@
 (function () {
   'use strict';
 
+  // Admin page does not load the map scripts, so build media URLs from the API helper.
+  function mediaUrl(key) {
+    return window.HufraApi.mediaBase() + '/media/' + key;
+  }
+
   var currentUser = null;
   var currentStatusFilter = '';
   var fieldGpsCoords = null;
@@ -51,8 +56,8 @@
   function initTabs() {
     document.querySelectorAll('[data-tab]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        document.querySelectorAll('[data-tab]').forEach(function (b) { b.classList.remove('is-selected'); });
-        btn.classList.add('is-selected');
+        document.querySelectorAll('[data-tab]').forEach(function (b) { b.classList.remove('is-selected'); b.setAttribute('aria-selected','false'); });
+        btn.classList.add('is-selected'); btn.setAttribute('aria-selected','true');
         var tab = btn.getAttribute('data-tab');
         document.querySelectorAll('.admin-tab').forEach(function (panel) {
           panel.classList.toggle('hidden', panel.id !== 'admin-tab-' + tab);
@@ -108,6 +113,12 @@
 
   // --- One-Click Report Delete (works from card or modal, online & offline) -
   async function deleteReportOneClick(id) {
+    var ok = await window.HufraUI.confirm(t('admin_delete_confirm_report'));
+    if (!ok) {
+      var pendingBtns = document.querySelectorAll('[data-one-click-delete="' + id + '"], #modal-delete-report-btn');
+      pendingBtns.forEach(function (b) { b.disabled = false; });
+      return;
+    }
     try {
       if (navigator.onLine === false && window.HufraOfflineQueue) {
         await window.HufraOfflineQueue.enqueueAdminAction({
@@ -212,28 +223,28 @@
         var regionName = locale === 'ar' ? r.region_name_ar : r.region_name_en;
         var street = locale === 'ar' ? (r.street_ar || r.street_en) : (r.street_en || r.street_ar);
         var date = new Date(r.created_at).toLocaleString(locale === 'ar' ? 'ar-LY' : 'en-GB');
-        var dupBadge = r.duplicate_flag_count > 0 ? '<span class="badge" style="background:#FDECD9; color:#C7620F;">' + t('admin_duplicates') + '</span>' : '';
-        var upvoteBadge = r.upvotes_count > 0 ? '<span class="badge" style="background:var(--bg-soft); color:var(--text-primary);">👍 ' + r.upvotes_count + '</span>' : '';
+        var dupBadge = r.duplicate_flag_count > 0 ? '<span class="badge badge-warn">' + t('admin_duplicates') + '</span>' : '';
+        var upvoteBadge = r.upvotes_count > 0 ? '<span class="badge badge-neutral">👍 ' + r.upvotes_count + '</span>' : '';
         var distBadge = r._distance_m !== undefined
-          ? '<span class="badge" style="background:var(--bg-soft); color:var(--text-primary);">📍 ' + formatDistance(r._distance_m) + '</span>'
+          ? '<span class="badge badge-neutral">📍 ' + formatDistance(r._distance_m) + '</span>'
           : '';
-        return '<div class="card card-hover mb-3" data-report-id="' + r.id + '" style="cursor:pointer;">' +
-          '<div class="flex justify-between items-center" style="flex-wrap:wrap; gap:8px;">' +
+        return '<div class="card card-hover mb-3 is-clickable" data-report-id="' + r.id + '">' +
+          '<div class="flex justify-between items-center wrap-gap">' +
             '<div>' +
               '<strong>#' + r.id + ' · ' + escapeHtml(regionName || '') + '</strong>' +
-              ' <span class="severity-dot severity-' + r.severity + '" style="margin-inline-start:6px;"></span>' +
-              (street ? '<div class="text-secondary" style="font-size:0.85rem;">' + escapeHtml(street) + '</div>' : '') +
+              ' <span class="severity-dot severity-' + r.severity + ' dot-gap"></span>' +
+              (street ? '<div class="text-secondary small">' + escapeHtml(street) + '</div>' : '') +
             '</div>' +
-            '<div class="flex gap-2 items-center" style="flex-wrap:wrap;">' +
+            '<div class="flex gap-2 items-center wrap-gap">' +
               distBadge + upvoteBadge + dupBadge +
               '<span class="badge badge-' + r.status + '">' + t('status_' + r.status) + '</span>' +
-              '<button type="button" class="btn btn-danger" style="min-height:34px;padding:0 12px;font-size:0.82rem;" data-one-click-delete="' + r.id + '" title="' + t('admin_delete_report') + '">' +
-                '<i data-lucide="trash-2" class="icon" style="width:16px;height:16px;"></i> ' +
+              '<button type="button" class="btn btn-danger btn-sm" data-one-click-delete="' + r.id + '" title="' + t('admin_delete_report') + '">' +
+                '<i data-lucide="trash-2" class="icon icon-sm"></i> ' +
                 '<span>' + t('admin_delete_report') + '</span>' +
               '</button>' +
             '</div>' +
           '</div>' +
-          '<div class="text-secondary mt-1" style="font-size:0.82rem;">' + date + '</div>' +
+          '<div class="text-secondary mt-1 small">' + date + '</div>' +
         '</div>';
       }).join('');
 
@@ -260,7 +271,7 @@
     var modal = document.getElementById('report-modal');
     var content = document.getElementById('report-modal-content');
     modal.classList.remove('hidden');
-    content.innerHTML = '<div class="skeleton" style="height:200px;"></div>';
+    content.innerHTML = '<div class="skeleton skeleton-h200"></div>';
 
     try {
       var data = await window.HufraApi.get('/potholes/' + id);
@@ -271,11 +282,11 @@
       var mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + pothole.lat + ',' + pothole.lng;
 
       content.innerHTML =
-        '<div class="flex justify-between items-center mb-3" style="gap:8px;flex-wrap:wrap;">' +
-          '<h2 style="margin:0;">#' + pothole.id + ' · ' + escapeHtml(regionName || '') + '</h2>' +
+        '<div class="flex justify-between items-center mb-3 wrap-gap">' +
+          '<h2 class="detail-title">#' + pothole.id + ' · ' + escapeHtml(regionName || '') + '</h2>' +
           '<div class="flex gap-2 items-center">' +
-            '<button type="button" class="btn btn-danger" style="min-height:36px;padding:0 12px;font-size:0.85rem;" id="modal-delete-report-btn">' +
-              '<i data-lucide="trash-2" class="icon" style="width:16px;height:16px;"></i> ' +
+            '<button type="button" class="btn btn-danger btn-sm" id="modal-delete-report-btn">' +
+              '<i data-lucide="trash-2" class="icon icon-sm"></i> ' +
               '<span>' + t('admin_delete_report') + '</span>' +
             '</button>' +
             '<button type="button" class="btn btn-icon btn-secondary" id="close-modal-btn"><i data-lucide="x" class="icon"></i></button>' +
@@ -285,19 +296,23 @@
         '<p><strong>' + t('map_filter_status') + ':</strong> <span class="badge badge-' + pothole.status + '">' + t('status_' + pothole.status) + '</span></p>' +
         '<p><strong>' + t('report_severity_label') + ':</strong> ' + t('severity_' + pothole.severity) +
           (pothole.upvotes_count ? ' · 👍 ' + pothole.upvotes_count : '') + '</p>' +
-        '<div class="flex gap-2 items-center mb-3" style="flex-wrap:wrap;">' +
+        '<div class="flex gap-2 items-center mb-3 wrap-gap">' +
           '<span><strong>' + t('report_step_location') + ':</strong> ' + pothole.lat.toFixed(5) + ', ' + pothole.lng.toFixed(5) + '</span>' +
-          '<a href="/map?focus=' + pothole.id + '" class="btn btn-secondary" style="min-height:34px;padding:0 12px;font-size:0.85rem;">' + t('nav_map') + '</a>' +
-          '<a href="' + mapsUrl + '" target="_blank" rel="noopener" class="btn btn-outline" style="min-height:34px;padding:0 12px;font-size:0.85rem;">' + t('admin_navigate_maps') + '</a>' +
+          '<a href="/map?focus=' + pothole.id + '" class="btn btn-secondary btn-sm">' + t('nav_map') + '</a>' +
+          '<a href="' + mapsUrl + '" target="_blank" rel="noopener" class="btn btn-outline btn-sm">' + t('admin_navigate_maps') + '</a>' +
         '</div>' +
         (pothole.description_ar ? '<p><strong>' + t('report_description_ar') + ':</strong> ' + escapeHtml(pothole.description_ar) + '</p>' : '') +
         (pothole.reporter_contact ? '<p><strong>' + t('report_contact_label') + ':</strong> ' + escapeHtml(pothole.reporter_contact) + '</p>' : '') +
         '<div class="grid grid-3 mt-3" id="modal-photos">' +
           data.photos.map(function (p) {
-            return '<a href="/media/' + p.r2_key + '" target="_blank"><img src="/media/' + p.thumb_key + '" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px;" loading="lazy"></a>';
+            return '<div class="gallery-item" data-photo-id="' + p.id + '">' +
+              '<a href="' + mediaUrl(p.r2_key) + '" target="_blank" rel="noopener" class="gallery-thumb"><img src="' + mediaUrl(p.thumb_key) + '" alt="" loading="lazy"></a>' +
+              '<span class="gallery-stage">' + t('stage_' + p.stage) + '</span>' +
+              '<button type="button" class="btn btn-danger btn-icon btn-sm gallery-del" data-photo-delete="' + p.id + '" aria-label="' + t('admin_delete_photo') + '" title="' + t('admin_delete_photo') + '"><i data-lucide="trash-2" class="icon icon-sm"></i></button>' +
+            '</div>';
           }).join('') +
         '</div>' +
-        '<div class="flex gap-2 mt-4" style="flex-wrap:wrap;">' +
+        '<div class="flex gap-2 mt-4 wrap-gap">' +
           statusActionButton(pothole.status, 'verified', 'admin_verify') +
           statusActionButton(pothole.status, 'under_repair', 'admin_mark_under_repair') +
           statusActionButton(pothole.status, 'fixed', 'admin_mark_fixed') +
@@ -308,7 +323,7 @@
         '</div>' +
         '<div class="field">' +
           '<label>' + t('admin_upload_proof') + '</label>' +
-          '<div class="flex gap-2" style="flex-wrap:wrap;">' +
+          '<div class="flex gap-2 wrap-gap">' +
             proofUploadButton('before') + proofUploadButton('during') + proofUploadButton('after') +
           '</div>' +
         '</div>';
@@ -321,6 +336,22 @@
           deleteReportOneClick(id);
         });
       }
+      content.querySelectorAll('[data-photo-delete]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var ok = await window.HufraUI.confirm(t('admin_delete_photo_confirm'));
+          if (!ok) return;
+          btn.disabled = true;
+          try {
+            await window.HufraApi.del('/photos/' + btn.getAttribute('data-photo-delete'));
+            window.HufraUI.showToast(t('admin_photo_deleted'), 'success');
+            var item = btn.closest('.gallery-item');
+            if (item) item.remove();
+          } catch (err) {
+            btn.disabled = false;
+            window.HufraUI.showToast(err.message || t('error_generic'), 'error');
+          }
+        });
+      });
       content.querySelectorAll('[data-status-action]').forEach(function (btn) {
         btn.addEventListener('click', function () { submitStatusChange(id, btn.getAttribute('data-status-action')); });
       });
@@ -329,6 +360,7 @@
       });
       if (window.lucide) window.lucide.createIcons();
     } catch (e) {
+      if (window.console) console.error('[admin] report modal failed', e);
       content.innerHTML = '<p>' + t('error_generic') + '</p>';
     }
   }
@@ -339,7 +371,7 @@
   }
 
   function proofUploadButton(stage) {
-    return '<label class="btn btn-outline" style="cursor:pointer;">' +
+    return '<label class="btn btn-outline is-clickable">' +
       t('stage_' + stage) +
       '<input type="file" accept="image/*" capture="environment" class="visually-hidden" data-proof-stage="' + stage + '">' +
       '</label>';
@@ -442,7 +474,7 @@
       container.innerHTML = data.results.map(function (d) {
         return '<div class="card mb-3">' +
           '<p><a href="/pothole/' + d.pothole_id + '" target="_blank">#' + d.pothole_id + '</a> ↔ <a href="/pothole/' + d.duplicate_of_id + '" target="_blank">#' + d.duplicate_of_id + '</a> (' + Math.round(d.distance_m) + ' m)</p>' +
-          '<div class="flex gap-2" style="flex-wrap:wrap;">' +
+          '<div class="flex gap-2 wrap-gap">' +
             '<button type="button" class="btn btn-danger" data-dup-action="confirmed" data-dup-id="' + d.id + '">' + t('admin_confirm_dup') + '</button>' +
             '<button type="button" class="btn btn-secondary" data-dup-action="rejected" data-dup-id="' + d.id + '">' + t('admin_reject_dup') + '</button>' +
           '</div>' +
@@ -487,8 +519,8 @@
         var label = translatePrefix ? t(translatePrefix + '_' + (r.status || r.severity)) : (r.label || '');
         var pct = Math.round(((r.n || 0) / maxN) * 100);
         return '<div class="mt-2">' +
-          '<div class="flex justify-between" style="font-size:0.85rem;"><span>' + escapeHtml(label) + '</span><span>' + (r.n || 0) + '</span></div>' +
-          '<div style="height:8px; background:var(--bg-soft); border-radius:4px; overflow:hidden;"><div style="height:100%; width:' + pct + '%; background:var(--color-primary);"></div></div>' +
+          '<div class="flex justify-between small"><span>' + escapeHtml(label) + '</span><span>' + (r.n || 0) + '</span></div>' +
+          '<progress class="bar" max="100" value="' + pct + '"></progress>' +
         '</div>';
       }).join('') +
     '</div>';
@@ -505,7 +537,10 @@
             '<td>' + escapeHtml(r.name_ar) + '</td>' +
             '<td>' + escapeHtml(r.name_en) + '</td>' +
             '<td><span class="badge ' + (r.active ? 'badge-fixed' : 'badge-reported') + '">' + (r.active ? 'Active' : 'Inactive') + '</span></td>' +
-            '<td><button type="button" class="btn btn-secondary" style="min-height:32px;padding:0 10px;font-size:0.8rem;" data-region-toggle="' + r.id + '" data-region-active="' + (r.active ? '1' : '0') + '">' + t('admin_toggle_region') + '</button></td>' +
+            '<td class="row-actions">' +
+              '<button type="button" class="btn btn-secondary btn-sm" data-region-toggle="' + r.id + '" data-region-active="' + (r.active ? '1' : '0') + '">' + t('admin_toggle_region') + '</button>' +
+              '<button type="button" class="btn btn-danger btn-icon btn-sm" data-region-delete="' + r.id + '" aria-label="' + t('admin_delete_region') + '" title="' + t('admin_delete_region') + '"><i data-lucide="trash-2" class="icon icon-sm"></i></button>' +
+            '</td>' +
           '</tr>';
         }).join('') + '</tbody></table>';
 
@@ -521,6 +556,20 @@
           }
         });
       });
+      container.querySelectorAll('[data-region-delete]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var ok = await window.HufraUI.confirm(t('admin_delete_region_confirm'));
+          if (!ok) return;
+          try {
+            await window.HufraApi.del('/regions/' + btn.getAttribute('data-region-delete'));
+            window.HufraUI.showToast(t('admin_region_deleted'), 'success');
+            loadRegions();
+          } catch (err) {
+            window.HufraUI.showToast(err.message || t('error_generic'), 'error');
+          }
+        });
+      });
+      if (window.lucide) window.lucide.createIcons();
     } catch (e) {
       window.HufraUI.showToast(t('error_generic'), 'error');
     }
@@ -560,12 +609,15 @@
       container.innerHTML = '<table><thead><tr><th>Name</th><th>Amount (LYD)</th><th>Note</th><th></th></tr></thead><tbody>' +
         data.results.map(function (d) {
           return '<tr><td>' + escapeHtml(d.name) + '</td><td>' + Number(d.amount_lyd).toLocaleString() + '</td><td>' + escapeHtml(d.note || '') + '</td>' +
-            '<td><button type="button" class="btn btn-icon btn-secondary" data-donor-delete="' + d.id + '"><i data-lucide="trash-2" class="icon"></i></button></td></tr>';
+            '<td><button type="button" class="btn btn-icon btn-danger btn-sm" data-donor-delete="' + d.id + '" aria-label="' + t('delete') + '"><i data-lucide="trash-2" class="icon icon-sm"></i></button></td></tr>';
         }).join('') + '</tbody></table>';
       container.querySelectorAll('[data-donor-delete]').forEach(function (btn) {
         btn.addEventListener('click', async function () {
+          var ok = await window.HufraUI.confirm(t('admin_delete_donor_confirm'));
+          if (!ok) return;
           try {
             await window.HufraApi.del('/donors/' + btn.getAttribute('data-donor-delete'));
+            window.HufraUI.showToast(t('admin_donor_deleted'), 'success');
             loadDonors();
           } catch (e) {
             window.HufraUI.showToast(e.message || t('error_generic'), 'error');
@@ -602,10 +654,28 @@
     if (!container) return;
     try {
       var data = await window.HufraApi.get('/admin/admins');
-      container.innerHTML = '<table><thead><tr><th>Email</th><th>Code</th><th>Role</th><th>Created</th></tr></thead><tbody>' +
+      container.innerHTML = '<table><thead><tr><th>Email</th><th>Code</th><th>Role</th><th>Created</th><th></th></tr></thead><tbody>' +
         (data.results || []).map(function (a) {
-          return '<tr><td>' + escapeHtml(a.email) + '</td><td>' + escapeHtml(a.code) + '</td><td><span class="badge badge-verified">' + escapeHtml(a.role) + '</span></td><td>' + new Date(a.created_at).toLocaleDateString() + '</td></tr>';
+          var isMe = currentUser && a.id === currentUser.id;
+          var action = isMe
+            ? '<span class="badge badge-neutral">' + t('admin_this_is_you') + '</span>'
+            : '<button type="button" class="btn btn-danger btn-sm" data-admin-remove="' + escapeHtml(a.email) + '"><i data-lucide="user-minus" class="icon icon-sm"></i> ' + t('admin_remove_admin') + '</button>';
+          return '<tr><td>' + escapeHtml(a.email) + '</td><td>' + escapeHtml(a.code) + '</td><td><span class="badge badge-verified">' + escapeHtml(a.role) + '</span></td><td>' + new Date(a.created_at).toLocaleDateString() + '</td><td>' + action + '</td></tr>';
         }).join('') + '</tbody></table>';
+      container.querySelectorAll('[data-admin-remove]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var ok = await window.HufraUI.confirm(t('admin_remove_admin_confirm'), { title: t('admin_remove_admin'), confirmLabel: t('admin_remove_admin') });
+          if (!ok) return;
+          try {
+            await window.HufraApi.post('/admin/admins/demote', { email: btn.getAttribute('data-admin-remove') });
+            window.HufraUI.showToast(t('admin_admin_removed'), 'success');
+            loadAdmins();
+          } catch (err) {
+            window.HufraUI.showToast(err.message || t('error_generic'), 'error');
+          }
+        });
+      });
+      if (window.lucide) window.lucide.createIcons();
     } catch (e) {
       container.innerHTML = '';
     }

@@ -39,3 +39,6 @@ lerna-debug.log*
 
 # test coverage reports
 coverage/
+
+# local QA tooling/screenshots
+.qa/
