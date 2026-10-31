@@ -34,7 +34,7 @@ This document explains how the website and the Android/iOS mobile app connect to
 ### 2.2 Offline Field Reporting & Idempotent Sync (`public/static/js/offline-queue.js`, `migrations/0006_mobile_and_push.sql`)
 - **Citizen & Guest Offline Reports**:
   - Every report draft generates a unique `client_report_uuid`.
-  - Photos are compressed client-side into `full` (≤ 700 KB) and `thumb` (≤ 150 KB) WebP `Blob` objects via `image-compress.js`.
+  - Photos are compressed client-side into `full` (≤ 1280px, ~130 KB, server limit 400 KB) and `thumb` (≤ 320px, server limit 64 KB) WebP/JPEG `Blob` objects via `image-compress.js`. On sync, the `upload_token` returned by `POST /api/potholes` (also on a deduplicated retry) is sent with each photo.
   - If the user has no signal (`navigator.onLine === false`) or the connection drops mid-upload, `HufraOfflineQueue.enqueueReport()` stores the report payload and photo blobs in IndexedDB (`hufra_offline_db -> pending_reports`).
   - As soon as connectivity returns, `HufraOfflineQueue.syncAll()` automatically uploads the report and photos.
   - **Server-side Deduplication**: `POST /api/potholes` checks `client_report_uuid` against the unique index `idx_potholes_client_uuid`. If a flaky mobile connection retries a report that already succeeded, the server returns `200 OK` with `{ id, status, deduplicated: true }` instead of creating a duplicate pothole.

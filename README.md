@@ -23,9 +23,13 @@ transparent, publicly-visible map and dashboard.
 
 - **Guest or authenticated reporting** — anyone can submit a report; registered
   users additionally get a "My Reports" history and account page.
-- **Photo evidence** — up to 3 client-compressed photos per report (WebP,
-  ≤2 photos before submit typical, server-enforced ceiling), served from R2
-  with immutable long-lived cache headers.
+- **Photo evidence** — up to 3 photos per report, compressed on the phone
+  (≤1280px, ~130 KB WebP/JPEG plus a 320px thumbnail). The server re-checks
+  every file's real format, pixel size, byte size (≤400 KB / ≤64 KB) and
+  refuses camera EXIF, so uncompressed files never reach storage. Only the
+  report's author (upload permit) or an admin can add photos. Images live in
+  R2 (D1 stores only their paths) and are deleted from R2 when the photo or
+  report is deleted.
 - **Interactive public map** (Leaflet + marker clustering) with status/region/
   severity filters and a "near me" geolocation search.
 - **Automatic duplicate detection** — any new report within ~50 m of an

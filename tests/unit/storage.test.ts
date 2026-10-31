@@ -24,6 +24,10 @@ describe('buildPhotoKey', () => {
     expect(key.startsWith(`${THUMB_PREFIX}/42/`)).toBe(true)
   })
 
+  it('uses a .jpg extension for JPEG photos', () => {
+    expect(buildPhotoKey('42', 'full', 'image/jpeg').endsWith('.jpg')).toBe(true)
+  })
+
   it('generates unique keys on each call', () => {
     const a = buildPhotoKey('42', 'full')
     const b = buildPhotoKey('42', 'full')
@@ -60,16 +64,17 @@ describe('putPhoto / getPhoto / deletePhoto', () => {
 })
 
 describe('storage constants', () => {
-  it('allows only webp/jpeg/png content types', () => {
+  it('allows only the formats the compressor emits (webp/jpeg)', () => {
     expect(ALLOWED_IMAGE_TYPES.has('image/webp')).toBe(true)
     expect(ALLOWED_IMAGE_TYPES.has('image/jpeg')).toBe(true)
-    expect(ALLOWED_IMAGE_TYPES.has('image/png')).toBe(true)
+    expect(ALLOWED_IMAGE_TYPES.has('image/png')).toBe(false)
     expect(ALLOWED_IMAGE_TYPES.has('image/gif')).toBe(false)
     expect(ALLOWED_IMAGE_TYPES.has('application/pdf')).toBe(false)
   })
 
-  it('enforces a full-image ceiling above the 300-500KB compression target', () => {
-    expect(MAX_FULL_IMAGE_BYTES).toBeGreaterThan(500 * 1024)
+  it('keeps the full-image ceiling above the ~180 KB compression target but well under the old 700 KB', () => {
+    expect(MAX_FULL_IMAGE_BYTES).toBeGreaterThan(250 * 1024)
+    expect(MAX_FULL_IMAGE_BYTES).toBeLessThanOrEqual(400 * 1024)
   })
 
   it('enforces a thumbnail ceiling', () => {

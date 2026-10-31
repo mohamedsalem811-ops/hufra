@@ -123,5 +123,4 @@ export interface DevicePushTokenRow {
 
 export const STATUS_ORDER: PotholeStatus[] = ['reported', 'verified', 'under_repair', 'fixed']
 
-export const MAX_PHOTOS_PER_REPORT = 3
-export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 // 2 MB hard ceiling per photo (post-compression target is 300-500KB)
+// Photo limits live in src/lib/storage.ts (MAX_PHOTOS_PER_STAGE, MAX_*_IMAGE_BYTES).

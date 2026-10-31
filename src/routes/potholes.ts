@@ -13,6 +13,8 @@ import { recordAudit, hashIp } from '../lib/audit'
 import { notifyAdmins, notifyUser } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { invalidatePublicCaches } from '../lib/cache'
+import { createUploadToken } from '../lib/upload-token'
+import { purgeReportPhotos } from '../lib/storage'
 
 const potholes = new Hono<{ Bindings: Bindings }>()
 
@@ -335,7 +337,17 @@ potholes.post('/', attachAuth, async (c) => {
       .bind(data.client_report_uuid)
       .first<{ id: number; status: string }>()
     if (existingByUuid) {
-      return c.json({ id: existingByUuid.id, status: existingByUuid.status, deduplicated: true }, 200)
+      // Same device re-sending (offline sync retry): the uuid is private to that
+      // device, so it may get a fresh photo-upload permit for its own report.
+      return c.json(
+        {
+          id: existingByUuid.id,
+          status: existingByUuid.status,
+          deduplicated: true,
+          upload_token: await createUploadToken(existingByUuid.id, c.env.JWT_SECRET),
+        },
+        200
+      )
     }
   }
 
@@ -429,7 +441,9 @@ potholes.post('/', attachAuth, async (c) => {
     ipHash: await hashIp(ip, c.env.JWT_SECRET),
   })
 
-  return c.json({ id: potholeId, status: 'reported' }, 201)
+  // Permit for this client to attach its photos (see src/lib/upload-token.ts).
+  const uploadToken = await createUploadToken(potholeId, c.env.JWT_SECRET)
+  return c.json({ id: potholeId, status: 'reported', upload_token: uploadToken }, 201)
 })
 
 // ---------------------------------------------------------------------------
@@ -502,11 +516,7 @@ potholes.delete('/:id', attachAuth, requireRole('admin', 'super_admin'), async (
     .bind(id)
     .run()
 
-  await c.env.DB.prepare(
-    `UPDATE pothole_photos SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE pothole_id = ? AND deleted_at IS NULL`
-  )
-    .bind(id)
-    .run()
+  await purgeReportPhotos(c.env.DB, c.env.PHOTOS, id)
 
   await invalidatePublicCaches(c.env.KV)
   await recordAudit(c.env.DB, {

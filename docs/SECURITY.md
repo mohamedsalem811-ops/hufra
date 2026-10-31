@@ -191,3 +191,23 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
   so rotation never logs a user out by accident.
 - Malformed tokens (bad base64, wrong shape) are treated as "not logged in"
   (401) instead of causing a 500.
+
+## 9. Photo uploads — who may upload, and what is stored
+
+- **Upload permit:** `POST /api/potholes` returns an `upload_token`
+  (`src/lib/upload-token.ts`, HMAC-signed, bound to that report id, valid
+  6 hours). Report photos are accepted only with that permit, from the
+  logged-in reporter, or from an admin. Repair-proof stages
+  (`before`/`during`/`after`) are admin-only. Previously any guest could attach
+  photos to any report.
+- **Compression is enforced on the server** (`src/lib/image-check.ts`): the
+  file bytes (not the declared type) must be WebP or JPEG, the long edge at most
+  1280px (thumb 320px), the size at most 400 KB (thumb 64 KB), and there must be
+  no EXIF block (canvas re-encoding strips it; EXIF can carry GPS and device
+  data). The stored content type and dimensions come from the bytes.
+- **Storage caps:** at most 3 photos per stage per report, plus the per-IP
+  upload rate limit. Worst case per report is 12 photos (~5.5 MB); typical is
+  1-3 photos of ~130 KB.
+- **Deletion frees storage:** deleting a photo, deleting a report or confirming
+  a duplicate removes the image objects from R2 (the D1 rows stay,
+  soft-deleted, for the audit trail), so deleted photos are no longer served.

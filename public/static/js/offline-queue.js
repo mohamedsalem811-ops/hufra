@@ -185,6 +185,7 @@
               formData.append('stage', photo.stage || 'report');
               if (photo.width) formData.append('width_px', String(photo.width));
               if (photo.height) formData.append('height_px', String(photo.height));
+              if (created.upload_token) formData.append('upload_token', created.upload_token);
               await global.HufraApi.postForm('/photos/' + potholeId, formData);
             }
           }

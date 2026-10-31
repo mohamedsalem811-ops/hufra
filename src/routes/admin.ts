@@ -3,6 +3,7 @@ import type { Bindings } from '../lib/types'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
+import { purgeReportPhotos } from '../lib/storage'
 import { z } from 'zod'
 
 const admin = new Hono<{ Bindings: Bindings }>()
@@ -80,6 +81,7 @@ admin.patch('/duplicates/:id', async (c) => {
       await c.env.DB.prepare(`UPDATE potholes SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
         .bind(flag.pothole_id)
         .run()
+      await purgeReportPhotos(c.env.DB, c.env.PHOTOS, flag.pothole_id)
       await invalidatePublicCaches(c.env.KV)
     }
   }

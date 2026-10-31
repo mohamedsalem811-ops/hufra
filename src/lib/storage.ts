@@ -21,10 +21,15 @@ import type { Bindings } from './types'
 export const PHOTO_PREFIX = 'photos'
 export const THUMB_PREFIX = 'thumbs'
 
-export function buildPhotoKey(potholeIdOrTmp: string, variant: 'full' | 'thumb'): string {
+export function buildPhotoKey(
+  potholeIdOrTmp: string,
+  variant: 'full' | 'thumb',
+  contentType: string = 'image/webp'
+): string {
   const rand = crypto.randomUUID()
   const prefix = variant === 'full' ? PHOTO_PREFIX : THUMB_PREFIX
-  return `${prefix}/${potholeIdOrTmp}/${rand}.webp`
+  const ext = contentType === 'image/jpeg' ? 'jpg' : 'webp'
+  return `${prefix}/${potholeIdOrTmp}/${rand}.${ext}`
 }
 
 export async function putPhoto(
@@ -46,6 +51,38 @@ export async function deletePhoto(bucket: Bindings['PHOTOS'], key: string): Prom
   await bucket.delete(key)
 }
 
-export const ALLOWED_IMAGE_TYPES = new Set(['image/webp', 'image/jpeg', 'image/png'])
-export const MAX_FULL_IMAGE_BYTES = 700 * 1024 // hard ceiling, compression target is 300-500KB
-export const MAX_THUMB_IMAGE_BYTES = 150 * 1024
+/** Delete stored photo objects (full + thumb). Failures are ignored: a leftover object is harmless. */
+export async function deletePhotoObjects(bucket: Bindings['PHOTOS'], keys: Array<string | null | undefined>): Promise<void> {
+  await Promise.allSettled(keys.filter((k): k is string => !!k).map((k) => bucket.delete(k)))
+}
+
+/**
+ * Soft-delete every photo row of a report (kept for the audit trail) and remove
+ * the image bytes from storage, so a deleted report's photos stop being served
+ * and stop taking space.
+ */
+export async function purgeReportPhotos(db: Bindings['DB'], bucket: Bindings['PHOTOS'], potholeId: number): Promise<number> {
+  const rows = await db
+    .prepare('SELECT r2_key, thumb_key FROM pothole_photos WHERE pothole_id = ? AND deleted_at IS NULL')
+    .bind(potholeId)
+    .all<{ r2_key: string; thumb_key: string }>()
+  await db
+    .prepare(`UPDATE pothole_photos SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE pothole_id = ? AND deleted_at IS NULL`)
+    .bind(potholeId)
+    .run()
+  await deletePhotoObjects(bucket, rows.results.flatMap((r) => [r.r2_key, r.thumb_key]))
+  return rows.results.length
+}
+
+// Server-side limits, matched to what public/static/js/image-compress.js
+// produces (measured with real camera-sized inputs: a typical road photo is
+// ~130 KB, a worst-case pure-noise image ~220 KB, thumbnails a few KB). The
+// limits leave headroom for real photos while refusing anything that skipped
+// the compressor. Formats are checked from the file bytes (src/lib/image-check.ts).
+export const ALLOWED_IMAGE_TYPES = new Set(['image/webp', 'image/jpeg'])
+export const MAX_FULL_IMAGE_BYTES = 400 * 1024
+export const MAX_THUMB_IMAGE_BYTES = 64 * 1024
+export const MAX_FULL_LONG_EDGE_PX = 1280
+export const MAX_THUMB_LONG_EDGE_PX = 320
+/** Report photos (stage "report") per report; proof photos per stage (before/during/after). */
+export const MAX_PHOTOS_PER_STAGE = 3
