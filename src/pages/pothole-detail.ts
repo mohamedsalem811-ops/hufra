@@ -1,6 +1,6 @@
-import { renderLayout } from './layout'
+import { renderLayout, jsonForScript } from './layout'
 
-export function renderPotholeDetailPage(id: string): string {
+export function renderPotholeDetailPage(id: number): string {
   const body = `
 <div class="container page-narrow">
   <div class="page-head">
@@ -21,6 +21,6 @@ export function renderPotholeDetailPage(id: string): string {
     title: 'تفاصيل البلاغ',
     activeNav: 'pothole-detail',
     withMap: true,
-    extraScripts: `<script>window.__HUFRA_POTHOLE_ID__ = ${JSON.stringify(id)};</script><script src="/static/js/pothole-detail.js"></script>`,
+    extraScripts: `<script>window.__HUFRA_POTHOLE_ID__ = ${jsonForScript(id)};</script><script src="/static/js/pothole-detail.js"></script>`,
   })
 }

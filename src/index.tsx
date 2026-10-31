@@ -111,7 +111,13 @@ app.get('/report', (c) => c.html(renderReportPage()))
 app.get('/transparency', (c) => c.html(renderTransparencyPage()))
 app.get('/trust', (c) => c.html(renderTrustPage()))
 
-app.get('/pothole/:id', (c) => c.html(renderPotholeDetailPage(c.req.param('id'))))
+// Report ids are integers (0 is the template the native app build renders, see
+// scripts/build-app.mjs); anything else is a 404 and is never echoed back.
+app.get('/pothole/:id', (c) => {
+  const raw = c.req.param('id')
+  if (!/^(0|[1-9]\d{0,9})$/.test(raw)) return c.notFound()
+  return c.html(renderPotholeDetailPage(Number(raw)))
+})
 
 app.get('/login', (c) => c.html(renderLoginPage()))
 app.get('/register', (c) => c.html(renderRegisterPage()))

@@ -248,6 +248,22 @@ function renderFooter(adminWhatsapp?: string): string {
 </footer>`
 }
 
+/**
+ * Serialize a value for embedding inside an inline <script> element.
+ * JSON.stringify alone is not safe there: a string containing "</script>"
+ * closes the element and lets the rest run as HTML. Escaping <, > and & (plus
+ * the U+2028/U+2029 line separators) keeps the output valid JSON/JS while
+ * making it impossible to break out of the script context.
+ */
+export function jsonForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
 export function escapeHtml(input: string): string {
   return input
     .replace(/&/g, '&amp;')
