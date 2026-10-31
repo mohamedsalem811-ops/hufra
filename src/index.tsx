@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Bindings } from './lib/types'
+import { isAllowedOrigin, isForbiddenCrossSiteWrite } from './lib/origins'
 
 import authRoutes from './routes/auth'
 import potholeRoutes from './routes/potholes'
@@ -26,31 +27,26 @@ import { renderAdminPage } from './pages/admin'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-const ALLOWED_MOBILE_ORIGINS = new Set([
-  'capacitor://localhost',
-  'ionic://localhost',
-  'http://localhost',
-  'https://localhost',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-])
-
+// Only trusted origins may call the API with credentials (see src/lib/origins.ts).
 app.use(
   '/api/*',
   cors({
-    origin: (origin) => {
-      if (!origin) return '*'
-      if (ALLOWED_MOBILE_ORIGINS.has(origin) || origin.endsWith('.pages.dev')) {
-        return origin
-      }
-      return origin
-    },
+    origin: (origin, c) => (isAllowedOrigin(origin, c.req.url, c.env) ? origin : null),
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
     credentials: true,
     maxAge: 86400,
   })
 )
+
+// CORS only hides responses from other sites; it does not stop the request
+// itself. Refuse state-changing API calls sent by untrusted web pages (CSRF).
+app.use('/api/*', async (c, next) => {
+  if (isForbiddenCrossSiteWrite(c.req.method, c.req.header('Origin'), c.req.url, c.env)) {
+    return c.json({ error: 'Cross-site request refused', error_ar: 'تم رفض طلب من موقع خارجي' }, 403)
+  }
+  return next()
+})
 
 app.use(
   '/media/*',

@@ -151,3 +151,20 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
     refuse to set one;
   - migration `0007` replaces the seeded hash with a value that can never
     verify and revokes that account's refresh tokens.
+
+## 7. Cross-origin access (CORS) and CSRF
+
+- `src/lib/origins.ts` decides which browser origins may call `/api/*` with
+  credentials: the site's own domain (production, preview deployments, custom
+  domains), the Capacitor app shells (`capacitor://localhost`,
+  `https://localhost`), local dev servers, and any exact origins listed in the
+  optional `ALLOWED_ORIGINS` variable. Every other origin gets no
+  `Access-Control-Allow-Origin` header, so its pages cannot read API responses.
+- State-changing API calls (`POST`/`PATCH`/`DELETE`) that carry an `Origin`
+  header from any other site are refused with 403 before reaching a route.
+  This is the CSRF guard. Requests with no `Origin` (curl, servers, native HTTP
+  clients) are unaffected.
+- **History:** the previous CORS config returned the caller's origin in every
+  branch together with `Access-Control-Allow-Credentials: true`, so any website
+  was trusted. Even the intended rule (`*.pages.dev`) would have trusted sites
+  that anyone can publish for free.

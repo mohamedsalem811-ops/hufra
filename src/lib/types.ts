@@ -19,6 +19,8 @@ export interface Bindings {
   FCM_SERVER_KEY?: string
   /** Optional tile URL template overriding OpenStreetMap, e.g. https://.../{z}/{x}/{y}.png?key=... */
   TILE_UPSTREAM?: string
+  /** Extra origins allowed to call the API (comma-separated), e.g. a custom domain. See src/lib/origins.ts. */
+  ALLOWED_ORIGINS?: string
 }
 
 export interface AuthContext {
