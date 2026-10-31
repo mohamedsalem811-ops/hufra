@@ -37,7 +37,7 @@
     try {
       var data = await window.HufraApi.get('/auth/me');
       if (data.user.role !== 'admin' && data.user.role !== 'super_admin') {
-        location.href = '/';
+        window.HufraRouter ? window.HufraRouter.go('/') : (location.href = '/');
         return null;
       }
       currentUser = data.user;
@@ -48,7 +48,7 @@
       }
       return currentUser;
     } catch (e) {
-      location.href = '/login?redirect=/admin';
+      window.HufraRouter ? window.HufraRouter.go('/login?redirect=/admin') : (location.href = '/login?redirect=/admin');
       return null;
     }
   }
@@ -763,7 +763,9 @@
     });
   });
 
-  window.addEventListener('beforeunload', function () {
-    if (notifTimer) clearInterval(notifTimer);
-  });
+  function stopTimers() {
+    if (notifTimer) { clearInterval(notifTimer); notifTimer = null; }
+  }
+  window.addEventListener('beforeunload', stopTimers);
+  window.addEventListener('hufra:page-leave', stopTimers);
 })();

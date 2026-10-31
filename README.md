@@ -201,6 +201,10 @@ use them), donors, and admin rights.
 **iOS app (sideload for testing):** see
 [docs/MOBILE_AND_OFFLINE.md](docs/MOBILE_AND_OFFLINE.md) - build the unsigned
 IPA with the *Mobile Build* GitHub Action and install via Sideloadly/AltStore.
+The app bundles its own interface (instant tabs, works offline); only data is fetched.
+
+**Speed:** tabs use a client-side router (map stays alive), assets are versioned and cached
+immutably, and map tiles go through the edge-cached `/tiles` proxy (`TILE_UPSTREAM` to change provider).
 
 ## 7. Development
 

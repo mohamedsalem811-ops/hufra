@@ -5,7 +5,13 @@
 (function (global) {
   'use strict';
 
-  var TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  // Tiles go through our own edge-cached proxy (/tiles) so they are same-origin,
+  // cached for a week and keep working with the strict CSP. In the bundled
+  // native app the proxy lives on the API server, so prefix its base URL.
+  function tileUrl() {
+    var base = (global.HufraApi && global.HufraApi.getApiBase) ? global.HufraApi.getApiBase() : '';
+    return (base || '') + '/tiles/{z}/{x}/{y}.png';
+  }
   var TILE_ATTRIBUTION = '&copy; OpenStreetMap';
   var DEFAULT_CENTER = [32.85, 13.2]; // Greater Tripoli
   var DEFAULT_ZOOM = 11;
@@ -39,7 +45,7 @@
   }
 
   function tileLayer(opts) {
-    return global.L.tileLayer(TILE_URL, Object.assign({ maxZoom: 19, attribution: TILE_ATTRIBUTION }, opts || {}));
+    return global.L.tileLayer(tileUrl(), Object.assign({ maxZoom: 19, keepBuffer: 4, updateWhenIdle: false, attribution: TILE_ATTRIBUTION }, opts || {}));
   }
 
   function createMap(el, opts) {

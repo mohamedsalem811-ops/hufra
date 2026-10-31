@@ -17,6 +17,8 @@ export interface Bindings {
   ADMIN_WHATSAPP?: string
   PUSH_WEBHOOK_URL?: string
   FCM_SERVER_KEY?: string
+  /** Optional tile URL template overriding OpenStreetMap, e.g. https://.../{z}/{x}/{y}.png?key=... */
+  TILE_UPSTREAM?: string
 }
 
 export interface AuthContext {

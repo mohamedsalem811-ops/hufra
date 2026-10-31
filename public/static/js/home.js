@@ -145,7 +145,10 @@
       doubleClickZoom: false, touchZoom: false, keyboard: false,
     });
     map.setView(window.HufraMap.DEFAULT_CENTER, 10);
-    map.on('click', function () { location.href = '/map'; });
+    map.on('click', function () {
+      if (window.HufraRouter) window.HufraRouter.go('/map'); else location.href = '/map';
+    });
+    window.addEventListener('hufra:page-leave', function () { try { map.remove(); } catch (e) { /* gone */ } }, { once: true });
     window.HufraApi.get('/potholes?limit=60').then(function (data) {
       (data.results || []).forEach(function (p) {
         window.L.marker([p.lat, p.lng], { icon: window.HufraMap.pinIcon(p.status), interactive: false }).addTo(map);

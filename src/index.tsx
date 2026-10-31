@@ -12,6 +12,7 @@ import regionRoutes from './routes/regions'
 import adminRoutes from './routes/admin'
 import donorRoutes from './routes/donors'
 import notificationRoutes from './routes/notifications'
+import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
 import { renderMapPage } from './pages/map'
@@ -68,10 +69,9 @@ app.use(
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'", 'data:'],
-      imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: [
         "'self'",
-        'https://*.tile.openstreetmap.org',
         'https://nominatim.openstreetmap.org',
         'capacitor://localhost',
         'https://localhost',
@@ -103,6 +103,7 @@ app.route('/api/donors', donorRoutes)
 app.route('/api/notifications', notificationRoutes)
 
 app.route('/media', mediaRoutes)
+app.route('/tiles', tileRoutes)
 
 app.get('/', (c) => c.html(renderHomePage(c.env.ADMIN_WHATSAPP)))
 app.get('/map', (c) => c.html(renderMapPage()))

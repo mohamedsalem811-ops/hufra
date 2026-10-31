@@ -57,7 +57,9 @@ This document explains how the website and the Android/iOS mobile app connect to
 ## 3. iOS app for sideloading (testing)
 
 The iOS app is a native Capacitor shell (WKWebView, asphalt/yellow launch screen, haptics,
-status bar, camera, geolocation) that loads the **live HUFRA site**. App Store submission and
+status bar, camera, geolocation) that **bundles the HUFRA interface inside the app** (pages are pre-rendered from the real
+worker into `www/` by `scripts/build-app.mjs`), so tabs open instantly and the shell works
+offline. Only data (API, photos, map tiles) comes from the server. App Store submission and
 push notifications are intentionally out of scope for now: the goal is testing on real
 iPhones via Sideloadly / AltStore with a free Apple ID.
 
@@ -78,14 +80,31 @@ The IPA is unsigned on purpose; Sideloadly/AltStore sign it with your Apple ID.
 ### 3.3 Build locally on a Mac (optional)
 ```bash
 npm install
-CAPACITOR_SERVER_URL=https://hufra.pages.dev npx cap sync ios
+CAPACITOR_SERVER_URL=https://hufra.pages.dev npx cap sync ios   # builds the app bundle (www/) automatically
 npm run mobile:ios      # opens Xcode; pick your device and Run
 ```
-Without `CAPACITOR_SERVER_URL` the app shows the offline fallback page from `www/index.html`.
+`cap sync` runs the `capacitor:sync:before` hook (`npm run build:app`), which builds the web app and
+generates `www/`. `CAPACITOR_SERVER_URL` (default `https://hufra.pages.dev`) is baked in as the API,
+photo and map-tile server. After changing the UI, re-run *Mobile Build* to get a new IPA.
 
 ### 3.4 Android (debug APK)
 The same workflow also produces `HUFRA-android-debug.apk`.
 
 ### 3.5 Installable web app (PWA)
-On iOS Safari: Share -> *Add to Home Screen*. The service worker (`public/sw.js`, cache `hufra-v3`)
+On iOS Safari: Share -> *Add to Home Screen*. The service worker (`public/sw.js`, cache `hufra-v4`)
 pre-caches the shell, fonts, icons and the self-hosted Leaflet bundle (no third-party CDNs).
+
+## 4. Speed architecture
+
+- **Client router** (`public/static/js/router.js`): tab taps swap only `<main>`, footer and active-tab state
+  (View Transitions where supported) instead of reloading the page. The `/map` page is **kept alive**
+  (Leaflet instance and pins) while you visit other tabs. Pages are prefetched on touch/hover; on any
+  error the router falls back to a normal page load. Page scripts react to the `hufra:page-leave` /
+  `hufra:page-show` events.
+- **Cache busting**: first-party `/static/css|js` URLs carry `?v=<build id>` (commit SHA on Cloudflare Pages), so
+  `public/_headers` can cache them for a year (`immutable`).
+- **Map tiles**: served from our own origin at `/tiles/{z}/{x}/{y}.png` (edge-cached 7 days, also cached by the
+  service worker). Default upstream is OpenStreetMap; set the `TILE_UPSTREAM` variable (e.g. a MapTiler URL
+  template with `{z}/{x}/{y}`) to switch provider without code changes.
+- **Map pins** are cached in `localStorage` so the map paints instantly, then refreshes in the background.
+- **iOS app**: bundled interface (above) and no live blur on bars (`html.is-native` in `app.css`).

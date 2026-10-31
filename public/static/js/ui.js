@@ -107,7 +107,7 @@
             var rt = window.HufraApi.getRefreshToken && window.HufraApi.getRefreshToken();
             await window.HufraApi.post('/auth/logout', rt ? { refresh_token: rt } : {}).catch(function () {});
             window.HufraApi.setAccessToken(null);
-            location.href = '/';
+            window.HufraRouter ? window.HufraRouter.go('/') : (location.href = '/');
           });
         }
       } else {

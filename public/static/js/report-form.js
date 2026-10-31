@@ -32,6 +32,7 @@
     state.lng = TRIPOLI_CENTER[1];
     if (typeof L === 'undefined') return;
     map = window.HufraMap.createMap('report-map', { zoomControl: true });
+    window.addEventListener('hufra:page-leave', function () { try { map.remove(); } catch (e) { /* gone */ } }, { once: true });
     map.setView(TRIPOLI_CENTER, 12);
 
     marker = L.marker(TRIPOLI_CENTER, { draggable: true, icon: window.HufraMap.pinIcon('reported', { large: true }) }).addTo(map);
@@ -408,6 +409,8 @@
       autofillBtn.addEventListener('click', autofillStreetFromPin);
     }
     document.getElementById('report-form').addEventListener('submit', submitReport);
-    document.getElementById('new-report-btn').addEventListener('click', function () { location.reload(); });
+    document.getElementById('new-report-btn').addEventListener('click', function () {
+      if (window.HufraRouter) window.HufraRouter.go('/report', { force: true }); else location.reload();
+    });
   });
 })();
