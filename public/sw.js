@@ -1,5 +1,5 @@
 // HUFRA Service Worker (public/sw.js)
-const CACHE_VERSION = 'hufra-v2';
+const CACHE_VERSION = 'hufra-v3';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const DATA_CACHE = `${CACHE_VERSION}-data`;
 
@@ -16,6 +16,22 @@ const APP_SHELL_URLS = [
   '/favicon.svg',
   '/manifest.webmanifest',
   '/static/css/tokens.css',
+  '/static/css/fonts.css',
+  '/static/vendor/leaflet/leaflet.css',
+  '/static/vendor/leaflet/leaflet.js',
+  '/static/vendor/leaflet/MarkerCluster.css',
+  '/static/vendor/leaflet/MarkerCluster.Default.css',
+  '/static/vendor/leaflet/leaflet.markercluster.js',
+  '/static/vendor/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2',
+  '/static/vendor/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2',
+  '/static/vendor/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2',
+  '/static/vendor/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2',
+  '/static/vendor/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2',
+  '/static/vendor/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2',
+  '/static/js/icons.js',
+  '/static/js/map-common.js',
+  '/static/img/icons/icon-192.png',
+  '/static/img/icons/icon-512.png',
   '/static/css/app.css',
   '/static/js/i18n.js',
   '/static/js/theme.js',
@@ -173,8 +189,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/static/img/icons/icon-192.png',
+      badge: '/static/img/icons/icon-192.png',
       dir: 'auto',
       data: { url: payload.url || '/' },
     })

@@ -101,6 +101,7 @@ the route source files (`src/routes/*.ts`); this is the entry-point index.
 | POST | `/api/auth/login` | none | Login (email + password only, any role) |
 | POST | `/api/auth/refresh` | refresh cookie | Rotate access token |
 | POST | `/api/auth/logout` | none | Clear session cookies |
+| POST | `/api/auth/change-password` | access token | Change own password (rate-limited, revokes refresh tokens) |
 | GET | `/api/auth/me` | access token | Current user profile |
 | GET | `/api/auth/me/export` | access token | Export own account + reports (GDPR) |
 | POST | `/api/auth/me/delete` | access token | Soft-delete own account (GDPR) |
@@ -111,12 +112,15 @@ the route source files (`src/routes/*.ts`); this is the entry-point index.
 | PATCH | `/api/potholes/:id/status` | admin/super_admin | Transition report status |
 | GET | `/api/potholes/mine/list` | access token | Reports submitted by the current user |
 | GET | `/api/potholes/top-reporter` | none | Registered user with the most reports (KV-cached 60s) |
+| GET | `/api/potholes/showcase` | none | Home-page photo showcase: `{fixed, in_progress}` (before/during/after thumbs, KV-cached 60s) |
+| DELETE | `/api/potholes/:id` | admin/super_admin | Soft-delete a report and its photos |
 | POST | `/api/photos/:potholeId` | none (optional) | Upload a photo (multipart `full`+`thumb`) |
 | DELETE | `/api/photos/:photoId` | admin/super_admin | Soft-delete a photo |
 | GET | `/media/:key` | none | Stream a photo/thumbnail from R2 |
 | GET | `/api/regions` | none | List active regions (`?all=1` includes inactive) |
 | POST | `/api/regions` | admin/super_admin | Create a region |
 | PATCH | `/api/regions/:id` | admin/super_admin | Update a region |
+| DELETE | `/api/regions/:id` | admin/super_admin | Delete a region (409 if any report references it) |
 | GET | `/api/donors/top` | none | Highest-amount donor (name + amount in LYD), or `null` |
 | GET | `/api/donors` | admin/super_admin | Full donor list, ordered by amount |
 | POST | `/api/donors` | admin/super_admin | Record a new donor entry (name, amount_lyd, optional note) |
@@ -131,6 +135,7 @@ the route source files (`src/routes/*.ts`); this is the entry-point index.
 | GET | `/api/admin/audit-logs` | super_admin | Immutable audit trail viewer |
 | GET | `/api/admin/admins` | super_admin | List admin/super_admin accounts |
 | POST | `/api/admin/admins/promote` | super_admin | Promote a user to `admin`/`super_admin` |
+| POST | `/api/admin/admins/demote` | super_admin | Remove admin rights (not yourself, not the last super admin) |
 
 Public pages: `/`, `/map`, `/report`, `/transparency`, `/trust`,
 `/pothole/:id`, `/login`, `/register`, `/account`, `/admin`.
@@ -173,6 +178,30 @@ review incoming reports, resolve flagged duplicates, transition report
 status, and (for `super_admin`) manage other admins and view the immutable
 audit log.
 
+**Default login (testing):** the first super admin is created by migration
+`0006` and auto-repaired on login:
+
+| | |
+|---|---|
+| Email | `admin@hufra.ly` |
+| Password | `Hufra@Admin2026!` |
+| Role | `super_admin` (login at `/login`, dashboard at `/admin`) |
+
+This credential is public in the repository. Change it right away from
+`/account` -> *Change password*, and always set a strong `JWT_SECRET`
+(`wrangler pages secret put JWT_SECRET`; locally put it in `.dev.vars`).
+
+**Admin delete controls** (every delete asks for confirmation and is audited):
+reports (card and detail), individual photos, regions (blocked while reports
+use them), donors, and admin rights.
+
+**Home page showcase:** the homepage keeps photos of reports that are
+*under repair* (before + during) and *fixed* (before + after).
+
+**iOS app (sideload for testing):** see
+[docs/MOBILE_AND_OFFLINE.md](docs/MOBILE_AND_OFFLINE.md) - build the unsigned
+IPA with the *Mobile Build* GitHub Action and install via Sideloadly/AltStore.
+
 ## 7. Development
 
 ```bash
@@ -185,7 +214,7 @@ npm run db:migrate:local
 npm run db:seed         # re-applies the region seed data
 
 # Tests
-npm test                # vitest run — 155 tests
+npm test                # vitest run — 171 tests
 npm run test:coverage   # + v8 coverage report (text/html/lcov/json-summary)
 ```
 

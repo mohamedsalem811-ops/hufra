@@ -13,6 +13,11 @@ export const registerSchema = z.object({
   }),
 })
 
+export const changePasswordSchema = z.object({
+  current_password: z.string().min(1).max(128),
+  new_password: passwordSchema,
+})
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(128),

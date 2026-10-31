@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Bindings, UserRow } from '../lib/types'
-import { registerSchema, loginSchema } from '../lib/validation'
+import { registerSchema, loginSchema, changePasswordSchema } from '../lib/validation'
 import { hashPassword, verifyPassword } from '../lib/password'
 import {
   signJwt,
@@ -227,6 +227,40 @@ auth.post('/logout', async (c) => {
   }
   c.header('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`, { append: true })
   c.header('Set-Cookie', `hufra_refresh=; Path=/; HttpOnly; Max-Age=0`, { append: true })
+  return c.json({ ok: true })
+})
+
+auth.post('/change-password', requireAuth(), async (c) => {
+  const authCtx = c.get('auth')!
+  const ip = clientIp(c)
+  const rl = await checkRateLimit(c.env.KV, 'chpw', String(authCtx.userId), 5, 15 * 60)
+  if (!rl.allowed) {
+    return c.json({ error: 'Too many attempts, please try again later', error_ar: 'محاولات كثيرة جداً، حاول لاحقاً' }, 429)
+  }
+  const body = await c.req.json().catch(() => null)
+  const parsed = changePasswordSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Password must be at least 8 characters', error_ar: 'كلمة المرور 8 أحرف على الأقل' }, 400)
+  }
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL').bind(authCtx.userId).first<UserRow>()
+  if (!user || !(await verifyPassword(parsed.data.current_password, user.password_hash))) {
+    return c.json({ error: 'Current password is incorrect', error_ar: 'كلمة المرور الحالية غير صحيحة' }, 401)
+  }
+  const newHash = await hashPassword(parsed.data.new_password)
+  await c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, user.id).run()
+  // Sign out every other session: revoke all refresh tokens issued so far.
+  await c.env.DB.prepare(
+    `UPDATE refresh_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ? AND revoked_at IS NULL`
+  )
+    .bind(user.id)
+    .run()
+  await recordAudit(c.env.DB, {
+    actorId: user.id,
+    action: 'user.change_password',
+    entity: 'users',
+    entityId: user.id,
+    ipHash: await hashIp(ip, c.env.JWT_SECRET),
+  })
   return c.json({ ok: true })
 })
 

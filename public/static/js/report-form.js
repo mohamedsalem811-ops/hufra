@@ -31,11 +31,10 @@
     state.lat = TRIPOLI_CENTER[0];
     state.lng = TRIPOLI_CENTER[1];
     if (typeof L === 'undefined') return;
-    map = L.map('report-map');
+    map = window.HufraMap.createMap('report-map', { zoomControl: true });
     map.setView(TRIPOLI_CENTER, 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    marker = L.marker(TRIPOLI_CENTER, { draggable: true }).addTo(map);
+    marker = L.marker(TRIPOLI_CENTER, { draggable: true, icon: window.HufraMap.pinIcon('reported', { large: true }) }).addTo(map);
     marker.on('dragend', function () {
       var pos = marker.getLatLng();
       state.lat = pos.lat;
@@ -142,7 +141,7 @@
 
       if (photo.fullBytes) {
         var kbBadge = document.createElement('span');
-        kbBadge.style.cssText = 'position:absolute;bottom:6px;inset-inline-start:6px;background:rgba(0,0,0,0.68);color:#fff;font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:999px;';
+        kbBadge.className = 'photo-kb';
         kbBadge.textContent = Math.max(1, Math.round(photo.fullBytes / 1024)) + ' KB';
         slot.appendChild(kbBadge);
       }
@@ -151,7 +150,7 @@
       removeBtn.type = 'button';
       removeBtn.className = 'remove-photo';
       removeBtn.setAttribute('aria-label', 'Remove photo');
-      removeBtn.innerHTML = '<i data-lucide="x" style="width:16px;height:16px;"></i>';
+      removeBtn.innerHTML = '<i data-lucide="x" class="icon icon-sm"></i>';
       removeBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -171,7 +170,7 @@
       icon.setAttribute('data-lucide', 'camera');
       icon.className = 'icon-xl';
       var span = document.createElement('span');
-      span.style.fontSize = '0.85rem';
+      span.className = 'small';
       span.setAttribute('data-i18n', 'report_take_photo');
       span.textContent = window.HufraI18n.t('report_take_photo');
       var input = document.createElement('input');
@@ -247,6 +246,7 @@
       else if (s < step) el.classList.add('is-done');
     });
     state.step = step;
+    if (window.HufraUI) window.HufraUI.haptic('selection');
     if (step === 1 && map) {
       setTimeout(function () { map.invalidateSize(); }, 50);
     }
@@ -298,6 +298,9 @@
     var t = window.HufraI18n.t;
     document.getElementById('report-form').classList.add('hidden');
     document.getElementById('report-stepper').classList.add('hidden');
+    var headEl = document.getElementById('report-head');
+    if (headEl) headEl.classList.add('hidden');
+    if (window.HufraUI) window.HufraUI.haptic('success');
     var successPanel = document.getElementById('report-success-panel');
     successPanel.classList.remove('hidden');
 
@@ -393,6 +396,12 @@
     initStepNav();
     initSeverityChips();
     renderPhotoSlots();
+    var headBack = document.getElementById('report-back-btn');
+    if (headBack) {
+      headBack.addEventListener('click', function (e) {
+        if (state.step > 1) { e.preventDefault(); goToStep(state.step - 1); }
+      });
+    }
     document.getElementById('locate-btn').addEventListener('click', locateMe);
     var autofillBtn = document.getElementById('autofill-street-btn');
     if (autofillBtn) {

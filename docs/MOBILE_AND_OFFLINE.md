@@ -54,24 +54,42 @@ This document explains how the website and the Android/iOS mobile app connect to
   - When `FCM_SERVER_KEY` or `PUSH_WEBHOOK_URL` is configured in Cloudflare Worker secrets, `notifyUser()` and `notifyAdmins()` automatically dispatch localized Arabic/English push payloads to all active `device_push_tokens` for the target user/admin.
   - In addition, active app/PWA sessions deliver OS/Service Worker notifications via `HufraBridge.showLocalNotification()`.
 
-## 3. Building the Mobile App (Android & iOS via Capacitor)
+## 3. iOS app for sideloading (testing)
 
-1. **Install dependencies and apply the new D1 migration**:
-   ```bash
-   npm install
-   npm run db:migrate:local
-   ```
-2. **Initialize native Android / iOS projects (first time only)**:
-   ```bash
-   npm run mobile:init
-   ```
-3. **Sync web build with Capacitor pointing to your deployed Cloudflare Pages URL**:
-   ```bash
-   CAPACITOR_SERVER_URL=https://hufra.pages.dev npm run mobile:sync
-   ```
-4. **Open in Android Studio or Xcode to build APK/AAB or IPA**:
-   ```bash
-   npm run mobile:android
-   # or on macOS:
-   npm run mobile:ios
-   ```
+The iOS app is a native Capacitor shell (WKWebView, asphalt/yellow launch screen, haptics,
+status bar, camera, geolocation) that loads the **live HUFRA site**. App Store submission and
+push notifications are intentionally out of scope for now: the goal is testing on real
+iPhones via Sideloadly / AltStore with a free Apple ID.
+
+### 3.1 Get the IPA (no Mac needed)
+1. Deploy the web app (Cloudflare Pages) and note its URL, e.g. `https://hufra.pages.dev`.
+2. GitHub -> **Actions** -> *Mobile Build* -> **Run workflow**, paste that URL as `server_url`.
+3. When finished, download the **HUFRA-iOS-IPA** artifact (`HUFRA-ios-unsigned.ipa`, unzip once).
+
+The IPA is unsigned on purpose; Sideloadly/AltStore sign it with your Apple ID.
+
+> Note: an improved workflow (skips the redundant web build, targets `generic/platform=iOS`)
+> is kept at `docs/workflows/mobile-build.yml`. The bot token used for PRs cannot edit
+> `.github/workflows/`, so copy it over `.github/workflows/mobile-build.yml` yourself if you want it.
+> The workflow already in the repo also works with the current Capacitor config.
+
+### 3.2 Install it
+- **Sideloadly** (Windows/macOS): connect the iPhone, drag the `.ipa` in, enter your Apple ID, press *Start*.
+- **AltStore**: install AltServer on your computer, then in AltStore *My Apps -> +* and pick the `.ipa`.
+- On the iPhone: *Settings -> General -> VPN & Device Management* -> trust your Apple ID.
+- Free Apple IDs expire after **7 days** and allow 3 sideloaded apps; just re-install/refresh.
+
+### 3.3 Build locally on a Mac (optional)
+```bash
+npm install
+CAPACITOR_SERVER_URL=https://hufra.pages.dev npx cap sync ios
+npm run mobile:ios      # opens Xcode; pick your device and Run
+```
+Without `CAPACITOR_SERVER_URL` the app shows the offline fallback page from `www/index.html`.
+
+### 3.4 Android (debug APK)
+The same workflow also produces `HUFRA-android-debug.apk`.
+
+### 3.5 Installable web app (PWA)
+On iOS Safari: Share -> *Add to Home Screen*. The service worker (`public/sw.js`, cache `hufra-v3`)
+pre-caches the shell, fonts, icons and the self-hosted Leaflet bundle (no third-party CDNs).

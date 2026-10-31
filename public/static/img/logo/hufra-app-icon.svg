@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Full-bleed square (iOS/Android apply their own mask). Hazard yellow field + asphalt pothole mark. -->
+  <rect width="1024" height="1024" fill="#FFCE00"/>
+  <g transform="translate(512 512)">
+    <g stroke="#111111" stroke-width="30" stroke-linecap="round">
+      <line x1="0" y1="-250" x2="0" y2="-336"/>
+      <line x1="108" y1="-226" x2="156" y2="-300"/>
+      <line x1="196" y1="-156" x2="276" y2="-188"/>
+      <line x1="196" y1="156" x2="276" y2="188"/>
+      <line x1="108" y1="226" x2="156" y2="300"/>
+      <line x1="0" y1="250" x2="0" y2="336"/>
+      <line x1="-108" y1="226" x2="-156" y2="300"/>
+      <line x1="-196" y1="156" x2="-276" y2="188"/>
+      <line x1="-196" y1="-156" x2="-276" y2="-188"/>
+      <line x1="-108" y1="-226" x2="-156" y2="-300"/>
+    </g>
+    <path d="M0 -168 L96 -150 L172 -40 L156 96 L40 172 L-90 160 L-166 70 L-160 -70 L-84 -150 Z" fill="#111111"/>
+  </g>
+</svg>

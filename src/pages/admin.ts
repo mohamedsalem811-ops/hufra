@@ -2,27 +2,27 @@ import { renderLayout } from './layout'
 
 export function renderAdminPage(): string {
   const body = `
-<div class="container" style="padding-block: var(--space-5);" id="admin-root">
-  <div class="flex justify-between items-center mb-4" style="flex-wrap:wrap; gap:12px;">
-    <h1 class="section-title" style="margin:0;" data-i18n="admin_dashboard">لوحة الإدارة</h1>
+<div class="container page-narrow page-wide" id="admin-root">
+  <div class="flex justify-between items-center mb-4 wrap-gap">
+    <h1 class="page-title page-title--flush" data-i18n="admin_dashboard">لوحة الإدارة</h1>
     <button type="button" class="btn btn-icon btn-secondary bell-wrapper" id="notif-bell" aria-label="Notifications">
       <i data-lucide="bell" class="icon"></i>
       <span class="bell-badge hidden" id="notif-count">0</span>
     </button>
   </div>
 
-  <div class="map-toolbar" style="padding-inline:0; border:none;" role="tablist">
-    <button type="button" class="btn btn-secondary" data-tab="reports" data-i18n="admin_reports_queue">طابور البلاغات</button>
-    <button type="button" class="btn btn-secondary" data-tab="duplicates" data-i18n="admin_duplicates">بلاغات مكررة محتملة</button>
-    <button type="button" class="btn btn-secondary" data-tab="analytics" data-i18n="admin_analytics">التحليلات</button>
-    <button type="button" class="btn btn-secondary" data-tab="regions" data-i18n="admin_regions">إدارة المناطق</button>
-    <button type="button" class="btn btn-secondary" data-tab="donors" data-i18n="admin_donors">إدارة الداعمين</button>
-    <button type="button" class="btn btn-secondary hidden" data-tab="admins" id="admins-tab-btn" data-i18n="admin_manage_admins">إدارة المشرفين</button>
-    <button type="button" class="btn btn-secondary hidden" data-tab="audit" id="audit-tab-btn" data-i18n="admin_audit_log">سجل التدقيق</button>
+  <div class="admin-tabs" role="tablist">
+    <button type="button" class="admin-tab-btn" role="tab" data-tab="reports" data-i18n="admin_reports_queue">طابور البلاغات</button>
+    <button type="button" class="admin-tab-btn" role="tab" data-tab="duplicates" data-i18n="admin_duplicates">بلاغات مكررة محتملة</button>
+    <button type="button" class="admin-tab-btn" role="tab" data-tab="analytics" data-i18n="admin_analytics">التحليلات</button>
+    <button type="button" class="admin-tab-btn" role="tab" data-tab="regions" data-i18n="admin_regions">إدارة المناطق</button>
+    <button type="button" class="admin-tab-btn" role="tab" data-tab="donors" data-i18n="admin_donors">إدارة الداعمين</button>
+    <button type="button" class="admin-tab-btn hidden" role="tab" data-tab="admins" id="admins-tab-btn" data-i18n="admin_manage_admins">إدارة المشرفين</button>
+    <button type="button" class="admin-tab-btn hidden" role="tab" data-tab="audit" id="audit-tab-btn" data-i18n="admin_audit_log">سجل التدقيق</button>
   </div>
 
   <div id="admin-tab-reports" class="admin-tab">
-    <div id="reports-status-filter" class="flex gap-2 mb-3" style="flex-wrap:wrap;">
+    <div id="reports-status-filter" class="flex gap-2 mb-3 wrap-gap">
       <button type="button" class="chip-option is-selected" data-status="" data-i18n="map_filter_all">الكل</button>
       <button type="button" class="chip-option" data-status="reported" data-i18n="status_reported">تم الإبلاغ</button>
       <button type="button" class="chip-option" data-status="verified" data-i18n="status_verified">تم التحقق</button>
@@ -37,15 +37,15 @@ export function renderAdminPage(): string {
         <span data-i18n="admin_export_csv">تصدير أوامر عمل (CSV)</span>
       </button>
     </div>
-    <div id="reports-list"><div class="skeleton" style="height:80px;"></div></div>
+    <div id="reports-list"><div class="skeleton skeleton-h80"></div></div>
   </div>
 
   <div id="admin-tab-duplicates" class="admin-tab hidden">
-    <div id="duplicates-list"><div class="skeleton" style="height:80px;"></div></div>
+    <div id="duplicates-list"><div class="skeleton skeleton-h80"></div></div>
   </div>
 
   <div id="admin-tab-analytics" class="admin-tab hidden">
-    <div class="grid grid-2" id="analytics-content"><div class="skeleton" style="height:200px;"></div></div>
+    <div class="grid grid-2" id="analytics-content"><div class="skeleton skeleton-h200"></div></div>
   </div>
 
   <div id="admin-tab-regions" class="admin-tab hidden">
@@ -60,7 +60,7 @@ export function renderAdminPage(): string {
         <button type="submit" class="btn btn-primary" data-i18n="save">حفظ</button>
       </form>
     </div>
-    <div id="regions-table" class="table-responsive card"><div class="skeleton" style="height:80px;"></div></div>
+    <div id="regions-table" class="table-responsive card"><div class="skeleton skeleton-h80"></div></div>
   </div>
 
   <div id="admin-tab-donors" class="admin-tab hidden">
@@ -74,7 +74,7 @@ export function renderAdminPage(): string {
         <button type="submit" class="btn btn-primary" data-i18n="save">حفظ</button>
       </form>
     </div>
-    <div id="donors-table" class="table-responsive card"><div class="skeleton" style="height:80px;"></div></div>
+    <div id="donors-table" class="table-responsive card"><div class="skeleton skeleton-h80"></div></div>
   </div>
 
   <div id="admin-tab-admins" class="admin-tab hidden">
@@ -89,23 +89,24 @@ export function renderAdminPage(): string {
         <button type="submit" class="btn btn-primary" data-i18n="admin_promote_btn">ترقية الحساب</button>
       </form>
     </div>
-    <div id="admins-table" class="table-responsive card"><div class="skeleton" style="height:80px;"></div></div>
+    <div id="admins-table" class="table-responsive card"><div class="skeleton skeleton-h80"></div></div>
   </div>
 
   <div id="admin-tab-audit" class="admin-tab hidden">
-    <div id="audit-list" class="table-responsive card"><div class="skeleton" style="height:80px;"></div></div>
+    <div id="audit-list" class="table-responsive card"><div class="skeleton skeleton-h80"></div></div>
   </div>
 </div>
 
 <!-- Report review modal -->
-<div id="report-modal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px;">
-  <div class="card" style="max-width:640px; width:100%; max-height:90vh; overflow-y:auto;" id="report-modal-content"></div>
+<div id="report-modal" class="modal-overlay hidden">
+  <div class="card modal-card" id="report-modal-content"></div>
 </div>
 `
 
   return renderLayout(body, {
     title: 'لوحة الإدارة',
     activeNav: 'admin',
+    bodyClass: 'hide-tabbar',
     withMap: false,
     extraScripts: `<script src="/static/js/image-compress.js"></script><script src="/static/js/admin.js"></script>`,
   })

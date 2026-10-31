@@ -10,10 +10,16 @@
       var data = await window.HufraApi.get('/auth/me');
       var t = window.HufraI18n.t;
       var user = data.user;
+      var initial = escapeHtml((user.email || '?').charAt(0).toUpperCase());
       document.getElementById('account-info').innerHTML =
-        '<p><strong>' + t('login_email') + ':</strong> ' + escapeHtml(user.email) + '</p>' +
-        '<p><strong>' + t('your_code') + ':</strong> ' + escapeHtml(user.code) + '</p>' +
-        '<p><strong>Role:</strong> ' + escapeHtml(user.role) + '</p>';
+        '<div class="list-row profile-row">' +
+          '<span class="avatar" aria-hidden="true">' + initial + '</span>' +
+          '<div class="profile-meta">' +
+            '<div class="profile-email" data-selectable>' + escapeHtml(user.email) + '</div>' +
+            '<div class="text-secondary small">' + t('your_code') + ': <strong data-selectable>' + escapeHtml(user.code) + '</strong></div>' +
+            '<div class="text-secondary small">' + t('account_role') + ': ' + escapeHtml(user.role) + '</div>' +
+          '</div>' +
+        '</div>';
     } catch (e) {
       if (navigator.onLine === false) return;
       location.href = '/login?redirect=/account';
@@ -39,12 +45,12 @@
       var date = new Date(item.created_at).toLocaleString(locale === 'ar' ? 'ar-LY' : 'en-GB');
       var sev = item.payload && item.payload.severity ? t('severity_' + item.payload.severity) : '';
       var photosCount = (item.photos && item.photos.length) || 0;
-      return '<div class="card mb-2" style="border-inline-start: 4px solid var(--color-warning);">' +
+      return '<div class="card mb-2 card-queued">' +
         '<div class="flex justify-between items-center">' +
           '<strong>' + escapeHtml(sev) + ' (' + photosCount + ' ' + t('report_step_photos') + ')</strong>' +
-          '<span class="badge" style="background:#FDECD9;color:#C7620F;">Offline Queue</span>' +
+          '<span class="badge badge-warn">' + t('offline_queue_badge') + '</span>' +
         '</div>' +
-        '<div class="text-secondary mt-1" style="font-size:0.85rem;">' + escapeHtml(date) + '</div>' +
+        '<div class="text-secondary mt-1 small">' + escapeHtml(date) + '</div>' +
       '</div>';
     }).join('');
 
@@ -73,11 +79,11 @@
       container.innerHTML = data.results.map(function (report) {
         var regionName = locale === 'ar' ? report.region_name_ar : report.region_name_en;
         var date = new Date(report.created_at).toLocaleDateString(locale === 'ar' ? 'ar-LY' : 'en-GB');
-        return '<a href="/pothole/' + report.id + '" class="card card-hover mb-3" style="display:block;">' +
+        return '<a href="/pothole/' + report.id + '" class="card card-hover card-link mb-3">' +
           '<div class="flex justify-between items-center">' +
-            '<strong>' + escapeHtml(regionName || '') + '</strong>' + statusBadge(report.status) +
+            '<strong>#' + report.id + ' · ' + escapeHtml(regionName || '') + '</strong>' + statusBadge(report.status) +
           '</div>' +
-          '<div class="text-secondary mt-1" style="font-size:0.85rem;">' + escapeHtml(date) + '</div>' +
+          '<div class="text-secondary mt-1 small">' + escapeHtml(date) + '</div>' +
         '</a>';
       }).join('');
     } catch (e) {
@@ -93,7 +99,7 @@
       var enabled = window.HufraBridge.isPushEnabled();
       var t = window.HufraI18n.t;
       btn.textContent = enabled ? t('push_enabled') : t('push_enable');
-      btn.className = enabled ? 'btn btn-success' : 'btn btn-primary';
+      btn.className = enabled ? 'btn btn-success mt-2' : 'btn btn-primary mt-2';
     }
     syncLabel();
 
@@ -132,8 +138,34 @@
       }
     });
 
+    var cpForm = document.getElementById('change-password-form');
+    if (cpForm) {
+      cpForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var t = window.HufraI18n.t;
+        var btn = document.getElementById('cp-submit');
+        var current = document.getElementById('cp-current').value;
+        var next = document.getElementById('cp-new').value;
+        if (next.length < 8) {
+          window.HufraUI.showToast(t('register_password_hint'), 'error');
+          return;
+        }
+        btn.disabled = true;
+        try {
+          await window.HufraApi.post('/auth/change-password', { current_password: current, new_password: next });
+          cpForm.reset();
+          window.HufraUI.showToast(t('account_password_changed'), 'success');
+          // Other sessions were revoked; this one keeps working until its access token expires.
+        } catch (err) {
+          window.HufraUI.showToast(err.message || t('error_generic'), 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
     document.getElementById('delete-account-btn').addEventListener('click', async function () {
-      if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
+      if (!(await window.HufraUI.confirm(window.HufraI18n.t('account_delete_confirm')))) return;
       try {
         await window.HufraApi.post('/auth/me/delete');
         window.HufraApi.setAccessToken(null);

@@ -2,8 +2,13 @@ import { renderLayout } from './layout'
 
 export function renderReportPage(): string {
   const body = `
-<div class="container" style="max-width: 720px; padding-block: var(--space-5);">
-  <h1 class="section-title" data-i18n="report_pothole">بلّغ عن حفرة</h1>
+<div class="container page-narrow">
+  <div class="page-head" id="report-head">
+    <a href="/" class="btn btn-icon btn-secondary back-btn" id="report-back-btn" data-i18n-aria-label="back" aria-label="Back">
+      <i data-lucide="arrow-right" class="icon icon-flip"></i>
+    </a>
+    <h1 data-i18n="report_pothole">بلّغ عن حفرة</h1>
+  </div>
 
   <div class="stepper" id="report-stepper">
     <div class="step is-active" data-step="1"><span data-i18n="report_step_location">الموقع</span></div>
@@ -17,16 +22,17 @@ export function renderReportPage(): string {
     <section class="report-step" data-step="1">
       <div class="card">
         <p class="text-secondary mb-3" data-i18n="report_location_hint">اسحب الدبوس لتصحيح الموقع بدقة</p>
-        <div id="report-map" style="height: 320px; border-radius: var(--radius-card); overflow:hidden;"></div>
+        <div id="report-map" class="report-map"></div>
         <button type="button" class="btn btn-secondary btn-block mt-3" id="locate-btn">
           <i data-lucide="locate-fixed" class="icon"></i>
           <span data-i18n="report_locate_button">حدد موقعي الحالي</span>
         </button>
         <p class="hint mt-2" id="location-status"></p>
       </div>
-      <div class="flex justify-between mt-4">
-        <span></span>
-        <button type="button" class="btn btn-primary" data-action="next" data-i18n="next">التالي</button>
+      <div class="action-bar">
+        <button type="button" class="btn btn-primary" data-action="next">
+          <span data-i18n="next">التالي</span>
+        </button>
       </div>
     </section>
 
@@ -37,15 +43,17 @@ export function renderReportPage(): string {
         <div class="grid grid-3" id="photo-slots">
           <label class="photo-slot" data-slot="0">
             <i data-lucide="camera" class="icon-xl"></i>
-            <span data-i18n="report_take_photo" style="font-size:0.85rem;">التقاط صورة</span>
+            <span data-i18n="report_take_photo" class="small">التقاط صورة</span>
             <input type="file" accept="image/*" capture="environment" class="visually-hidden" data-input="0">
           </label>
         </div>
         <p class="hint mt-2" id="photo-status"></p>
       </div>
-      <div class="flex justify-between mt-4">
+      <div class="action-bar">
         <button type="button" class="btn btn-secondary" data-action="back" data-i18n="back">رجوع</button>
-        <button type="button" class="btn btn-primary" data-action="next" data-i18n="next">التالي</button>
+        <button type="button" class="btn btn-primary" data-action="next">
+          <span data-i18n="next">التالي</span>
+        </button>
       </div>
     </section>
 
@@ -53,10 +61,10 @@ export function renderReportPage(): string {
     <section class="report-step hidden" data-step="3">
       <div class="card">
         <div class="field">
-          <div class="flex justify-between items-center mb-2" style="flex-wrap:wrap;gap:8px;">
-            <label for="street_ar" style="margin:0;" data-i18n="report_street_ar">اسم الشارع أو أقرب معلم دال</label>
-            <button type="button" class="btn btn-outline" style="min-height:34px;padding:0 12px;font-size:0.82rem;" id="autofill-street-btn">
-              <i data-lucide="sparkles" class="icon" style="width:16px;height:16px;"></i>
+          <div class="flex justify-between items-center mb-2 wrap-gap">
+            <label for="street_ar" class="label-flush" data-i18n="report_street_ar">اسم الشارع أو أقرب معلم دال</label>
+            <button type="button" class="btn btn-outline btn-sm" id="autofill-street-btn">
+              <i data-lucide="sparkles" class="icon icon-sm"></i>
               <span data-i18n="report_autofill_street">تعبئة تلقائية من موقع الدبوس</span>
             </button>
           </div>
@@ -104,18 +112,21 @@ export function renderReportPage(): string {
           <input class="input" type="tel" id="reporter_contact" name="reporter_contact" maxlength="120">
         </div>
       </div>
-      <div class="flex justify-between mt-4">
+      <div class="action-bar">
         <button type="button" class="btn btn-secondary" data-action="back" data-i18n="back">رجوع</button>
-        <button type="button" class="btn btn-primary" data-action="next" data-i18n="next">التالي</button>
+        <button type="button" class="btn btn-primary" data-action="next">
+          <span data-i18n="next">التالي</span>
+        </button>
       </div>
     </section>
 
     <!-- Step 4: Review -->
     <section class="report-step hidden" data-step="4">
       <div class="card" id="review-summary"></div>
-      <div class="flex justify-between mt-4">
+      <div class="action-bar">
         <button type="button" class="btn btn-secondary" data-action="back" data-i18n="back">رجوع</button>
-        <button type="submit" class="btn btn-primary btn-lg" id="submit-report-btn">
+        <button type="submit" class="btn btn-primary" id="submit-report-btn">
+          <i data-lucide="send" class="icon"></i>
           <span data-i18n="report_submit">إرسال البلاغ</span>
         </button>
       </div>
@@ -123,8 +134,8 @@ export function renderReportPage(): string {
   </form>
 
   <!-- Success panel -->
-  <div class="card hidden" id="report-success-panel" style="text-align:center;">
-    <i data-lucide="check-circle" class="icon-xl" style="color: var(--color-success); margin-inline:auto;"></i>
+  <div class="card hidden success-panel" id="report-success-panel">
+    <span class="success-mark"><i data-lucide="check" class="icon-xl"></i></span>
     <h2 class="mt-3" data-i18n="report_success_title">تم استلام بلاغك</h2>
     <p class="text-secondary" data-i18n="report_success_desc">شكراً لمساهمتك. سيقوم فريق المتابعة بمراجعة البلاغ قريباً.</p>
     <div class="status-tracker mt-5" id="success-status-tracker">
@@ -133,7 +144,7 @@ export function renderReportPage(): string {
       <div class="stage"><div class="dot"></div><div class="label" data-i18n="status_under_repair">قيد الإصلاح</div></div>
       <div class="stage"><div class="dot"></div><div class="label" data-i18n="status_fixed">تم الإصلاح</div></div>
     </div>
-    <div class="flex justify-between mt-5" style="flex-wrap:wrap; gap: var(--space-3);">
+    <div class="flex justify-between mt-5 wrap-gap">
       <a href="#" class="btn btn-outline" id="track-report-link" data-i18n="report_success_track">تتبع حالة البلاغ</a>
       <button type="button" class="btn btn-primary" id="new-report-btn" data-i18n="report_success_new">إرسال بلاغ جديد</button>
     </div>
@@ -144,6 +155,7 @@ export function renderReportPage(): string {
   return renderLayout(body, {
     title: 'بلّغ عن حفرة',
     activeNav: 'report',
+    bodyClass: 'hide-tabbar',
     withMap: true,
     extraScripts: `<script src="/static/js/image-compress.js"></script><script src="/static/js/report-form.js"></script>`,
   })

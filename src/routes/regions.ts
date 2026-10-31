@@ -3,6 +3,7 @@ import type { Bindings } from '../lib/types'
 import { regionSchema } from '../lib/validation'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
+import { invalidatePublicCaches } from '../lib/cache'
 
 const regions = new Hono<{ Bindings: Bindings }>()
 
@@ -56,6 +57,34 @@ regions.patch('/:id', attachAuth, requireRole('admin', 'super_admin'), async (c)
 
   await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'region.update', entity: 'regions', entityId: id, before: existing, after: d })
   return c.json({ ok: true })
+})
+
+// Hard-delete a region. Refused (409) while any report - even a soft-deleted one -
+// still points at it, because reports keep a foreign key to their region. In that
+// case deactivate the region instead (PATCH active=false).
+regions.delete('/:id', attachAuth, requireRole('admin', 'super_admin'), async (c) => {
+  const authCtx = c.get('auth')!
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
+
+  const existing = await c.env.DB.prepare('SELECT * FROM regions WHERE id = ?').bind(id).first()
+  if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
+
+  const used = await c.env.DB.prepare('SELECT COUNT(*) as n FROM potholes WHERE region_id = ?').bind(id).first<{ n: number }>()
+  if ((used?.n ?? 0) > 0) {
+    return c.json(
+      {
+        error: 'Region has reports; deactivate it instead of deleting',
+        error_ar: 'لا يمكن حذف منطقة لديها بلاغات - قم بتعطيلها بدلاً من ذلك',
+      },
+      409
+    )
+  }
+
+  await c.env.DB.prepare('DELETE FROM regions WHERE id = ?').bind(id).run()
+  await invalidatePublicCaches(c.env.KV)
+  await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'region.delete', entity: 'regions', entityId: id, before: existing })
+  return c.json({ ok: true, deleted_id: id })
 })
 
 export default regions

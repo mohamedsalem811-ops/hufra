@@ -2,7 +2,8 @@ import { renderLayout } from './layout'
 
 export function renderLoginPage(): string {
   const body = `
-<div class="container" style="max-width: 420px; padding-block: var(--space-6);">
+<div class="container auth-wrap">
+  <div class="auth-brand"><img src="/static/img/logo/hufra-mark.svg" alt="" width="64" height="64"></div>
   <div class="card">
     <h1 class="mb-4" data-i18n="nav_login">تسجيل الدخول</h1>
     <form id="login-form" novalidate>
@@ -26,13 +27,15 @@ export function renderLoginPage(): string {
 `
   return renderLayout(body, {
     title: 'تسجيل الدخول',
+    bodyClass: 'hide-tabbar',
     extraScripts: `<script src="/static/js/auth-pages.js"></script>`,
   })
 }
 
 export function renderRegisterPage(): string {
   const body = `
-<div class="container" style="max-width: 460px; padding-block: var(--space-6);">
+<div class="container auth-wrap">
+  <div class="auth-brand"><img src="/static/img/logo/hufra-mark.svg" alt="" width="64" height="64"></div>
   <div class="card">
     <h1 class="mb-4" data-i18n="register_title">إنشاء حساب جديد</h1>
     <form id="register-form" novalidate>
@@ -43,7 +46,7 @@ export function renderRegisterPage(): string {
       <div class="field">
         <label for="reg-password" data-i18n="login_password">كلمة المرور</label>
         <input class="input" type="password" id="reg-password" name="password" required minlength="8" autocomplete="new-password">
-        <p class="hint">8+ characters</p>
+        <p class="hint" data-i18n="register_password_hint">8 أحرف على الأقل</p>
       </div>
       <div class="field">
         <label for="reg-name" data-i18n="register_display_name">الاسم (اختياري)</label>
@@ -67,6 +70,7 @@ export function renderRegisterPage(): string {
 `
   return renderLayout(body, {
     title: 'إنشاء حساب',
+    bodyClass: 'hide-tabbar',
     extraScripts: `<script src="/static/js/auth-pages.js"></script>`,
   })
 }

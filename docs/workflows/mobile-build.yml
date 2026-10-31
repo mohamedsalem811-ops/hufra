@@ -1,0 +1,117 @@
+name: Mobile Build (iOS IPA & Android APK)
+
+# Builds both the iOS (.ipa) on GitHub's macOS runner and Android (.apk) on Ubuntu.
+# Can be triggered manually from the GitHub "Actions" tab ("Run workflow") or by pushing a version tag (e.g. v1.0.0).
+#
+# Supports two iOS IPA modes automatically:
+#   1. Free / Unsigned IPA (Default, 0 secrets needed): produces `HUFRA-unsigned.ipa`,
+#      which can be installed on any iPhone using Sideloadly or AltStore with a free Apple ID.
+#      Sideloadly / AltStore re-sign it with your Apple ID when installing (valid 7 days on a
+#      free account). App Store distribution is intentionally out of scope for now.
+#
+# The app is a native Capacitor shell that loads the live site given in `server_url`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: 'Live Cloudflare Pages URL that the mobile app connects to'
+        required: true
+        default: 'https://hufra.pages.dev'
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-ios-ipa:
+    name: Build iOS IPA (macOS Runner)
+    runs-on: macos-latest
+    env:
+      CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || 'https://hufra.pages.dev' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Sync Capacitor iOS platform (installs CocoaPods, bakes in server URL)
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+          npx cap sync ios
+
+      - name: Build Unsigned iOS Archive & Package .ipa (works without Apple Developer payment)
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            clean build
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qry HUFRA-ios-unsigned.ipa Payload
+
+      - name: Upload iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HUFRA-iOS-IPA
+          path: ios/App/HUFRA-ios-unsigned.ipa
+          retention-days: 30
+
+  build-android-apk:
+    name: Build Android APK (Ubuntu Runner)
+    runs-on: ubuntu-latest
+    env:
+      CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || 'https://hufra.pages.dev' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Add and sync Capacitor Android platform
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Build Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../HUFRA-android-debug.apk
+
+      - name: Upload Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HUFRA-Android-APK
+          path: HUFRA-android-debug.apk
+          retention-days: 30

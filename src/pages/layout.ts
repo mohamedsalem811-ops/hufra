@@ -1,8 +1,11 @@
 // Server-rendered HTML shell shared by every page. HUFRA keeps the frontend
-// as progressively-enhanced server-rendered HTML + vanilla JS (no SPA bundler)
-// while adding a full PWA Service Worker + Capacitor native bridge and
-// IndexedDB offline queue so the exact same codebase powers both the fast
-// public website and the Android/iOS mobile app.
+// as progressively-enhanced server-rendered HTML + vanilla JS (no SPA bundler).
+// The exact same markup powers three surfaces:
+//   1. the public website (responsive, top nav on desktop),
+//   2. the installed PWA, and
+//   3. the Capacitor iOS/Android app (html.is-app: tab bar only, no web chrome).
+// Pages are also pre-rendered to static HTML by scripts/build-app.mjs so the
+// native app can start offline from bundled assets.
 
 export interface LayoutOptions {
   title: string
@@ -17,6 +20,21 @@ export interface LayoutOptions {
   withMap?: boolean
 }
 
+// Runs before first paint: theme, language/direction, text size and app mode
+// are applied to <html> so there is no flash of the wrong theme or layout.
+const EARLY_BOOT_SCRIPT = `(function(){try{
+var d=document.documentElement,ls=window.localStorage;
+var t=ls.getItem('hufra_theme')||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
+d.setAttribute('data-theme',t);
+var l=ls.getItem('hufra_locale')||'ar';d.setAttribute('lang',l);d.setAttribute('dir',l==='ar'?'rtl':'ltr');
+var f=ls.getItem('hufra_font_size');if(f&&f!=='base')d.setAttribute('data-font-size',f);
+var C=window.Capacitor,native=!!(C&&C.isNativePlatform&&C.isNativePlatform());
+var standalone=!!(navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
+if(native||standalone)d.classList.add('is-app');
+if(native){d.classList.add('is-native');d.classList.add('platform-'+(C.getPlatform?C.getPlatform():'native'));}
+var m=document.getElementById('meta-theme-color');if(m)m.setAttribute('content',t==='dark'?'#15181C':'#FFFFFF');
+}catch(e){}})();`
+
 export function renderLayout(bodyHtml: string, opts: LayoutOptions): string {
   const title = `${opts.title} | HUFRA - حفرة`
   return `<!DOCTYPE html>
@@ -26,37 +44,42 @@ export function renderLayout(bodyHtml: string, opts: LayoutOptions): string {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(opts.description || 'حفرة - منصة مجتمعية لرصد حفريات الطرق في طرابلس الكبرى بالخرائط والصور')}">
-<meta name="theme-color" content="#D97706">
+<meta name="theme-color" id="meta-theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="light dark">
+<meta name="format-detection" content="telephone=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="حفرة">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="/static/img/icons/apple-touch-icon.png">
+<script>${EARLY_BOOT_SCRIPT}</script>
+<link rel="stylesheet" href="/static/css/fonts.css">
+<link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/app.css">
-${opts.withMap ? `<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" rel="stylesheet">` : ''}
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
-${opts.withMap ? `<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>` : ''}
+${opts.withMap ? `<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/static/vendor/leaflet/MarkerCluster.css">
+<link rel="stylesheet" href="/static/vendor/leaflet/MarkerCluster.Default.css">` : ''}
+<script src="/static/js/icons.js" defer></script>
+${opts.withMap ? `<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/vendor/leaflet/leaflet.markercluster.js"></script>` : ''}
 ${opts.extraHead || ''}
 </head>
 <body class="${opts.bodyClass || ''}">
 <a href="#main-content" class="skip-link" data-i18n="skip_to_content">تخطي إلى المحتوى</a>
 ${renderHeader(opts.activeNav)}
 <div id="offline-sync-banner" class="offline-sync-banner hidden" role="status" aria-live="polite">
-  <div class="container flex justify-between items-center" style="gap:12px;flex-wrap:wrap;">
+  <div class="container offline-banner__inner">
     <span id="offline-sync-text" data-i18n="offline_banner_offline">وضع عدم الاتصال</span>
-    <button type="button" class="btn btn-primary" style="min-height:34px;padding:0 14px;font-size:0.85rem;" id="offline-sync-btn" data-i18n="offline_sync_now">مزامنة الآن</button>
+    <button type="button" class="btn btn-primary" id="offline-sync-btn" data-i18n="offline_sync_now">مزامنة الآن</button>
   </div>
 </div>
 <main id="main-content">
 ${bodyHtml}
 </main>
 ${renderFooter(opts.adminWhatsapp)}
-${renderMobileBottomNav(opts.activeNav)}
+${renderTabBar(opts.activeNav)}
 <div class="toast-region" id="toast-region" aria-live="polite"></div>
 <script src="/static/js/i18n.js"></script>
 <script src="/static/js/theme.js"></script>
@@ -64,13 +87,15 @@ ${renderMobileBottomNav(opts.activeNav)}
 <script src="/static/js/api.js"></script>
 <script src="/static/js/offline-queue.js"></script>
 <script src="/static/js/ui.js"></script>
+${opts.withMap ? '<script src="/static/js/map-common.js"></script>' : ''}
 ${opts.extraScripts || ''}
 <script>
-  if (window.lucide) { window.lucide.createIcons(); }
   document.addEventListener('DOMContentLoaded', function () {
     if (window.HufraI18n) window.HufraI18n.translatePage(document);
     if (window.lucide) window.lucide.createIcons();
-    if ('serviceWorker' in navigator) {
+    var C = window.Capacitor;
+    var isNative = !!(C && C.isNativePlatform && C.isNativePlatform());
+    if (!isNative && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(function () {});
     }
   });
@@ -79,9 +104,13 @@ ${opts.extraScripts || ''}
 </html>`
 }
 
-function navLink(href: string, key: string, label: string, active?: string) {
-  const isActive = active === key
-  return `<a href="${href}" data-i18n="${key}" ${isActive ? 'aria-current="page"' : ''}>${escapeHtml(label)}</a>`
+function navLink(href: string, key: string, label: string, active?: string, extraClass = '') {
+  const isActive = active === key.replace(/^nav_/, '')
+  return `<a href="${href}" class="${extraClass}" data-i18n="${key}" ${isActive ? 'aria-current="page"' : ''}>${escapeHtml(label)}</a>`
+}
+
+function prefSegment(pref: string, value: string, labelHtml: string, label: string): string {
+  return `<button type="button" data-pref="${pref}" data-value="${value}" aria-pressed="false" aria-label="${escapeHtml(label)}">${labelHtml}</button>`
 }
 
 function renderHeader(active?: string): string {
@@ -89,7 +118,7 @@ function renderHeader(active?: string): string {
 <header class="site-header">
   <div class="container site-header__inner">
     <a href="/" class="brand" aria-label="HUFRA home">
-      <img src="/static/img/logo/hufra-icon.svg" alt="" width="36" height="36">
+      <img src="/static/img/logo/hufra-mark.svg" alt="" width="34" height="34">
       <span data-i18n="app_name">حفرة</span>
     </a>
     <nav class="main-nav" aria-label="Main navigation">
@@ -101,68 +130,77 @@ function renderHeader(active?: string): string {
     </nav>
     <div class="header-actions">
       <div class="bell-wrapper hidden" id="header-notif-wrapper">
-        <button type="button" class="btn btn-icon btn-secondary" id="header-notif-btn" aria-label="Notifications">
+        <button type="button" class="btn btn-icon btn-secondary" id="header-notif-btn" data-i18n-aria-label="notifications_title" aria-label="Notifications">
           <i data-lucide="bell" class="icon"></i>
           <span class="bell-badge hidden" id="header-notif-badge">0</span>
         </button>
         <div class="notif-drawer card hidden" id="header-notif-drawer">
-          <div class="flex justify-between items-center mb-2">
-            <strong data-i18n="notifications_title" style="font-size:0.95rem;">الإشعارات والتنبيهات</strong>
-            <button type="button" class="btn btn-secondary" style="min-height:30px;padding:0 10px;font-size:0.78rem;" id="header-notif-read-all" data-i18n="notifications_mark_read">تحديد الكل كمقروء</button>
+          <div class="notif-head">
+            <strong data-i18n="notifications_title">الإشعارات والتنبيهات</strong>
+            <button type="button" class="btn btn-secondary btn-sm" id="header-notif-read-all" data-i18n="notifications_mark_read">تحديد الكل كمقروء</button>
           </div>
-          <div class="mb-2">
-            <button type="button" class="btn btn-outline btn-block" style="min-height:36px;font-size:0.82rem;" id="header-push-toggle-btn" data-i18n="push_enable">تفعيل إشعارات التطبيق الفورية</button>
+          <div class="mb-2 push-only">
+            <button type="button" class="btn btn-outline btn-block btn-sm" id="header-push-toggle-btn" data-i18n="push_enable">تفعيل إشعارات التطبيق الفورية</button>
           </div>
           <div id="header-notif-list" class="notif-list"></div>
         </div>
       </div>
-      <button type="button" class="btn btn-icon btn-secondary" id="lang-toggle" data-i18n-aria-label="language_toggle" title="Toggle language">
-        <i data-lucide="languages" class="icon"></i>
-      </button>
-      <button type="button" class="btn btn-icon btn-secondary" id="theme-toggle" aria-label="Toggle theme">
-        <i data-lucide="moon" class="icon"></i>
-      </button>
-      <button type="button" class="btn btn-icon btn-secondary" id="font-size-toggle" aria-label="Toggle text size">
-        <i data-lucide="case-sensitive" class="icon"></i>
-      </button>
-      <button type="button" class="btn btn-icon btn-secondary mobile-nav-toggle" id="mobile-nav-toggle" aria-expanded="false" aria-controls="mobile-nav-panel" aria-label="Menu">
+      <button type="button" class="btn btn-icon btn-secondary mobile-nav-toggle" id="mobile-nav-toggle" aria-expanded="false" aria-controls="mobile-nav-panel" data-i18n-aria-label="menu_title" aria-label="Menu">
         <i data-lucide="menu" class="icon"></i>
       </button>
     </div>
   </div>
-  <div class="mobile-nav-panel" id="mobile-nav-panel">
-    ${navLink('/map', 'nav_map', 'الخريطة', active)}
-    ${navLink('/report', 'nav_report', 'بلّغ عن حفرة', active)}
-    ${navLink('/transparency', 'nav_transparency', 'الشفافية', active)}
-    ${navLink('/trust', 'nav_trust', 'الأمان والخصوصية', active)}
-    <span id="nav-auth-slot-mobile"></span>
+</header>
+<div class="sheet-backdrop" id="sheet-backdrop"></div>
+<div class="mobile-nav-panel" id="mobile-nav-panel" role="dialog" aria-modal="true" data-i18n-aria-label="menu_title" aria-label="Menu">
+  ${navLink('/map', 'nav_map', 'الخريطة', active, 'menu-link-primary')}
+  ${navLink('/report', 'nav_report', 'بلّغ عن حفرة', active, 'menu-link-primary')}
+  ${navLink('/transparency', 'nav_transparency', 'الشفافية', active, 'menu-link-primary')}
+  ${navLink('/trust', 'nav_trust', 'الأمان والخصوصية', active, 'menu-link-primary')}
+  <span id="nav-auth-slot-mobile"></span>
+  <div class="prefs">
+    <div class="pref-row">
+      <span data-i18n="pref_language">اللغة</span>
+      <div class="segmented" role="group" aria-label="Language">
+        ${prefSegment('lang', 'ar', 'عربي', 'العربية')}
+        ${prefSegment('lang', 'en', 'EN', 'English')}
+      </div>
+    </div>
+    <div class="pref-row">
+      <span data-i18n="pref_theme">المظهر</span>
+      <div class="segmented" role="group" aria-label="Theme">
+        ${prefSegment('theme', 'light', '<i data-lucide="sun" class="icon"></i>', 'Light')}
+        ${prefSegment('theme', 'dark', '<i data-lucide="moon" class="icon"></i>', 'Dark')}
+      </div>
+    </div>
+    <div class="pref-row">
+      <span data-i18n="pref_text_size">حجم الخط</span>
+      <div class="segmented" role="group" aria-label="Text size">
+        ${prefSegment('font', 'base', 'A', 'Normal')}
+        ${prefSegment('font', 'large', 'A+', 'Large')}
+        ${prefSegment('font', 'xlarge', 'A++', 'Extra large')}
+      </div>
+    </div>
   </div>
-</header>`
+</div>`
 }
 
-function renderMobileBottomNav(active?: string): string {
+function tabItem(href: string, key: string, icon: string, label: string, isActive: boolean, extra = '', id = ''): string {
+  return `
+  <a href="${href}" ${id ? `id="${id}"` : ''} class="mobile-bottom-nav__item ${extra} ${isActive ? 'is-active' : ''}" ${isActive ? 'aria-current="page"' : ''}>
+    <span class="icon-wrap"><i data-lucide="${icon}" class="icon"></i></span>
+    <span data-i18n="${key}">${escapeHtml(label)}</span>
+  </a>`
+}
+
+function renderTabBar(active?: string): string {
   return `
 <nav class="mobile-bottom-nav" aria-label="Mobile quick navigation">
-  <a href="/" class="mobile-bottom-nav__item ${active === 'home' ? 'is-active' : ''}">
-    <i data-lucide="home" class="icon"></i>
-    <span data-i18n="nav_home">الرئيسية</span>
-  </a>
-  <a href="/map" class="mobile-bottom-nav__item ${active === 'map' ? 'is-active' : ''}">
-    <i data-lucide="map" class="icon"></i>
-    <span data-i18n="nav_map">الخريطة</span>
-  </a>
-  <a href="/report" class="mobile-bottom-nav__item mobile-bottom-nav__cta ${active === 'report' ? 'is-active' : ''}">
-    <i data-lucide="plus-circle" class="icon"></i>
-    <span data-i18n="nav_report">بلّغ</span>
-  </a>
-  <a href="/account" class="mobile-bottom-nav__item ${active === 'account' ? 'is-active' : ''}">
-    <i data-lucide="user" class="icon"></i>
-    <span data-i18n="nav_account">حسابي</span>
-  </a>
-  <a href="/admin" id="bottom-nav-admin" class="mobile-bottom-nav__item hidden ${active === 'admin' ? 'is-active' : ''}">
-    <i data-lucide="shield-check" class="icon"></i>
-    <span data-i18n="nav_admin">الإدارة</span>
-  </a>
+  ${tabItem('/', 'nav_home', 'house', 'الرئيسية', active === 'home')}
+  ${tabItem('/map', 'nav_map', 'map', 'الخريطة', active === 'map')}
+  ${tabItem('/report', 'nav_report_short', 'plus', 'بلّغ', active === 'report', 'mobile-bottom-nav__cta')}
+  ${tabItem('/transparency', 'nav_transparency', 'activity', 'الشفافية', active === 'transparency')}
+  ${tabItem('/account', 'nav_account', 'user', 'حسابي', active === 'account')}
 </nav>`
 }
 
@@ -175,7 +213,7 @@ function renderFooter(adminWhatsapp?: string): string {
   <div class="container footer-grid">
     <div>
       <div class="brand mb-2">
-        <img src="/static/img/logo/hufra-icon.svg" alt="" width="28" height="28">
+        <img src="/static/img/logo/hufra-mark.svg" alt="" width="28" height="28">
         <span data-i18n="app_name">حفرة</span>
       </div>
       <p class="text-secondary" data-i18n="hero_subtitle">منصة مجتمعية مستقلة لرصد حفريات الطرق في طرابلس الكبرى، بالخرائط والصور، بشفافية كاملة.</p>

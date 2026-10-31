@@ -2,11 +2,17 @@ import { renderLayout } from './layout'
 
 export function renderPotholeDetailPage(id: string): string {
   const body = `
-<div class="container" style="max-width: 860px; padding-block: var(--space-5);">
+<div class="container page-narrow">
+  <div class="page-head">
+    <a href="/map" class="btn btn-icon btn-secondary back-btn" data-i18n-aria-label="nav_map" aria-label="Back">
+      <i data-lucide="arrow-right" class="icon icon-flip"></i>
+    </a>
+    <h1 data-i18n="pothole_detail_title">تفاصيل البلاغ</h1>
+  </div>
   <div id="pothole-detail-root">
-    <div class="skeleton" style="height:280px; border-radius: var(--radius-card);"></div>
-    <div class="skeleton mt-4" style="height:40px; width:60%;"></div>
-    <div class="skeleton mt-2" style="height:20px; width:40%;"></div>
+    <div class="skeleton skeleton-map"></div>
+    <div class="skeleton skeleton-title mt-4"></div>
+    <div class="skeleton skeleton-sub mt-2"></div>
   </div>
 </div>
 `

@@ -11,6 +11,7 @@ import {
 import { checkRateLimit, UPLOAD_LIMIT_PER_IP, UPLOAD_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
 import { recordAudit } from '../lib/audit'
 import { MAX_PHOTOS_PER_REPORT } from '../lib/types'
+import { invalidatePublicCaches } from '../lib/cache'
 
 const photos = new Hono<{ Bindings: Bindings }>()
 
@@ -99,17 +100,34 @@ photos.post('/:potholeId', attachAuth, async (c) => {
     after: { pothole_id: potholeId, stage },
   })
 
+  await invalidatePublicCaches(c.env.KV)
   return c.json({ id: result.meta.last_row_id, r2_key: fullKey, thumb_key: thumbKey, stage }, 201)
 })
 
 photos.delete('/:photoId', attachAuth, requireRole('admin', 'super_admin'), async (c) => {
   const photoId = Number(c.req.param('photoId'))
+  if (!Number.isInteger(photoId) || photoId <= 0) return c.json({ error: 'Invalid id' }, 400)
   const authCtx = c.get('auth')!
+
+  const photo = await c.env.DB.prepare(
+    'SELECT id, pothole_id, stage FROM pothole_photos WHERE id = ? AND deleted_at IS NULL'
+  )
+    .bind(photoId)
+    .first<{ id: number; pothole_id: number; stage: string }>()
+  if (!photo) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
+
   await c.env.DB.prepare(`UPDATE pothole_photos SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
     .bind(photoId)
     .run()
-  await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'photo.delete', entity: 'pothole_photos', entityId: photoId })
-  return c.json({ ok: true })
+  await invalidatePublicCaches(c.env.KV)
+  await recordAudit(c.env.DB, {
+    actorId: authCtx.userId,
+    action: 'photo.delete',
+    entity: 'pothole_photos',
+    entityId: photoId,
+    before: { pothole_id: photo.pothole_id, stage: photo.stage },
+  })
+  return c.json({ ok: true, deleted_id: photoId })
 })
 
 export default photos
