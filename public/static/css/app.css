@@ -779,3 +779,27 @@ html:not(.is-native) .push-only { display:none; }
 /* Admin modal: two-up photo grid on phones, three-up on wider screens */
 #modal-photos { grid-template-columns: repeat(2, 1fr); }
 @media (min-width: 640px) { #modal-photos { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---- Performance: lighter glass on the iOS app, smooth tab transitions ---- */
+/* Live blur behind sticky bars is expensive on iOS WebKit; use a solid surface. */
+html.is-native .site-header,
+html.is-native .mobile-bottom-nav,
+html.is-native .action-bar,
+html.is-native .map-legend {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--bg-surface);
+}
+
+/* Router page transitions (View Transitions API). Header and tab bar stay put. */
+.site-header { view-transition-name: site-header; }
+.mobile-bottom-nav { view-transition-name: tab-bar; }
+::view-transition-group(site-header),
+::view-transition-group(tab-bar) { animation-duration: 0s; }
+::view-transition-old(root) { animation: 90ms ease-out both hufra-fade-out; }
+::view-transition-new(root) { animation: 160ms ease-out both hufra-fade-in; }
+@keyframes hufra-fade-out { to { opacity: 0; } }
+@keyframes hufra-fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}

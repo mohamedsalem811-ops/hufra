@@ -22,7 +22,7 @@
         '</div>';
     } catch (e) {
       if (navigator.onLine === false) return;
-      location.href = '/login?redirect=/account';
+      window.HufraRouter ? window.HufraRouter.go('/login?redirect=/account') : (location.href = '/login?redirect=/account');
     }
   }
 
@@ -169,7 +169,7 @@
       try {
         await window.HufraApi.post('/auth/me/delete');
         window.HufraApi.setAccessToken(null);
-        location.href = '/';
+        window.HufraRouter ? window.HufraRouter.go('/') : (location.href = '/');
       } catch (e) {
         window.HufraUI.showToast(window.HufraI18n.t('error_generic'), 'error');
       }

@@ -8,7 +8,7 @@
     "preview": "wrangler pages dev dist",
     "deploy": "npm run build && wrangler pages deploy dist --project-name hufra",
     "mobile:init": "npx cap add android && npx cap add ios",
-    "mobile:sync": "npm run build && npx cap sync",
+    "mobile:sync": "npx cap sync",
     "mobile:android": "npx cap sync android && npx cap open android",
     "mobile:ios": "npx cap sync ios && npx cap open ios",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
@@ -21,7 +21,9 @@
     "db:console:local": "wrangler d1 execute hufra-production --local",
     "db:console:prod": "wrangler d1 execute hufra-production",
     "db:seed": "wrangler d1 execute hufra-production --local --file=./migrations/0003_seed_regions.sql",
-    "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local"
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local",
+    "build:app": "npm run build && node scripts/build-app.mjs",
+    "capacitor:sync:before": "npm run build:app"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.3",

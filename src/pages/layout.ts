@@ -7,6 +7,16 @@
 // Pages are also pre-rendered to static HTML by scripts/build-app.mjs so the
 // native app can start offline from bundled assets.
 
+// Build stamp injected by vite.config.ts (commit sha on Cloudflare, timestamp locally).
+// Every first-party CSS/JS URL gets ?v=<stamp>, so each deploy has fresh URLs that
+// can be cached for a year without ever serving stale files.
+declare const __BUILD_ID__: string
+const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev'
+
+function versionAssets(html: string): string {
+  return html.replace(/\b(src|href)="(\/static\/(?:css|js)\/[^"?]+)"/g, `$1="$2?v=${BUILD_ID}"`)
+}
+
 export interface LayoutOptions {
   title: string
   description?: string
@@ -37,7 +47,7 @@ var m=document.getElementById('meta-theme-color');if(m)m.setAttribute('content',
 
 export function renderLayout(bodyHtml: string, opts: LayoutOptions): string {
   const title = `${opts.title} | HUFRA - حفرة`
-  return `<!DOCTYPE html>
+  return versionAssets(`<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -54,16 +64,16 @@ export function renderLayout(bodyHtml: string, opts: LayoutOptions): string {
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/static/img/icons/apple-touch-icon.png">
-<script>${EARLY_BOOT_SCRIPT}</script>
+<script data-boot>${EARLY_BOOT_SCRIPT}</script>
 <link rel="stylesheet" href="/static/css/fonts.css">
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/app.css">
 ${opts.withMap ? `<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="/static/vendor/leaflet/MarkerCluster.css">
 <link rel="stylesheet" href="/static/vendor/leaflet/MarkerCluster.Default.css">` : ''}
-<script src="/static/js/icons.js" defer></script>
-${opts.withMap ? `<script src="/static/vendor/leaflet/leaflet.js"></script>
-<script src="/static/vendor/leaflet/leaflet.markercluster.js"></script>` : ''}
+<script src="/static/js/icons.js" data-shared defer></script>
+${opts.withMap ? `<script src="/static/vendor/leaflet/leaflet.js" data-shared></script>
+<script src="/static/vendor/leaflet/leaflet.markercluster.js" data-shared></script>` : ''}
 ${opts.extraHead || ''}
 </head>
 <body class="${opts.bodyClass || ''}">
@@ -81,15 +91,16 @@ ${bodyHtml}
 ${renderFooter(opts.adminWhatsapp)}
 ${renderTabBar(opts.activeNav)}
 <div class="toast-region" id="toast-region" aria-live="polite"></div>
-<script src="/static/js/i18n.js"></script>
-<script src="/static/js/theme.js"></script>
-<script src="/static/js/native-bridge.js"></script>
-<script src="/static/js/api.js"></script>
-<script src="/static/js/offline-queue.js"></script>
-<script src="/static/js/ui.js"></script>
-${opts.withMap ? '<script src="/static/js/map-common.js"></script>' : ''}
+<script src="/static/js/i18n.js" data-shared></script>
+<script src="/static/js/theme.js" data-shared></script>
+<script src="/static/js/native-bridge.js" data-shared></script>
+<script src="/static/js/api.js" data-shared></script>
+<script src="/static/js/offline-queue.js" data-shared></script>
+<script src="/static/js/ui.js" data-shared></script>
+<script src="/static/js/router.js" data-shared></script>
+${opts.withMap ? '<script src="/static/js/map-common.js" data-shared></script>' : ''}
 ${opts.extraScripts || ''}
-<script>
+<script data-boot>
   document.addEventListener('DOMContentLoaded', function () {
     if (window.HufraI18n) window.HufraI18n.translatePage(document);
     if (window.lucide) window.lucide.createIcons();
@@ -101,7 +112,7 @@ ${opts.extraScripts || ''}
   });
 </script>
 </body>
-</html>`
+</html>`)
 }
 
 function navLink(href: string, key: string, label: string, active?: string, extraClass = '') {

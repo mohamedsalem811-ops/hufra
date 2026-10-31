@@ -101,7 +101,8 @@
 
   async function load() {
     var root = document.getElementById('pothole-detail-root');
-    var id = window.__HUFRA_POTHOLE_ID__;
+    // Server-rendered pages inject the id; the bundled app uses pothole.html?id=N.
+    var id = window.__HUFRA_POTHOLE_ID__ || new URLSearchParams(location.search).get('id');
     try {
       var data = await window.HufraApi.get('/potholes/' + id);
       var t = window.HufraI18n.t;
@@ -157,6 +158,7 @@
         '<div class="card">' + historyHtml(data.history) + '</div>';
 
       var map = window.HufraMap.createMap('pothole-map', { zoomControl: true });
+      window.addEventListener('hufra:page-leave', function () { try { map.remove(); } catch (e) { /* gone */ } }, { once: true });
       map.setView([pothole.lat, pothole.lng], 16);
       L.marker([pothole.lat, pothole.lng], { icon: window.HufraMap.pinIcon(pothole.status, { large: true }) }).addTo(map);
 
@@ -213,7 +215,7 @@
               try {
                 await window.HufraApi.del('/potholes/' + id);
                 window.HufraUI.showToast(t('admin_report_deleted'), 'success');
-                setTimeout(function () { location.href = '/admin'; }, 400);
+                setTimeout(function () { window.HufraRouter ? window.HufraRouter.go('/admin') : (location.href = '/admin'); }, 400);
               } catch (err) {
                 window.HufraUI.showToast(err.message || t('error_generic'), 'error');
                 delBtn.disabled = false;

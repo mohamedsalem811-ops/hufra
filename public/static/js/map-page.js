@@ -12,6 +12,8 @@
   var selectedId = null;
   var userLocation = null;
   var userMarker = null;
+  var loadSeq = 0;
+  var PINS_KEY = 'hufra_pins_v1';
 
   function t(k) { return window.HufraI18n.t(k); }
 
@@ -96,11 +98,26 @@
     return params.toString();
   }
 
+  // Last unfiltered pin set is cached so the map paints instantly on the
+  // next visit, then refreshes from the network in the background.
+  function readPinCache() {
+    try { return JSON.parse(localStorage.getItem(PINS_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function writePinCache(list) {
+    try { localStorage.setItem(PINS_KEY, JSON.stringify(list.slice(0, 500))); } catch (e) { /* quota */ }
+  }
+  function isUnfiltered() { return buildQuery() === 'limit=500'; }
+
   async function loadPotholes() {
+    var seq = ++loadSeq; // ignore out-of-date responses (fast filter / tab switching)
     try {
       var data = await window.HufraApi.get('/potholes?' + buildQuery());
-      renderMarkers(data.results || []);
+      if (seq !== loadSeq) return;
+      var list = data.results || [];
+      if (isUnfiltered()) writePinCache(list);
+      renderMarkers(list);
     } catch (e) {
+      if (seq !== loadSeq) return;
       window.HufraUI.showToast(t('error_generic'), 'error');
     }
   }
@@ -214,6 +231,23 @@
     } catch (e) { /* ignore */ }
   }
 
+  var focusedKey = null;
+  async function showFocus() {
+    var key = location.search;
+    if (key === focusedKey) return;
+    focusedKey = key;
+    await focusOnQueryParam();
+  }
+
+  // The router keeps this page alive between tabs: when it comes back, just
+  // fix the map size, refresh the data quietly and honour a new ?focus=.
+  window.addEventListener('hufra:page-show', function (e) {
+    if (!map || !e.detail || e.detail.path !== '/map') return;
+    window.HufraMap.refresh(map);
+    focusedKey = null;
+    loadPotholes().then(showFocus);
+  });
+
   document.addEventListener('DOMContentLoaded', async function () {
     initMap();
     initFilters();
@@ -221,7 +255,11 @@
     initLegend();
     loadRegionsFilter();
     window.HufraTheme.onChange(refreshPins);
+    if (isUnfiltered()) {
+      var cached = readPinCache();
+      if (cached && cached.length) renderMarkers(cached);
+    }
     await loadPotholes();
-    focusOnQueryParam();
+    showFocus();
   });
 })();

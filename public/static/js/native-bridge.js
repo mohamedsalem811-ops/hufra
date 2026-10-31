@@ -146,7 +146,7 @@
             action.notification.data &&
             action.notification.data.url;
           if (targetUrl) {
-            location.href = targetUrl;
+            if (window.HufraRouter) window.HufraRouter.go(targetUrl); else location.href = targetUrl;
           }
         });
 
@@ -222,7 +222,7 @@
         var n = new Notification(title, { body: body, icon: '/favicon.svg' });
         n.onclick = function () {
           window.focus();
-          if (url) location.href = url;
+          if (url) { if (window.HufraRouter) window.HufraRouter.go(url); else location.href = url; }
         };
       } catch (e) {}
     }

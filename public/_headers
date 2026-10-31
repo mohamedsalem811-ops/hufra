@@ -1,0 +1,16 @@
+# Cloudflare Pages static headers.
+# Vendor libs/fonts never change in place -> cache for a year.
+/static/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/static/img/*
+  Cache-Control: public, max-age=2592000
+# First-party css/js are referenced as ?v=<build id>, so a new deploy = new URL.
+/static/css/*
+  Cache-Control: public, max-age=31536000, immutable
+/static/js/*
+  Cache-Control: public, max-age=31536000, immutable
+# These must always be revalidated.
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: public, max-age=3600

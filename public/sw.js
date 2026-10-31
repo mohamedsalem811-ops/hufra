@@ -1,7 +1,9 @@
 // HUFRA Service Worker (public/sw.js)
-const CACHE_VERSION = 'hufra-v3';
+const CACHE_VERSION = 'hufra-v4';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const DATA_CACHE = `${CACHE_VERSION}-data`;
+const TILE_CACHE = `${CACHE_VERSION}-tiles`;
+const TILE_LIMIT = 400;
 
 const APP_SHELL_URLS = [
   '/',
@@ -15,8 +17,6 @@ const APP_SHELL_URLS = [
   '/admin',
   '/favicon.svg',
   '/manifest.webmanifest',
-  '/static/css/tokens.css',
-  '/static/css/fonts.css',
   '/static/vendor/leaflet/leaflet.css',
   '/static/vendor/leaflet/leaflet.js',
   '/static/vendor/leaflet/MarkerCluster.css',
@@ -28,28 +28,16 @@ const APP_SHELL_URLS = [
   '/static/vendor/fonts/ibm-plex-sans-arabic-latin-400-normal.woff2',
   '/static/vendor/fonts/ibm-plex-sans-arabic-latin-600-normal.woff2',
   '/static/vendor/fonts/ibm-plex-sans-arabic-latin-700-normal.woff2',
-  '/static/js/icons.js',
-  '/static/js/map-common.js',
   '/static/img/icons/icon-192.png',
   '/static/img/icons/icon-512.png',
-  '/static/css/app.css',
-  '/static/js/i18n.js',
-  '/static/js/theme.js',
-  '/static/js/native-bridge.js',
-  '/static/js/api.js',
-  '/static/js/offline-queue.js',
-  '/static/js/ui.js',
-  '/static/js/image-compress.js',
-  '/static/js/report-form.js',
-  '/static/js/map-page.js',
-  '/static/js/account.js',
-  '/static/js/admin.js',
-  '/static/js/home.js',
-  '/static/js/transparency.js',
-  '/static/js/auth-pages.js',
-  '/static/js/pothole-detail.js',
   '/static/img/logo/hufra-icon.svg',
 ];
+
+// Keep the tile cache bounded (oldest entries first).
+async function trimCache(cache, limit) {
+  const keys = await cache.keys();
+  if (keys.length > limit) await Promise.all(keys.slice(0, keys.length - limit).map((k) => cache.delete(k)));
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -75,7 +63,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== SHELL_CACHE && k !== DATA_CACHE)
+            .filter((k) => k !== SHELL_CACHE && k !== DATA_CACHE && k !== TILE_CACHE)
             .map((k) => caches.delete(k))
         )
       )
@@ -116,6 +104,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Map tiles: cache-first (the server already sends a 7-day cache header).
+  if (url.origin === self.location.origin && url.pathname.startsWith('/tiles/')) {
+    event.respondWith(
+      caches.open(TILE_CACHE).then(async (cache) => {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) {
+          cache.put(req, res.clone());
+          trimCache(cache, TILE_LIMIT);
+        }
+        return res;
+      })
+    );
+    return;
+  }
+
+  // Static files + media: cache-first. First-party css/js carry ?v=<build>, so a
+  // new deploy is a new URL; older versions of the same file are dropped.
   if (
     url.origin === self.location.origin &&
     (url.pathname.startsWith('/static/') ||
@@ -130,7 +137,20 @@ self.addEventListener('fetch', (event) => {
           fetch(req).then((res) => {
             if (res.ok) {
               const copy = res.clone();
-              caches.open(SHELL_CACHE).then((c) => c.put(req, copy));
+              caches.open(SHELL_CACHE).then(async (c) => {
+                if (url.search.startsWith('?v=')) {
+                  const old = await c.keys();
+                  await Promise.all(
+                    old
+                      .filter((k) => {
+                        const u = new URL(k.url);
+                        return u.pathname === url.pathname && u.search !== url.search;
+                      })
+                      .map((k) => c.delete(k))
+                  );
+                }
+                return c.put(req, copy);
+              });
             }
             return res;
           })
