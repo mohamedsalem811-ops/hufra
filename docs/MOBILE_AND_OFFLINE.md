@@ -68,10 +68,6 @@ iPhones via Sideloadly / AltStore with a free Apple ID.
 
 The IPA is unsigned on purpose; Sideloadly/AltStore sign it with your Apple ID.
 
-> Note: an improved workflow (skips the redundant web build, targets `generic/platform=iOS`)
-> is kept at `docs/workflows/mobile-build.yml`. The bot token used for PRs cannot edit
-> `.github/workflows/`, so copy it over `.github/workflows/mobile-build.yml` yourself if you want it.
-> The workflow already in the repo also works with the current Capacitor config.
 
 ### 3.2 Install it
 - **Sideloadly** (Windows/macOS): connect the iPhone, drag the `.ipa` in, enter your Apple ID, press *Start*.
