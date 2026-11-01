@@ -3,6 +3,7 @@ name: CI
 
 # HUFRA / حفرة CI pipeline.
 # Typecheck -> build -> test -> apply D1 migrations -> deploy to Cloudflare Pages.
+# The backend lives in apps/api (npm workspaces); dependencies install at the repo root.
 on:
   push:
     branches: [main]
@@ -22,6 +23,9 @@ jobs:
   build-and-test:
     name: Typecheck, build, and test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -32,7 +36,8 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install dependencies (workspace root)
+        working-directory: .
         run: npm ci
 
       - name: Typecheck
@@ -62,7 +67,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: coverage-report
-          path: coverage/
+          path: apps/api/coverage/
           retention-days: 14
 
   deploy:
@@ -70,6 +75,9 @@ jobs:
     needs: build-and-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
     permissions:
       contents: read
 
@@ -83,7 +91,8 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install dependencies (workspace root)
+        working-directory: .
         run: npm ci
 
       - name: Build for production

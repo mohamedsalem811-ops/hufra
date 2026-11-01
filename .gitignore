@@ -43,6 +43,6 @@ coverage/
 # local QA tooling/screenshots
 .qa/
 
-# generated native bundle (built by scripts/build-app.mjs; index.html stays as a placeholder)
-www/*
-!www/index.html
+# generated native bundle (built by apps/api/scripts/build-app.mjs; index.html stays as a placeholder)
+apps/api/www/*
+!apps/api/www/index.html

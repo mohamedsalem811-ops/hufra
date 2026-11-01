@@ -9,7 +9,7 @@ name: Mobile Build (iOS IPA & Android APK)
 #      Sideloadly / AltStore re-sign it with your Apple ID when installing (valid 7 days on a
 #      free account). App Store distribution is intentionally out of scope for now.
 #
-# The app is a native Capacitor shell that loads the live site given in `server_url`.
+# The app is the legacy Capacitor shell in apps/api (replaced by apps/mobile, Expo, in the execution plan).
 
 on:
   workflow_dispatch:
@@ -26,6 +26,9 @@ jobs:
   build-ios-ipa:
     name: Build iOS IPA (macOS Runner)
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/api
     env:
       CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || 'https://hufra.pages.dev' }}
     steps:
@@ -37,7 +40,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install dependencies
+      - name: Install dependencies (workspace root)
+        working-directory: .
         run: npm ci
 
       - name: Sync Capacitor iOS platform (installs CocoaPods, bakes in server URL)
@@ -69,12 +73,15 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: HUFRA-iOS-IPA
-          path: ios/App/HUFRA-ios-unsigned.ipa
+          path: apps/api/ios/App/HUFRA-ios-unsigned.ipa
           retention-days: 30
 
   build-android-apk:
     name: Build Android APK (Ubuntu Runner)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
     env:
       CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || 'https://hufra.pages.dev' }}
     steps:
@@ -92,7 +99,8 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Install dependencies
+      - name: Install dependencies (workspace root)
+        working-directory: .
         run: npm ci
 
       - name: Add and sync Capacitor Android platform
@@ -130,5 +138,5 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: HUFRA-Android-APK
-          path: HUFRA-android-debug.apk
+          path: apps/api/HUFRA-android-debug.apk
           retention-days: 30
