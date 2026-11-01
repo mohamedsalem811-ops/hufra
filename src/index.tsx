@@ -62,7 +62,10 @@ app.use(
   secureHeaders({
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // No inline scripts anywhere (see public/static/js/boot*.js): only files
+      // served by this site can run, so injected markup cannot execute code.
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'", 'data:'],
       imgSrc: ["'self'", 'data:', 'blob:'],
@@ -77,6 +80,7 @@ app.use(
       manifestSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
+      formAction: ["'self'"],
       frameAncestors: ["'self'"],
     },
     strictTransportSecurity: 'max-age=15552000; includeSubDomains',

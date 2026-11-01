@@ -91,16 +91,21 @@ this change.
 
 Configured centrally in `src/index.tsx` via `hono/secure-headers`:
 
-- **Content-Security-Policy**: `default-src 'self'`; scripts/styles allow
-  `'unsafe-inline'` plus the exact CDNs actually used
-  (`cdn.jsdelivr.net`, `unpkg.com`, Google Fonts); `img-src` additionally
-  allows OpenStreetMap tile servers and `cdn.jsdelivr.net` (required for
-  Leaflet's default marker icon, which loads as an `<img>` rather than
-  being inlined — omitting it breaks the map pin icon); `object-src
-  'none'`; `frame-ancestors 'self'`. `'unsafe-inline'` is a deliberate,
-  documented trade-off for the small number of inline `<script>`/`style=""`
-  usages in server-rendered pages rather than a nonce-based CSP (which
-  would require larger changes to every page template).
+- **Content-Security-Policy**: `default-src 'self'`, and
+  **`script-src 'self'`** plus `script-src-attr 'none'`. Only script files
+  served by this site can run: no inline `<script>` and no `onclick=` style
+  handlers. Markup injected through a bug (the kind of XSS fixed in
+  `/pothole/:id`) therefore cannot execute; a real-browser check confirmed
+  injected `<script>`, `onerror=` and `srcdoc` payloads are all blocked. The
+  three scripts that used to be inline now live in `public/static/js/boot-early.js`
+  (theme/direction before first paint), `public/static/js/boot.js` (translate, icons,
+  service worker) and a `data-pothole-id` attribute. Keep it this way: new page
+  code must go in a file under `public/static/js/`.
+  Styles still allow `'unsafe-inline'` (style attributes are used for small
+  layout values and by Leaflet). Styles cannot run code, so that is low risk.
+  Everything else (fonts, images, map tiles, Leaflet) is served from this
+  origin; `connect-src` adds Nominatim (address lookup). Also
+  `object-src 'none'`, `frame-ancestors 'self'`, `form-action 'self'`.
 - **Strict-Transport-Security**: `max-age=15552000; includeSubDomains` —
   safe to always send since Cloudflare Pages terminates TLS at the edge.
 - **X-Frame-Options**: `SAMEORIGIN` — prevents clickjacking via iframe
