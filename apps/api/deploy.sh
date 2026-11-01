@@ -48,7 +48,8 @@ pick_json() {
 }
 
 step "[1/8] Dependencies"
-if [ ! -d node_modules ]; then npm ci; else echo "node_modules present"; fi
+# npm workspaces: dependencies are installed once, at the repository root.
+if [ ! -d ../../node_modules ]; then (cd ../.. && npm ci); else echo "node_modules present"; fi
 if [ "${RUN_TESTS:-0}" = "1" ]; then npm test; fi
 
 step "[2/8] Checking Cloudflare authentication"

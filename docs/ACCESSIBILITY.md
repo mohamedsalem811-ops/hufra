@@ -1,5 +1,7 @@
 # Accessibility audit — WCAG 2.2 AA color contrast
 
+> **Repository layout:** the backend now lives in `apps/api/` (npm workspaces, see `docs/EXECUTION_PLAN.md`). File paths in this document such as `src/…`, `public/…`, `migrations/…`, `scripts/…` and `tests/…` are relative to `apps/api/`. Commands like `npm test` still run from the repository root.
+
 ## 1. Targets
 
 - **4.5:1** minimum contrast for normal text (WCAG 2.2 AA, §1.4.3).

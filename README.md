@@ -224,6 +224,20 @@ immutably, and map tiles go through the edge-cached `/tiles` proxy (`TILE_UPSTRE
 
 ## 7. Development
 
+**Repository layout (npm workspaces).** Install once from the repository root with `npm ci`; the root scripts (`npm run dev`, `npm test`, `npm run build`, `npm run db:migrate:local`, `npm run admin:set-password`, ...) forward to the right workspace.
+
+```
+apps/api/     Backend: Hono API on Cloudflare (src/, public/, migrations/, tests/, scripts/, wrangler.jsonc).
+              Until Phase 9 of docs/EXECUTION_PLAN.md it also serves the legacy citizen website and
+              holds the legacy Capacitor shell (capacitor.config.ts, ios/, www/).
+apps/mobile/  (Phase 5) Expo app for citizens
+apps/admin/   (Phase 8) admin panel
+apps/web/     (Phase 8) company website
+packages/     (Phase 2) shared brand tokens and API contracts
+```
+
+Paths mentioned elsewhere in this README (`src/…`, `migrations/…`, `scripts/…`) are relative to `apps/api/`.
+
 ```bash
 npm install
 npm run build          # Vite build → dist/_worker.js

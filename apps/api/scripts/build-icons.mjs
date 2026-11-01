@@ -20,7 +20,8 @@ const ICONS = [
   'home', 'plus-circle', 'check-circle', 'alert-triangle', 'case-sensitive',
 ]
 
-const dir = new URL('../node_modules/lucide-static/icons/', import.meta.url)
+// Resolve the package wherever npm installed it (workspaces hoist to the repo root).
+const dir = new URL('./icons/', import.meta.resolve('lucide-static/package.json'))
 const out = {}
 for (const name of ICONS) {
   let svg

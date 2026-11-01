@@ -1,5 +1,7 @@
 # HUFRA — Architecture
 
+> **Repository layout:** the backend now lives in `apps/api/` (npm workspaces, see `docs/EXECUTION_PLAN.md`). File paths in this document such as `src/…`, `public/…`, `migrations/…`, `scripts/…` and `tests/…` are relative to `apps/api/`. Commands like `npm test` still run from the repository root.
+
 ## 1. High-level system diagram
 
 ```

@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **approved decisions recorded; waiting for the go-ahead to start Phase 1.1**. Nothing in this plan has been started.
+Status: **in progress.** Done: 1.1 (merged in #3; admin password set via the new workflow in #4), 1.2 (domain: later). Current: 2.1.
 
 ## 0. What we are building (agreed decisions)
 

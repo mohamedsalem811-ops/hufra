@@ -1,5 +1,7 @@
 # HUFRA (حفرة) — Unified Web + Mobile (PWA + Capacitor) & Offline Guide
 
+> **Repository layout:** the backend now lives in `apps/api/` (npm workspaces, see `docs/EXECUTION_PLAN.md`). File paths in this document such as `src/…`, `public/…`, `migrations/…`, `scripts/…` and `tests/…` are relative to `apps/api/`. Commands like `npm test` still run from the repository root.
+
 This document explains how the website and the Android/iOS mobile app connect to the same Cloudflare Worker + D1/KV/R2 backend, how offline field reporting and synchronization work, and how to build the native mobile packages.
 
 ## 1. Unified Architecture Overview
