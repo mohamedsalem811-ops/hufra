@@ -38,7 +38,7 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
 
       - name: Sync Capacitor iOS platform (installs CocoaPods, bakes in server URL)
         run: |
@@ -93,7 +93,7 @@ jobs:
           java-version: '21'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
 
       - name: Add and sync Capacitor Android platform
         run: |

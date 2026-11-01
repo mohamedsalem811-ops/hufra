@@ -21,6 +21,12 @@ const config = {
       showSpinner: false,
     },
     Geolocation: { enableHighAccuracy: true },
+    // Capacitor 8 / Android 15+: the app is drawn edge-to-edge. The pages use
+    // <meta name="viewport" content="...viewport-fit=cover"> and pad with
+    // env(safe-area-inset-*) (public/static/css/tokens.css), so let Capacitor
+    // pass the real insets through, and say "cover" up front to avoid a
+    // layout jump at startup.
+    SystemBars: { insetsHandling: 'css', initialViewportFitValueHint: 'cover' },
   },
 }
 

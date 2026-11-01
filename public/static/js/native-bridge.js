@@ -256,9 +256,15 @@
     var sb = getPlugins().StatusBar;
     if (!isNativeApp() || !sb) return;
     var dark = global.HufraTheme && global.HufraTheme.getTheme() === 'dark';
+    var ignore = function () {};
     try {
-      sb.setStyle({ style: dark ? 'DARK' : 'LIGHT' });
-      if (getPlatform() === 'android') sb.setBackgroundColor({ color: dark ? '#15181C' : '#FFFFFF' });
+      Promise.resolve(sb.setStyle({ style: dark ? 'DARK' : 'LIGHT' })).catch(ignore);
+      // Android 15+ draws the app edge-to-edge and no longer lets apps colour the
+      // status bar (the page's own header shows behind it), so this call fails
+      // there by design. It still matters on older Android versions.
+      if (getPlatform() === 'android') {
+        Promise.resolve(sb.setBackgroundColor({ color: dark ? '#15181C' : '#FFFFFF' })).catch(ignore);
+      }
     } catch (e) {}
   }
 
