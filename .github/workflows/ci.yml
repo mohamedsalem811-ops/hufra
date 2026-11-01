@@ -40,6 +40,10 @@ jobs:
         working-directory: .
         run: npm ci
 
+      - name: Shared packages (typecheck, tests incl. WCAG contrast, generated files up to date)
+        working-directory: .
+        run: npm run test:packages
+
       - name: Typecheck
         run: npx tsc --noEmit
 
