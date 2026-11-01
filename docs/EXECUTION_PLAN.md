@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). Current: 4.2 (app screen designs on the design canvas, waiting for approval).
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). Current: 4.2 (app screen designs incl. donations, on the design canvas, waiting for approval).
 
 ## 0. What we are building (agreed decisions)
 
@@ -121,7 +121,10 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **6.8 Polish, accessibility and crash reporting**: Firebase Crashlytics (free); screen reader labels, large text support, contrast, haptics, smooth animations, loading/empty/error states everywhere, image caching for slow networks, dark mode review.
 
-**6.9 App tests**: unit tests for logic (compression, queue, auth refresh) and automated end-to-end tests of the main journeys on an Android emulator in CI (Maestro).
+**6.9 Repair campaigns and donations** (backend + app; decisions 8–12 below): the backend first (campaigns, donations, payout-account settings, reference codes, proof upload, fraud checks, tests), then the app: campaign card on the report page (target, confirmed amount, and an "under review, not yet confirmed" amount shown separately), donate sheet with the bank details and a unique reference code, amount + transfer screenshot (compressed on the phone, no EXIF, private), "under review", and "My donations". Pending donations without a screenshot expire after 48 hours.
+- You: add the bank account (holder name, bank, IBAN) in the admin settings when ready (it can change later without an app update), and check whether collecting public donations needs a licence or a registered entity in Libya.
+
+**6.10 App tests**: unit tests for logic (compression, queue, auth refresh) and automated end-to-end tests of the main journeys on an Android emulator in CI (Maestro).
 
 ## Phase 7 — Backend changes for an app-only service
 
@@ -132,7 +135,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **8.1 Admin foundation** (`apps/admin`): React + Vite + TypeScript, Tailwind CSS with the brand tokens, accessible components with right-to-left support, TanStack Router/Query, typed API client, secure cookie login on the same domain.
 
-**8.2 Admin screens**: dashboard (numbers and charts), report queue (filters, search, bulk actions), report detail (status changes with the existing rules and reasons, photos, repair-proof upload, duplicates), map view, duplicate review, regions, donors, admins (super admin), audit log, notifications, CSV export.
+**8.2 Admin screens**: dashboard (numbers and charts), report queue (filters, search, bulk actions), report detail (status changes with the existing rules and reasons, photos, repair-proof upload, duplicates), map view, duplicate review, regions, donors, **repair campaigns** (set the repair cost and breakdown, start / close a campaign, publish the final cost and receipt), **donation review queue** (screenshot next to amount, reference and donor; approve, or reject with a reason; duplicate screenshot and reused-reference warnings), **payout account settings** (super admin only, every change in the audit log), admins (super admin), audit log, notifications, CSV export.
 
 **8.3 Admin tests**: component tests and browser end-to-end tests (Playwright) in CI.
 
@@ -155,8 +158,9 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **10.1 Accounts and signing**: Apple Developer ($99/year) and Google Play ($25 once); app signing set up (EAS Build or GitHub Actions signing).
 **10.2 iPhone-only features**: push notifications (APNs) and shared links opening the app (associated domains).
-**10.3 Store listings**: Arabic and English descriptions, screenshots from the real app, privacy questionnaires (App Privacy / Data safety), age rating, support and privacy URLs from the website.
-**10.4 Beta, then release**: TestFlight and Play internal testing, fixes, then public release. Website download buttons switch on.
+**10.3 Donation rules of the stores**: check Apple's and Google's current rules for donations in apps. If needed, either register as a non-profit or, in the store builds only, open the donation step on the website.
+**10.4 Store listings**: Arabic and English descriptions, screenshots from the real app, privacy questionnaires (App Privacy / Data safety), age rating, support and privacy URLs from the website.
+**10.5 Beta, then release**: TestFlight and Play internal testing, fixes, then public release. Website download buttons switch on.
 
 ---
 
@@ -171,6 +175,11 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 | 5 | Maps provider | **MapLibre + OpenStreetMap** (free). Can move to a paid tile provider later without app changes (the tile proxy already supports `TILE_UPSTREAM`). |
 | 6 | Admin features inside the mobile app? | **No.** Admin stays on the web. |
 | 7 | Crash reporting | **Firebase Crashlytics (free), added in Phase 6.8**, before any beta tester. Sentry's free plan only if server/admin errors are wanted in the same place later. |
+| 8 | Repair campaigns | Admins set the repair cost of a verified report and start a campaign; anyone with an account can donate. Donations by **LYPAY bank transfer** (no payment gateway). |
+| 9 | Bank account | **One account for all campaigns**; the reference code tells which campaign a transfer is for. Entered later in the admin settings. |
+| 10 | Account required to donate | **Yes.** |
+| 11 | Progress bar | Confirmed money moves the target. Money under review is shown separately and clearly marked **not confirmed**. |
+| 12 | Leftover / cancelled campaign money | Goes to the **next open campaign**. No second approver for large donations. |
 
 ### What decision 2 changes in the plan
 
