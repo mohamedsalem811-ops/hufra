@@ -4,8 +4,7 @@ import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
 import { purgeReportPhotos } from '../lib/storage'
-import { z } from 'zod'
-import { emailSchema } from '../lib/validation'
+import { duplicateReviewSchema, promoteAdminSchema, demoteAdminSchema } from '@hufra/contracts'
 import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
 const admin = new Hono<{ Bindings: Bindings }>()
@@ -42,7 +41,6 @@ admin.get('/duplicates', async (c) => {
   return c.json({ results: rows.results })
 })
 
-const reviewSchema = z.object({ decision: z.enum(['confirmed', 'rejected']) })
 
 // Review a duplicate flag once. "confirmed" removes the newer report
 // (pothole_id) as a duplicate of the older one; "rejected" keeps both.
@@ -51,7 +49,7 @@ admin.patch('/duplicates/:id', async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
   const body = await c.req.json().catch(() => null)
-  const parsed = reviewSchema.safeParse(body)
+  const parsed = duplicateReviewSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
   const { decision } = parsed.data
 
@@ -183,12 +181,11 @@ admin.get('/admins', requireRole('super_admin'), async (c) => {
   return c.json({ results: rows.results })
 })
 
-const promoteSchema = z.object({ email: emailSchema, role: z.enum(['admin', 'super_admin']) })
 
 admin.post('/admins/promote', requireRole('super_admin'), async (c) => {
   const authCtx = c.get('auth')!
   const body = await c.req.json().catch(() => null)
-  const parsed = promoteSchema.safeParse(body)
+  const parsed = promoteAdminSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
 
   const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE email = ? AND deleted_at IS NULL').bind(parsed.data.email).first<{ id: number; role: string }>()
@@ -199,14 +196,13 @@ admin.post('/admins/promote', requireRole('super_admin'), async (c) => {
   return c.json({ ok: true })
 })
 
-const demoteSchema = z.object({ email: emailSchema })
 
 // Remove admin rights (account becomes a normal user). Guard rails: you cannot
 // demote yourself and the last remaining super_admin can never be demoted.
 admin.post('/admins/demote', requireRole('super_admin'), async (c) => {
   const authCtx = c.get('auth')!
   const body = await c.req.json().catch(() => null)
-  const parsed = demoteSchema.safeParse(body)
+  const parsed = demoteAdminSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
 
   const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE email = ? AND deleted_at IS NULL')
