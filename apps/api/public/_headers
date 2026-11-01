@@ -1,4 +1,4 @@
-# Cloudflare Pages static headers.
+# Static headers (Cloudflare Pages and Workers Static Assets both read this file).
 # Vendor libs/fonts never change in place -> cache for a year.
 /static/vendor/*
   Cache-Control: public, max-age=31536000, immutable
