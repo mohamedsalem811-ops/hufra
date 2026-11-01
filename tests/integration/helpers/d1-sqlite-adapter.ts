@@ -28,10 +28,14 @@ class MiniStatement {
     return new MiniStatement(this.db, this.sql, params)
   }
 
-  async run(): Promise<{ meta: { last_row_id: number; changes: number }; success: boolean }> {
+  runSync(): { meta: { last_row_id: number; changes: number }; success: boolean } {
     const stmt = this.db.prepare(this.sql)
     const info = stmt.run(...(this.params as any[]))
     return { meta: { last_row_id: Number(info.lastInsertRowid), changes: info.changes }, success: true }
+  }
+
+  async run(): Promise<{ meta: { last_row_id: number; changes: number }; success: boolean }> {
+    return this.runSync()
   }
 
   async first<T = unknown>(): Promise<T | null> {
@@ -52,6 +56,11 @@ export class MiniD1Database {
 
   prepare(sql: string): MiniStatement {
     return new MiniStatement(this.raw, sql)
+  }
+
+  /** Like D1's batch(): all statements run in one transaction; any failure rolls back all of them. */
+  async batch(statements: MiniStatement[]) {
+    return this.raw.transaction(() => statements.map((s) => s.runSync()))()
   }
 }
 

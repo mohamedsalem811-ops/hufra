@@ -211,3 +211,22 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
 - **Deletion frees storage:** deleting a photo, deleting a report or confirming
   a duplicate removes the image objects from R2 (the D1 rows stay,
   soft-deleted, for the audit trail), so deleted photos are no longer served.
+
+## 10. Account deletion — real erasure
+
+`POST /api/auth/me/delete` (`src/routes/auth.ts`) runs one D1 transaction that:
+
+- replaces the email with `deleted-<id>@deleted.invalid` (the address can be
+  registered again), wipes the password hash, display name and 2FA secret, and
+  drops any admin role;
+- removes the phone number from the person's reports and unlinks them
+  (`reporter_id = NULL`). The reports stay public, since they describe roads;
+- deletes their device push tokens and notifications, and revokes their
+  sessions, clearing the stored user agent and IP hash.
+
+The numeric id and pseudonymous code remain, so status history and the audit
+log stay consistent. The last super admin cannot delete their own account.
+Migration `0009` applies the same clean-up to accounts deleted before this
+fix. New `pothole.create` audit entries record `reporter_contact: "[provided]"`
+instead of the number, because audit rows can never be edited. Entries written
+before this change still contain the numbers they were given.

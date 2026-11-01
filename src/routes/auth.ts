@@ -339,24 +339,56 @@ auth.get('/me/export', requireAuth(), async (c) => {
   return c.json({ user, reports: potholes.results })
 })
 
+// Delete my account (GDPR-style erasure). Personal data is removed, not just
+// hidden: the email becomes deleted-<id>@deleted.invalid (so the address can
+// be registered again), the password hash, display name and 2FA secret are
+// wiped, the phone number is removed from the person's reports, and their
+// devices, notifications and session details are deleted. The reports
+// themselves stay public (they describe roads, not people) but no longer
+// link to anyone. Everything runs in one transaction.
 auth.post('/me/delete', requireAuth(), async (c) => {
   const authCtx = c.get('auth')!
-  await c.env.DB.prepare(
-    `UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), email = email || '.deleted.' || id WHERE id = ?`
-  )
+  const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE id = ? AND deleted_at IS NULL')
     .bind(authCtx.userId)
-    .run()
-  await c.env.DB.prepare(
-    `UPDATE refresh_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ?`
-  )
-    .bind(authCtx.userId)
-    .run()
-  await c.env.DB.prepare(
-    `UPDATE device_push_tokens SET active = 0 WHERE user_id = ?`
-  )
-    .bind(authCtx.userId)
-    .run()
-  await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'user.self_delete', entity: 'users', entityId: authCtx.userId })
+    .first<{ id: number; role: UserRow['role'] }>()
+  if (!user) return c.json({ error: 'User not found', error_ar: 'المستخدم غير موجود' }, 404)
+
+  if (user.role === 'super_admin') {
+    const others = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL AND id != ?`
+    )
+      .bind(user.id)
+      .first<{ n: number }>()
+    if ((others?.n ?? 0) < 1) {
+      return c.json(
+        {
+          error: 'You are the last super admin: promote another super admin before deleting this account',
+          error_ar: 'أنت آخر مسؤول عام: عيّن مسؤولاً عاماً آخر قبل حذف هذا الحساب',
+        },
+        400
+      )
+    }
+  }
+
+  const db = c.env.DB
+  const id = user.id
+  await db.batch([
+    db.prepare(`UPDATE potholes SET reporter_contact = NULL, reporter_id = NULL WHERE reporter_id = ?`).bind(id),
+    db.prepare(`DELETE FROM device_push_tokens WHERE user_id = ?`).bind(id),
+    db.prepare(`DELETE FROM notifications WHERE target_user_id = ?`).bind(id),
+    db.prepare(
+      `UPDATE refresh_tokens SET user_agent = NULL, ip_hash = NULL,
+         revoked_at = COALESCE(revoked_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       WHERE user_id = ?`
+    ).bind(id),
+    db.prepare(
+      `UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+         email = 'deleted-' || id || '@deleted.invalid', password_hash = '!deleted',
+         display_name = NULL, totp_secret = NULL, totp_enabled = 0, role = 'user'
+       WHERE id = ?`
+    ).bind(id),
+  ])
+  await recordAudit(db, { actorId: id, action: 'user.self_delete', entity: 'users', entityId: id })
   clearSessionCookies(c)
   return c.json({ ok: true })
 })

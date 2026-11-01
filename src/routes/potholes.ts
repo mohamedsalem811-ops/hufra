@@ -437,7 +437,9 @@ potholes.post('/', attachAuth, async (c) => {
     action: 'pothole.create',
     entity: 'potholes',
     entityId: potholeId,
-    after: data,
+    // audit_logs can never be edited or deleted, so personal data must not go
+    // in: record whether a contact number was given, not the number itself.
+    after: { ...data, reporter_contact: data.reporter_contact ? '[provided]' : undefined },
     ipHash: await hashIp(ip, c.env.JWT_SECRET),
   })
 
