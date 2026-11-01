@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from 'hono/cloudflare-workers'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Bindings } from './lib/types'
 import { isAllowedOrigin, isForbiddenCrossSiteWrite } from './lib/origins'
@@ -89,10 +88,9 @@ app.use(
   })
 )
 
-app.use('/static/*', serveStatic({ root: './public' }))
-app.use('/favicon.svg', serveStatic({ path: './public/favicon.svg' }))
-app.use('/manifest.webmanifest', serveStatic({ path: './public/manifest.webmanifest' }))
-app.use('/sw.js', serveStatic({ path: './public/sw.js' }))
+
+// Static files (public/) are served by the platform before this code runs:
+// Cloudflare Pages today, Workers Static Assets on the Worker (wrangler.worker.jsonc).
 
 app.route('/api/auth', authRoutes)
 app.route('/api/potholes', potholeRoutes)

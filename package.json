@@ -34,6 +34,8 @@
     "build:app": "npm run build:app -w @hufra/api --",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "brand:build": "npm run build -w @hufra/brand",
-    "test:packages": "npm run typecheck -w @hufra/brand -w @hufra/contracts && npm test -w @hufra/brand -w @hufra/contracts && npm run check -w @hufra/brand"
+    "test:packages": "npm run typecheck -w @hufra/brand -w @hufra/contracts && npm test -w @hufra/brand -w @hufra/contracts && npm run check -w @hufra/brand",
+    "dev:worker": "npm run dev:worker -w @hufra/api --",
+    "deploy:worker": "npm run deploy:worker -w @hufra/api --"
   }
 }

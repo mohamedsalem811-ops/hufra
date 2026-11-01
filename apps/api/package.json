@@ -28,7 +28,9 @@
     "admin:set-password": "node scripts/set-admin-password.mjs",
     "build:app": "npm run build && node scripts/build-app.mjs",
     "capacitor:sync:before": "npm run build:app",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:worker": "wrangler dev -c wrangler.worker.jsonc --port 3000",
+    "deploy:worker": "wrangler deploy -c wrangler.worker.jsonc --define \"__BUILD_ID__:\\\"$(git rev-parse --short=8 HEAD)\\\"\""
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",

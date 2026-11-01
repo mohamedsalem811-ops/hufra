@@ -120,3 +120,90 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  # Phase 3.1: the same code deployed as a Cloudflare Worker (+ Static Assets),
+  # alongside Pages until the switch-over in Phase 9 (apps/api/wrangler.worker.jsonc).
+  # Runs after the Pages deploy on main, and on manual runs (Actions -> CI ->
+  # Run workflow) so the Worker can be tested before merging; nobody uses the
+  # Worker address yet. Restrict to main at the switch-over.
+  deploy-worker:
+    name: Deploy to Cloudflare Workers
+    needs: [build-and-test, deploy]
+    if: >-
+      always() && needs.build-and-test.result == 'success' &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (workspace root)
+        working-directory: .
+        run: npm ci
+
+      # No-op on main (the Pages job already applied them); needed on manual runs.
+      - name: Apply D1 migrations (production)
+        run: npx wrangler d1 migrations apply hufra-production --remote -c wrangler.worker.jsonc
+
+      - name: Deploy the Worker
+        id: deploy
+        run: |
+          npx wrangler deploy -c wrangler.worker.jsonc --define "__BUILD_ID__:\"${GITHUB_SHA::8}\"" | tee deploy.log
+          URL="$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Worker URL: $URL"
+
+      # The login-signing secret cannot be copied from Pages (it was never shown),
+      # so the first deploy generates a new random one, stored only in Cloudflare.
+      - name: Ensure the JWT_SECRET secret exists on the Worker
+        run: |
+          if npx wrangler secret list -c wrangler.worker.jsonc | grep -q '"JWT_SECRET"'; then
+            echo "JWT_SECRET already set (kept)."
+          else
+            openssl rand -hex 32 | npx wrangler secret put JWT_SECRET -c wrangler.worker.jsonc
+            echo "JWT_SECRET generated and stored on the Worker (never printed)."
+          fi
+
+      # Check the LIVE Worker after every deploy (from GitHub's network).
+      - name: Smoke test the live Worker
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -u
+          test -n "$URL" || { echo "No Worker URL found in the deploy output"; exit 1; }
+          check() { # path expected-status
+            for i in 1 2 3 4 5; do
+              code="$(curl -s -o /dev/null -w '%{http_code}' "$URL$1")"
+              [ "$code" = "$2" ] && { echo "ok   $1 -> $code"; return 0; }
+              sleep 3
+            done
+            echo "FAIL $1 -> $code (expected $2)"; return 1
+          }
+          check / 200
+          check /map 200
+          check /api/regions 200
+          check /api/potholes/counters 200
+          check /static/js/api.js 200
+          check /pothole/abc 404
+          curl -sI "$URL/" | grep -qi "content-security-policy:.*script-src 'self'" && echo "ok   CSP script-src 'self'"
+          curl -sI "$URL/static/vendor/leaflet/leaflet.js" | grep -qi "cache-control: public, max-age=31536000, immutable" && echo "ok   static cache headers"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/api/auth/login" -H 'content-type: application/json' -d '{"email":"smoke-test@example.com","password":"not-the-password"}')"
+          [ "$code" = "401" ] && echo "ok   login rejects a wrong password (401)" || { echo "FAIL login -> $code (expected 401)"; exit 1; }
+          echo "Live Worker OK: $URL"
