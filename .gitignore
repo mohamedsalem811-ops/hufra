@@ -1,6 +1,8 @@
 
 # prod
 dist/
+# ...except the brand package's generated tokens, which are committed (other apps import them; CI checks they are current)
+!packages/brand/dist/
 
 # dev
 .yarn/
