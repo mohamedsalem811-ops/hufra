@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import type { Bindings, PotholeRow } from '../lib/types'
+import type { Bindings, PotholeRow, PotholeStatus } from '../lib/types'
+import { STATUS_ORDER } from '../lib/types'
 import { createPotholeSchema, updateStatusSchema, listQuerySchema } from '../lib/validation'
 import {
   boundingBoxForRadius,
@@ -459,8 +460,62 @@ potholes.post('/', attachAuth, async (c) => {
 // ---------------------------------------------------------------------------
 // PATCH /api/potholes/:id/status - admin only, transitions lifecycle status
 // ---------------------------------------------------------------------------
+const STATUS_TIMESTAMP: Record<PotholeStatus, string | null> = {
+  reported: null,
+  verified: 'verified_at',
+  under_repair: 'under_repair_at',
+  fixed: 'fixed_at',
+}
+
+/** Minimum length of the reason required to move a report backwards. */
+export const REOPEN_NOTE_MIN_LENGTH = 5
+
+// Lifecycle rules: reported -> verified -> under_repair -> fixed.
+//   - Moving forward is allowed, including skipping a stage (a crew may
+//     already have fixed it). Only the target stage's timestamp is set.
+//   - Setting the current status again is refused (it used to overwrite the
+//     stage's timestamp, e.g. resetting fixed_at).
+//   - Moving backward (the pothole re-opened, or a mistake) needs a written
+//     reason, and clears the timestamps of the undone stages so "average fix
+//     time" stays correct. status_history keeps the full record either way.
+//   - The update only applies if the status is still what the admin saw, so
+//     two admins acting at once cannot silently overwrite each other.
+export function planStatusChange(
+  from: PotholeStatus,
+  to: PotholeStatus,
+  note: string | undefined
+): { ok: true; set: string[]; clear: string[]; ensure: string[] } | { ok: false; status: 400 | 409; error: string; error_ar: string } {
+  const fromIdx = STATUS_ORDER.indexOf(from)
+  const toIdx = STATUS_ORDER.indexOf(to)
+  if (fromIdx === toIdx) {
+    return { ok: false, status: 409, error: `Report is already "${to}"`, error_ar: 'البلاغ في هذه الحالة بالفعل' }
+  }
+  if (toIdx > fromIdx) {
+    const col = STATUS_TIMESTAMP[to]
+    return { ok: true, set: col ? [col] : [], clear: [], ensure: [] }
+  }
+  if (!note || note.trim().length < REOPEN_NOTE_MIN_LENGTH) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Moving a report back to an earlier status needs a reason in the note',
+      error_ar: 'إعادة البلاغ إلى حالة سابقة تتطلب كتابة السبب في الملاحظة',
+    }
+  }
+  const clear = STATUS_ORDER.slice(toIdx + 1)
+    .map((st) => STATUS_TIMESTAMP[st])
+    .filter((c): c is string => !!c)
+  // If the stage being returned to was skipped earlier, it starts now.
+  const target = STATUS_TIMESTAMP[to]
+  return { ok: true, set: [], clear, ensure: target ? [target] : [] }
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/potholes/:id/status - admin only, transitions lifecycle status
+// ---------------------------------------------------------------------------
 potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), async (c) => {
   const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
   const authCtx = c.get('auth')!
   const body = await c.req.json().catch(() => null)
   const parsed = updateStatusSchema.safeParse(body)
@@ -470,24 +525,37 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
   if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
   const { status, note } = parsed.data
-  const timestampColumn: Record<string, string> = {
-    verified: 'verified_at',
-    under_repair: 'under_repair_at',
-    fixed: 'fixed_at',
+  const plan = planStatusChange(existing.status, status, note)
+  if (!plan.ok) return c.json({ error: plan.error, error_ar: plan.error_ar, current_status: existing.status }, plan.status)
+
+  const assignments = [
+    'status = ?',
+    ...plan.set.map((col) => `${col} = strftime('%Y-%m-%dT%H:%M:%fZ','now')`),
+    ...plan.clear.map((col) => `${col} = NULL`),
+    ...plan.ensure.map((col) => `${col} = COALESCE(${col}, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  ]
+  const db = c.env.DB
+  // One transaction: stage the actor/note for the status_history trigger,
+  // apply the change only if the status is unchanged since we read it, then
+  // drop the staging row (the trigger already consumed it on success).
+  const [, update] = await db.batch([
+    db.prepare(
+      `INSERT INTO pending_status_change (pothole_id, actor_id, note) VALUES (?, ?, ?)
+       ON CONFLICT(pothole_id) DO UPDATE SET actor_id = excluded.actor_id, note = excluded.note`
+    ).bind(id, authCtx.userId, note ?? null),
+    db.prepare(`UPDATE potholes SET ${assignments.join(', ')} WHERE id = ? AND status = ? AND deleted_at IS NULL`).bind(
+      status,
+      id,
+      existing.status
+    ),
+    db.prepare('DELETE FROM pending_status_change WHERE pothole_id = ?').bind(id),
+  ])
+  if (!update.meta.changes) {
+    return c.json(
+      { error: 'The report was changed by someone else meanwhile; reload and try again', error_ar: 'تم تعديل البلاغ من شخص آخر، أعد التحميل وحاول مجدداً' },
+      409
+    )
   }
-  const col = timestampColumn[status]
-
-  await c.env.DB.prepare(
-    `INSERT INTO pending_status_change (pothole_id, actor_id, note) VALUES (?, ?, ?)
-     ON CONFLICT(pothole_id) DO UPDATE SET actor_id = excluded.actor_id, note = excluded.note`
-  )
-    .bind(id, authCtx.userId, note ?? null)
-    .run()
-
-  const sql = col
-    ? `UPDATE potholes SET status = ?, ${col} = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
-    : `UPDATE potholes SET status = ? WHERE id = ?`
-  await c.env.DB.prepare(sql).bind(status, id).run()
 
   await invalidatePublicCaches()
   await recordAudit(c.env.DB, {
@@ -496,14 +564,14 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
     entity: 'potholes',
     entityId: id,
     before: { status: existing.status },
-    after: { status },
+    after: { status, note: note ?? undefined },
   })
 
   if (existing.reporter_id) {
     await notifyUser(c.env.DB, existing.reporter_id, 'status_change', { pothole_id: id, status }, c.env, deferFrom(c))
   }
 
-  return c.json({ ok: true, status })
+  return c.json({ ok: true, status, previous_status: existing.status })
 })
 
 // ---------------------------------------------------------------------------

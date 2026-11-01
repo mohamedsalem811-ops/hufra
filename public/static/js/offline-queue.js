@@ -222,7 +222,9 @@
           await removePendingAdminAction(act.id);
           syncedAdmin++;
         } catch (err) {
-          if (err && (err.status === 400 || err.status === 403 || err.status === 404)) {
+          // 409: the report is already in that status / was changed meanwhile.
+          // Retrying would never succeed, so drop it like other permanent errors.
+          if (err && (err.status === 400 || err.status === 403 || err.status === 404 || err.status === 409)) {
             await removePendingAdminAction(act.id);
           }
         }

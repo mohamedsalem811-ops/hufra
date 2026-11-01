@@ -341,3 +341,19 @@ all four are now covered by dedicated regression tests.
 - `photos.ts`/`media.ts` have low automated test coverage (file upload/R2
   streaming is harder to exercise without a real multipart `File`/R2
   round-trip) — see README §9 for the concrete next step.
+
+## Status change rules (`PATCH /api/potholes/:id/status`)
+
+Lifecycle: `reported → verified → under_repair → fixed` (`planStatusChange` in
+`src/routes/potholes.ts`).
+
+| Change | Result |
+|---|---|
+| Forward, including skipping a stage | Allowed. Sets only the target stage's timestamp. |
+| Same status again | `409`. Nothing changes, so `fixed_at` and the other timestamps are never overwritten. |
+| Backward (pothole re-opened, or a mistake) | Allowed only with a `note` of at least 5 characters (`400` otherwise). Clears the timestamps of the undone stages, so the average fix time stays correct. A skipped stage gets a start date when it is returned to. |
+| Status changed by someone else since it was read | `409`. The `UPDATE ... WHERE status = <what was read>` changes no row, so the other admin's change is not overwritten. |
+
+The staging row for the `status_history` trigger, the update, and the clean-up
+run in one `DB.batch()` transaction. The offline admin queue drops a `409`
+instead of retrying it forever.
