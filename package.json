@@ -32,6 +32,8 @@
     "db:reset": "npm run db:reset -w @hufra/api --",
     "admin:set-password": "npm run admin:set-password -w @hufra/api --",
     "build:app": "npm run build:app -w @hufra/api --",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "brand:build": "npm run build -w @hufra/brand",
+    "test:packages": "npm run typecheck -w @hufra/brand && npm test -w @hufra/brand && npm run check -w @hufra/brand"
   }
 }
