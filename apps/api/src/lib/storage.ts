@@ -16,6 +16,7 @@
 // - Photos are served through /media/:key which streams from R2 with long
 //   cache lifetimes (see src/routes/media.ts).
 
+import { PHOTO_LIMITS } from '@hufra/contracts'
 import type { Bindings } from './types'
 
 export const PHOTO_PREFIX = 'photos'
@@ -79,10 +80,15 @@ export async function purgeReportPhotos(db: Bindings['DB'], bucket: Bindings['PH
 // ~130 KB, a worst-case pure-noise image ~220 KB, thumbnails a few KB). The
 // limits leave headroom for real photos while refusing anything that skipped
 // the compressor. Formats are checked from the file bytes (src/lib/image-check.ts).
-export const ALLOWED_IMAGE_TYPES = new Set(['image/webp', 'image/jpeg'])
-export const MAX_FULL_IMAGE_BYTES = 400 * 1024
-export const MAX_THUMB_IMAGE_BYTES = 64 * 1024
-export const MAX_FULL_LONG_EDGE_PX = 1280
-export const MAX_THUMB_LONG_EDGE_PX = 320
+// The limits themselves are shared with the apps (which must compress photos
+// to fit before uploading): see PHOTO_LIMITS in @hufra/contracts. They were set
+// from real image-compress.js output (typical road photo ~130 KB, worst case
+// ~220 KB, thumbnails a few KB). Formats are checked from the file bytes
+// (src/lib/image-check.ts).
+export const ALLOWED_IMAGE_TYPES = new Set<string>(PHOTO_LIMITS.types)
+export const MAX_FULL_IMAGE_BYTES = PHOTO_LIMITS.full.maxBytes
+export const MAX_THUMB_IMAGE_BYTES = PHOTO_LIMITS.thumb.maxBytes
+export const MAX_FULL_LONG_EDGE_PX = PHOTO_LIMITS.full.maxLongEdgePx
+export const MAX_THUMB_LONG_EDGE_PX = PHOTO_LIMITS.thumb.maxLongEdgePx
 /** Report photos (stage "report") per report; proof photos per stage (before/during/after). */
-export const MAX_PHOTOS_PER_STAGE = 3
+export const MAX_PHOTOS_PER_STAGE = PHOTO_LIMITS.maxPerStage

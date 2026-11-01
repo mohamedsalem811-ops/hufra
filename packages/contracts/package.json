@@ -1,0 +1,23 @@
+{
+  "name": "@hufra/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "description": "HUFRA API contracts: shared zod schemas and types for requests and responses (API, mobile app, admin)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.5"
+  }
+}

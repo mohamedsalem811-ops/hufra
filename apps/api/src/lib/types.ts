@@ -2,12 +2,11 @@
 // TypeScript modules (imported client-side only where bundled through Vite;
 // plain browser JS files reference the same shapes informally in comments).
 
-export type UserRole = 'user' | 'admin' | 'super_admin'
-export type Locale = 'ar' | 'en'
-export type Severity = 'minor' | 'medium' | 'severe'
-export type PotholeStatus = 'reported' | 'verified' | 'under_repair' | 'fixed'
-export type PhotoStage = 'report' | 'before' | 'during' | 'after'
-export type PushPlatform = 'android' | 'ios' | 'web'
+import type { UserRole, Locale, Severity, PotholeStatus, PhotoStage, PushPlatform } from '@hufra/contracts'
+
+// Domain enums live in @hufra/contracts (shared with the apps).
+export type { UserRole, Locale, Severity, PotholeStatus, PhotoStage, PushPlatform }
+export { STATUS_ORDER } from '@hufra/contracts'
 
 export interface Bindings {
   DB: D1Database
@@ -122,6 +121,5 @@ export interface DevicePushTokenRow {
   updated_at: string
 }
 
-export const STATUS_ORDER: PotholeStatus[] = ['reported', 'verified', 'under_repair', 'fixed']
 
 // Photo limits live in src/lib/storage.ts (MAX_PHOTOS_PER_STAGE, MAX_*_IMAGE_BYTES).

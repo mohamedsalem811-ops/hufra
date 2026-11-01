@@ -40,7 +40,8 @@
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "hono": "^4.13.14",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@hufra/contracts": "*"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",

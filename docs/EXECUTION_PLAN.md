@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5). Current: 2.2.
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6). Current: 2.3.
 
 ## 0. What we are building (agreed decisions)
 
