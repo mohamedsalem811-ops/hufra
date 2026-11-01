@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **proposed, waiting for owner approval**. Nothing in this plan has been started.
+Status: **approved decisions recorded; waiting for the go-ahead to start Phase 1.1**. Nothing in this plan has been started.
 
 ## 0. What we are building (agreed decisions)
 
@@ -106,7 +106,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **6.1 Map**: MapLibre with OpenStreetMap tiles through our own tile proxy (no Google key, no cost), pins clustered and coloured by status, filters (status, region, severity) with clear labels, "near me", tap a pin → preview sheet → detail.
 
-**6.2 Report flow**: GPS location with a draggable pin, camera or gallery (up to 3 photos), compressed on the phone to the server limits (≤1280 px, ~130 KB WebP/JPEG, no EXIF), severity, street, description, optional measurements, review, submit with the upload permit. Works as guest or logged in.
+**6.2 Report flow** (account required): GPS location with a draggable pin, camera or gallery (up to 3 photos), compressed on the phone to the server limits (≤1280 px, ~130 KB WebP/JPEG, no EXIF), severity, street, description, optional measurements, review, submit with the upload permit. A logged-out user is asked to sign up or log in first, then returns to the report.
 
 **6.3 Offline reporting**: reports saved on the phone (SQLite) when there is no signal, sent automatically when back online, never duplicated (device id), visible as "waiting to send".
 
@@ -119,7 +119,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 **6.7 Push notifications**: expo-notifications; Android token sent to the existing Firebase backend; tapping a notification opens the right report. iPhone push is connected in Phase 10.
 - You: create the Firebase project and add the two secrets (steps already documented).
 
-**6.8 Polish and accessibility**: screen reader labels, large text support, contrast, haptics, smooth animations, loading/empty/error states everywhere, image caching for slow networks, dark mode review.
+**6.8 Polish, accessibility and crash reporting**: Firebase Crashlytics (free); screen reader labels, large text support, contrast, haptics, smooth animations, loading/empty/error states everywhere, image caching for slow networks, dark mode review.
 
 **6.9 App tests**: unit tests for logic (compression, queue, auth refresh) and automated end-to-end tests of the main journeys on an Android emulator in CI (Maestro).
 
@@ -160,17 +160,24 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 ---
 
-## Open decisions (with the default I will use if you have no preference)
+## Decisions (answered by the owner, 2026-11-01)
 
-| # | Question | Default |
+| # | Question | Decision |
 |---|---|---|
-| 1 | Buy a domain now or later? | Later; use the Cloudflare address until Phase 8 |
-| 2 | Can guests report without an account in the app? | Yes (as today) |
-| 3 | Public transparency numbers on the website? | Yes, read-only |
-| 4 | Admin address | `/admin` on the same domain |
-| 5 | Maps provider | MapLibre + OpenStreetMap (free, no key) |
-| 6 | Admin features inside the mobile app? | No, admin is web only |
-| 7 | App crash reporting service | Built-in logging first; a service (e.g. Sentry) only if you want one |
+| 1 | Buy a domain now or later? | **Later.** The Cloudflare address is used until then. |
+| 2 | Can guests report without an account? | **No: an account is required to report.** Email verification and password reset come later with a transactional email service (a separate step, added when the service is chosen). |
+| 3 | Public transparency numbers on the website? | **Yes, read-only.** |
+| 4 | Admin address | **`/admin`** on the same domain |
+| 5 | Maps provider | **MapLibre + OpenStreetMap** (free). Can move to a paid tile provider later without app changes (the tile proxy already supports `TILE_UPSTREAM`). |
+| 6 | Admin features inside the mobile app? | **No.** Admin stays on the web. |
+| 7 | Crash reporting | **Firebase Crashlytics (free), added in Phase 6.8**, before any beta tester. Sentry's free plan only if server/admin errors are wanted in the same place later. |
+
+### What decision 2 changes in the plan
+
+- **6.2 Report flow:** requires login. A logged-out user who taps "Report" sees a short sign-up / log-in screen first, then returns to the report.
+- **6.6 Account:** registration (email + password + consent) is part of the first-run experience.
+- **7.1 API:** `POST /api/potholes` and report photo uploads require an authenticated user. Guest reporting is switched off on the server when the old website is removed (9.2), so the current site keeps working until then. Upvotes ("I saw it too") also require an account, which removes the IP-based vote counting.
+- **Later step (after Phase 9, when the email service is chosen):** email verification, password reset, and optionally requiring a verified email before reporting.
 
 ## Risks and how they are handled
 
