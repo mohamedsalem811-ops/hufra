@@ -9,6 +9,18 @@ HUFRA design tokens: **Direction A · Civic Clarity (وضوح مدني)**. One s
 | Rebuild | `npm run brand:build` (from the repo root) |
 | Checks | `npm run test:packages`: typecheck, WCAG 2.2 AA contrast for every text/background pair in light **and** dark, and "dist/ is up to date". Runs in CI. |
 
+## Brand kit (Phase 4.1)
+
+| Folder | Contents |
+|---|---|
+| `assets/logo/` | Mark, horizontal and stacked lockups, wordmark: colour, colour-on-dark, mono-black, mono-white (SVG, text outlined, no font needed) |
+| `assets/app/` | Expo / iOS / Android: `icon.png` (1024, RGB, no alpha), `adaptive-foreground/background/monochrome.png`, `splash-icon.png`, `notification-icon.png` |
+| `assets/web/` | `favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192/512.png`, `icon-maskable-512.png` |
+| `assets/fonts/` | Readex Pro Light, Regular, Medium, SemiBold, Bold (static TTF, from the official variable font) + `OFL.txt` |
+| `VOICE.md` | Voice and tone guide in Arabic and English, glossary, examples |
+
+Regenerate everything from one geometry and the real font with `npm run build:assets -w @hufra/brand` (HarfBuzz shapes the Arabic so letters join correctly; resvg renders the PNGs). Tests check sizes, formats (no alpha in the iOS icon), outlined text and the bundled fonts.
+
 ## Using it
 
 **Mobile app (TypeScript):**
