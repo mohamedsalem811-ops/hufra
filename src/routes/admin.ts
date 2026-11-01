@@ -82,7 +82,7 @@ admin.patch('/duplicates/:id', async (c) => {
         .bind(flag.pothole_id)
         .run()
       await purgeReportPhotos(c.env.DB, c.env.PHOTOS, flag.pothole_id)
-      await invalidatePublicCaches(c.env.KV)
+      await invalidatePublicCaches()
     }
   }
 

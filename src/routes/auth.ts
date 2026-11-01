@@ -147,7 +147,7 @@ auth.post('/register', async (c) => {
 
 auth.post('/login', async (c) => {
   const ip = clientIp(c)
-  const rl = await checkRateLimit(c.env.KV, 'login', ip, LOGIN_LIMIT_PER_IP, LOGIN_LIMIT_WINDOW_SECONDS)
+  const rl = await checkRateLimit(c.env, 'login', ip, LOGIN_LIMIT_PER_IP, LOGIN_LIMIT_WINDOW_SECONDS)
   if (!rl.allowed) {
     return c.json({ error: 'Too many login attempts, please try again later', error_ar: 'محاولات كثيرة جداً، حاول لاحقاً' }, 429)
   }
@@ -281,7 +281,7 @@ auth.post('/logout', async (c) => {
 auth.post('/change-password', requireAuth(), async (c) => {
   const authCtx = c.get('auth')!
   const ip = clientIp(c)
-  const rl = await checkRateLimit(c.env.KV, 'chpw', String(authCtx.userId), 5, 15 * 60)
+  const rl = await checkRateLimit(c.env, 'chpw', String(authCtx.userId), 5, 15 * 60)
   if (!rl.allowed) {
     return c.json({ error: 'Too many attempts, please try again later', error_ar: 'محاولات كثيرة جداً، حاول لاحقاً' }, 429)
   }

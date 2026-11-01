@@ -66,7 +66,7 @@ async function checkImage(
 // ---------------------------------------------------------------------------
 photos.post('/:potholeId', attachAuth, async (c) => {
   const ip = clientIp(c)
-  const rl = await checkRateLimit(c.env.KV, 'upload_ip', ip, UPLOAD_LIMIT_PER_IP, UPLOAD_LIMIT_WINDOW_SECONDS)
+  const rl = await checkRateLimit(c.env, 'upload_ip', ip, UPLOAD_LIMIT_PER_IP, UPLOAD_LIMIT_WINDOW_SECONDS)
   if (!rl.allowed) {
     return c.json({ error: 'Too many uploads, please try again later', error_ar: 'رفع كثير جداً، حاول لاحقاً' }, 429)
   }
@@ -153,7 +153,7 @@ photos.post('/:potholeId', attachAuth, async (c) => {
     after: { pothole_id: potholeId, stage, bytes: full.bytes.byteLength + thumb.bytes.byteLength },
   })
 
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   return c.json({ id: photoId, r2_key: fullKey, thumb_key: thumbKey, stage }, 201)
 })
 
@@ -175,7 +175,7 @@ photos.delete('/:photoId', attachAuth, requireRole('admin', 'super_admin'), asyn
   // The DB row stays (soft-deleted) for the audit trail; the image bytes are
   // removed so they stop being publicly reachable and stop using storage.
   await deletePhotoObjects(c.env.PHOTOS, [photo.r2_key, photo.thumb_key])
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await recordAudit(c.env.DB, {
     actorId: authCtx.userId,
     action: 'photo.delete',

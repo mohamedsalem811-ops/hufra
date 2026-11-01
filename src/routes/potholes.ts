@@ -12,7 +12,7 @@ import { checkRateLimit, REPORT_LIMIT_PER_IP, REPORT_LIMIT_PER_USER, REPORT_LIMI
 import { recordAudit, hashIp } from '../lib/audit'
 import { notifyAdmins, notifyUser, deferFrom } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
-import { invalidatePublicCaches } from '../lib/cache'
+import { invalidatePublicCaches, cachedJson } from '../lib/cache'
 import { createUploadToken } from '../lib/upload-token'
 import { purgeReportPhotos } from '../lib/storage'
 
@@ -115,42 +115,44 @@ potholes.get('/', attachAuth, async (c) => {
 // GET /api/potholes/counters - live homepage counters (public, cached briefly)
 // ---------------------------------------------------------------------------
 potholes.get('/counters', async (c) => {
-  const cacheKey = 'counters:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'counters:v1',
+    async () => {
+      const totals = await c.env.DB.prepare(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'fixed' THEN 1 ELSE 0 END) as fixed,
+          SUM(CASE WHEN status = 'reported' THEN 1 ELSE 0 END) as reported,
+          SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
+          SUM(CASE WHEN status = 'under_repair' THEN 1 ELSE 0 END) as under_repair
+         FROM potholes WHERE deleted_at IS NULL`
+      ).first()
 
-  const totals = await c.env.DB.prepare(
-    `SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN status = 'fixed' THEN 1 ELSE 0 END) as fixed,
-      SUM(CASE WHEN status = 'reported' THEN 1 ELSE 0 END) as reported,
-      SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
-      SUM(CASE WHEN status = 'under_repair' THEN 1 ELSE 0 END) as under_repair
-     FROM potholes WHERE deleted_at IS NULL`
-  ).first()
+      const byRegion = await c.env.DB.prepare(
+        `SELECT r.id, r.name_ar, r.name_en,
+           COUNT(p.id) as total,
+           SUM(CASE WHEN p.status = 'fixed' THEN 1 ELSE 0 END) as fixed
+         FROM regions r
+         LEFT JOIN potholes p ON p.region_id = r.id AND p.deleted_at IS NULL
+         WHERE r.active = 1
+         GROUP BY r.id
+         ORDER BY total DESC`
+      ).all()
 
-  const byRegion = await c.env.DB.prepare(
-    `SELECT r.id, r.name_ar, r.name_en,
-       COUNT(p.id) as total,
-       SUM(CASE WHEN p.status = 'fixed' THEN 1 ELSE 0 END) as fixed
-     FROM regions r
-     LEFT JOIN potholes p ON p.region_id = r.id AND p.deleted_at IS NULL
-     WHERE r.active = 1
-     GROUP BY r.id
-     ORDER BY total DESC`
-  ).all()
+      const avgResponse = await c.env.DB.prepare(
+        `SELECT AVG(julianday(fixed_at) - julianday(created_at)) as avg_days
+         FROM potholes WHERE status = 'fixed' AND fixed_at IS NOT NULL AND deleted_at IS NULL`
+      ).first<{ avg_days: number | null }>()
 
-  const avgResponse = await c.env.DB.prepare(
-    `SELECT AVG(julianday(fixed_at) - julianday(created_at)) as avg_days
-     FROM potholes WHERE status = 'fixed' AND fixed_at IS NOT NULL AND deleted_at IS NULL`
-  ).first<{ avg_days: number | null }>()
-
-  const payload = {
-    totals,
-    by_region: byRegion.results,
-    avg_response_days: avgResponse?.avg_days ?? null,
-  }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = {
+        totals,
+        by_region: byRegion.results,
+        avg_response_days: avgResponse?.avg_days ?? null,
+      }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -159,24 +161,26 @@ potholes.get('/counters', async (c) => {
 // thumbnails for the homepage showcase (public, cached 60s).
 // ---------------------------------------------------------------------------
 potholes.get('/recent-fixed', async (c) => {
-  const cacheKey = 'recent_fixed:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'recent_fixed:v1',
+    async () => {
+      const rows = await c.env.DB.prepare(
+        `SELECT p.id, p.street_ar, p.street_en, p.fixed_at, p.created_at,
+           r.name_ar as region_name_ar, r.name_en as region_name_en,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
+         FROM potholes p
+         JOIN regions r ON r.id = p.region_id
+         WHERE p.status = 'fixed' AND p.deleted_at IS NULL
+         ORDER BY COALESCE(p.fixed_at, p.updated_at) DESC
+         LIMIT 6`
+      ).all()
 
-  const rows = await c.env.DB.prepare(
-    `SELECT p.id, p.street_ar, p.street_en, p.fixed_at, p.created_at,
-       r.name_ar as region_name_ar, r.name_en as region_name_en,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
-     FROM potholes p
-     JOIN regions r ON r.id = p.region_id
-     WHERE p.status = 'fixed' AND p.deleted_at IS NULL
-     ORDER BY COALESCE(p.fixed_at, p.updated_at) DESC
-     LIMIT 6`
-  ).all()
-
-  const payload = { results: rows.results }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = { results: rows.results }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -189,29 +193,31 @@ potholes.get('/recent-fixed', async (c) => {
 // the repair progress without a second request.
 // ---------------------------------------------------------------------------
 potholes.get('/showcase', async (c) => {
-  const cacheKey = 'showcase:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'showcase:v1',
+    async () => {
+      const select = `SELECT p.id, p.status, p.street_ar, p.street_en, p.fixed_at, p.under_repair_at, p.created_at,
+           r.name_ar as region_name_ar, r.name_en as region_name_en,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'during' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as during_thumb_key,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
+         FROM potholes p
+         JOIN regions r ON r.id = p.region_id
+         WHERE p.status = ? AND p.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL)
+         ORDER BY COALESCE(p.fixed_at, p.under_repair_at, p.updated_at) DESC
+         LIMIT 6`
 
-  const select = `SELECT p.id, p.status, p.street_ar, p.street_en, p.fixed_at, p.under_repair_at, p.created_at,
-       r.name_ar as region_name_ar, r.name_en as region_name_en,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'during' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as during_thumb_key,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
-     FROM potholes p
-     JOIN regions r ON r.id = p.region_id
-     WHERE p.status = ? AND p.deleted_at IS NULL
-       AND EXISTS (SELECT 1 FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL)
-     ORDER BY COALESCE(p.fixed_at, p.under_repair_at, p.updated_at) DESC
-     LIMIT 6`
+      const [fixed, inProgress] = await Promise.all([
+        c.env.DB.prepare(select).bind('fixed').all(),
+        c.env.DB.prepare(select).bind('under_repair').all(),
+      ])
 
-  const [fixed, inProgress] = await Promise.all([
-    c.env.DB.prepare(select).bind('fixed').all(),
-    c.env.DB.prepare(select).bind('under_repair').all(),
-  ])
-
-  const payload = { fixed: fixed.results, in_progress: inProgress.results }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = { fixed: fixed.results, in_progress: inProgress.results }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -219,24 +225,26 @@ potholes.get('/showcase', async (c) => {
 // GET /api/potholes/top-reporter - homepage highlight (public, cached briefly)
 // ---------------------------------------------------------------------------
 potholes.get('/top-reporter', async (c) => {
-  const cacheKey = 'top_reporter:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'top_reporter:v1',
+    async () => {
+      const top = await c.env.DB.prepare(
+        `SELECT u.display_name, u.code, COUNT(*) as report_count
+         FROM potholes p
+         JOIN users u ON u.id = p.reporter_id
+         WHERE p.reporter_id IS NOT NULL AND p.deleted_at IS NULL AND u.deleted_at IS NULL
+         GROUP BY p.reporter_id
+         ORDER BY report_count DESC
+         LIMIT 1`
+      ).first<{ display_name: string | null; code: string; report_count: number }>()
 
-  const top = await c.env.DB.prepare(
-    `SELECT u.display_name, u.code, COUNT(*) as report_count
-     FROM potholes p
-     JOIN users u ON u.id = p.reporter_id
-     WHERE p.reporter_id IS NOT NULL AND p.deleted_at IS NULL AND u.deleted_at IS NULL
-     GROUP BY p.reporter_id
-     ORDER BY report_count DESC
-     LIMIT 1`
-  ).first<{ display_name: string | null; code: string; report_count: number }>()
-
-  const payload = {
-    reporter: top ? { name: top.display_name || top.code, report_count: top.report_count } : null,
-  }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = {
+        reporter: top ? { name: top.display_name || top.code, report_count: top.report_count } : null,
+      }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -352,14 +360,14 @@ potholes.post('/', attachAuth, async (c) => {
   }
 
   const ip = clientIp(c)
-  const ipRl = await checkRateLimit(c.env.KV, 'report_ip', ip, REPORT_LIMIT_PER_IP, REPORT_LIMIT_WINDOW_SECONDS)
+  const ipRl = await checkRateLimit(c.env, 'report_ip', ip, REPORT_LIMIT_PER_IP, REPORT_LIMIT_WINDOW_SECONDS)
   if (!ipRl.allowed) {
     return c.json({ error: 'Too many reports from this network, please try again later', error_ar: 'عدد بلاغات كبير من هذا الاتصال، حاول لاحقاً' }, 429)
   }
 
   const authCtx = c.get('auth')
   if (authCtx) {
-    const userRl = await checkRateLimit(c.env.KV, 'report_user', String(authCtx.userId), REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS)
+    const userRl = await checkRateLimit(c.env, 'report_user', String(authCtx.userId), REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS)
     if (!userRl.allowed) {
       return c.json({ error: 'Too many reports from this account, please try again later', error_ar: 'عدد بلاغات كبير من هذا الحساب، حاول لاحقاً' }, 429)
     }
@@ -430,7 +438,7 @@ potholes.post('/', attachAuth, async (c) => {
     }
   }
 
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await notifyAdmins(c.env.DB, 'new_report', { pothole_id: potholeId, severity: data.severity, region_id: regionId }, c.env, deferFrom(c))
   await recordAudit(c.env.DB, {
     actorId: authCtx?.userId ?? null,
@@ -481,7 +489,7 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
     : `UPDATE potholes SET status = ? WHERE id = ?`
   await c.env.DB.prepare(sql).bind(status, id).run()
 
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await recordAudit(c.env.DB, {
     actorId: authCtx.userId,
     action: 'pothole.status_change',
@@ -520,7 +528,7 @@ potholes.delete('/:id', attachAuth, requireRole('admin', 'super_admin'), async (
 
   await purgeReportPhotos(c.env.DB, c.env.PHOTOS, id)
 
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await recordAudit(c.env.DB, {
     actorId: authCtx.userId,
     action: 'pothole.delete',

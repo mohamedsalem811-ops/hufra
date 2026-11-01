@@ -82,7 +82,7 @@ regions.delete('/:id', attachAuth, requireRole('admin', 'super_admin'), async (c
   }
 
   await c.env.DB.prepare('DELETE FROM regions WHERE id = ?').bind(id).run()
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'region.delete', entity: 'regions', entityId: id, before: existing })
   return c.json({ ok: true, deleted_id: id })
 })

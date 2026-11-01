@@ -16,7 +16,7 @@ mandatory admin 2FA).
   automatically when served over HTTPS) — **or** as an `Authorization:
   Bearer` header for API/script clients. HttpOnly prevents the tokens from
   being read by page JavaScript (XSS mitigation for session theft).
-- **Login rate limiting**: `checkRateLimit` (`src/lib/rate-limit.ts`, KV-backed)
+- **Login rate limiting**: `checkRateLimit` (`src/lib/rate-limit.ts`, D1-backed: one atomic upsert per check, so parallel requests cannot exceed the limit; IPs are stored only as salted hashes)
   throttles `/api/auth/login` per client IP to slow down credential
   stuffing / brute force.
 - **RBAC**: `requireRole('admin' | 'super_admin')` middleware

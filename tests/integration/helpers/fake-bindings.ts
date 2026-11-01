@@ -29,6 +29,11 @@ export class FakeKVNamespace {
   __clear() {
     this.store.clear()
   }
+
+  /** Test helper: number of stored keys. */
+  get size() {
+    return this.store.size
+  }
 }
 
 // Minimal fake of the D1 prepared-statement API. Records every bound

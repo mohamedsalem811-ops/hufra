@@ -46,13 +46,13 @@ transparent, publicly-visible map and dashboard.
 - **Role-based access control** — `user` / `admin` / `super_admin`, enforced
   server-side on every route (never trusted from client-supplied claims).
 - **Public transparency dashboard** — aggregate counters, by-region/by-status/
-  by-severity/by-month breakdowns, average fix time — cached briefly in KV so
+  by-severity/by-month breakdowns, average fix time — cached briefly in Cloudflare's edge cache so
   the public homepage stays fast under load.
 - **Immutable audit log** — every state-changing admin action
   (`pothole.status_change`, `region.create`, `user.promote`, …) is recorded
   with before/after JSON snapshots in an append-only `audit_logs` table.
 - **Rate limiting** — per-IP and per-account limits on report submission,
-  login attempts, and photo uploads, backed by Cloudflare KV fixed windows.
+  login attempts, and photo uploads: fixed windows counted atomically in D1.
 - **GDPR-style self-service** — any user can export their own data
   (`GET /api/auth/me/export`) or soft-delete their account
   (`POST /api/auth/me/delete`), with anonymized email retained for referential
@@ -86,7 +86,8 @@ Hono app on Cloudflare Workers (src/index.tsx)
         └── src/routes/admin.ts      — notifications, duplicates, analytics, audit log, admin management
         │
         ├── Cloudflare D1 (SQLite)  — relational data + triggers (see docs/ARCHITECTURE.md)
-        ├── Cloudflare KV           — rate-limit counters + short-lived counter cache
+        ├── Cloudflare KV           — Firebase push access-token cache only
+        ├── Edge cache (Cache API)  — 60s cache of public homepage/transparency reads
         └── Cloudflare R2           — original + thumbnail photo objects
 ```
 
@@ -110,13 +111,13 @@ the route source files (`src/routes/*.ts`); this is the entry-point index.
 | GET | `/api/auth/me/export` | access token | Export own account + reports (GDPR) |
 | POST | `/api/auth/me/delete` | access token | Soft-delete own account (GDPR) |
 | GET | `/api/potholes` | none | List/filter reports (`status`, `region_id`, `severity`, `bbox`, `near_lat`/`near_lng`/`radius_m`) |
-| GET | `/api/potholes/counters` | none | Public aggregate totals (KV-cached 60s) |
+| GET | `/api/potholes/counters` | none | Public aggregate totals (edge-cached 60s) |
 | GET | `/api/potholes/:id` | none | Report detail + photos + status history |
 | POST | `/api/potholes` | none (optional) | Submit a report (guest or authenticated) |
 | PATCH | `/api/potholes/:id/status` | admin/super_admin | Transition report status |
 | GET | `/api/potholes/mine/list` | access token | Reports submitted by the current user |
-| GET | `/api/potholes/top-reporter` | none | Registered user with the most reports (KV-cached 60s) |
-| GET | `/api/potholes/showcase` | none | Home-page photo showcase: `{fixed, in_progress}` (before/during/after thumbs, KV-cached 60s) |
+| GET | `/api/potholes/top-reporter` | none | Registered user with the most reports (edge-cached 60s) |
+| GET | `/api/potholes/showcase` | none | Home-page photo showcase: `{fixed, in_progress}` (before/during/after thumbs, edge-cached 60s) |
 | DELETE | `/api/potholes/:id` | admin/super_admin | Soft-delete a report and its photos |
 | POST | `/api/photos/:potholeId` | none (optional) | Upload a photo (multipart `full`+`thumb`) |
 | DELETE | `/api/photos/:photoId` | admin/super_admin | Soft-delete a photo |
@@ -153,8 +154,13 @@ Public pages: `/`, `/map`, `/report`, `/transparency`, `/trust`,
   no payment gateway involved), plus small helper tables (`user_code_seq`,
   `pending_status_change`). Schema + triggers live in `migrations/*.sql`;
   full ER diagram in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-- **Cloudflare KV** — fixed-window rate-limit counters (`rl:*`) and the
-  60-second public counters cache (`counters:v1`).
+- **Rate limits** — fixed-window counters in the D1 table
+  `rate_limit_counters` (one atomic upsert per check; IPs stored hashed).
+- **Edge cache (Cache API)** — 60-second cache of the public read endpoints
+  (`counters`, `showcase`, `top-reporter`, `recent-fixed`).
+- **Cloudflare KV** — only the cached Firebase push access token (about 24
+  writes/day). Nothing else uses KV, so the free tier's 1,000 writes/day is
+  never a limit.
 - **Cloudflare R2** — original + thumbnail photo binaries, keyed by
   unguessable UUID-based paths (`photos/…`, `thumbs/…`).
 
@@ -308,12 +314,12 @@ see the repository's task history for the two supported deploy paths
 - **صلاحيات مبنية على الأدوار** — `مستخدم`/`إدارة`/`مسؤول عام`، تُفرض من جهة
   الخادم على كل مسار (لا يُعتمد أبدًا على أي ادعاء دور يرسله المتصفح).
 - **لوحة شفافية عامة** — إحصائيات مجمّعة حسب المنطقة/الحالة/درجة الخطورة/الشهر،
-  ومتوسط زمن الإصلاح — مع تخزين مؤقت قصير في KV لضمان سرعة الصفحة الرئيسية.
+  ومتوسط زمن الإصلاح — مع تخزين مؤقت قصير في ذاكرة Cloudflare الطرفية (Cache API) لضمان سرعة الصفحة الرئيسية.
 - **سجل تدقيق ثابت** — كل إجراء إداري مغيّر للحالة (تغيير حالة بلاغ، إنشاء
   منطقة، ترقية مستخدم...) يُسجَّل مع لقطة "قبل/بعد" في جدول تدقيق لا يمكن
   تعديله أو حذفه.
 - **تحديد لمعدل الطلبات** — حدود لكل عنوان IP وكل حساب على إرسال البلاغات
-  ومحاولات تسجيل الدخول ورفع الصور، عبر نوافذ ثابتة في Cloudflare KV.
+  ومحاولات تسجيل الدخول ورفع الصور، عبر نوافذ ثابتة تُعدّ بشكل ذرّي في قاعدة D1.
 - **خدمة ذاتية بمعايير GDPR** — يمكن لأي مستخدم تصدير بياناته الخاصة
   (`GET /api/auth/me/export`) أو حذف حسابه بشكل مبطّن (`POST /api/auth/me/delete`)
   مع الاحتفاظ ببريد إلكتروني مموّه للحفاظ على تكامل البلاغات السابقة.
@@ -349,8 +355,9 @@ see the repository's task history for the two supported deploy paths
   `donors` (سجل داعمين يُدخله المسؤول يدويًا بالدينار الليبي، دون بوابة دفع)،
   وجداول مساعدة صغيرة. المخطط والمُحرِّكات (triggers) في `migrations/*.sql`؛
   ومخطط ER الكامل في [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-- **Cloudflare KV**: عدّادات تحديد معدل الطلبات، وذاكرة تخزين مؤقت للعدّادات
-  العامة لمدة 60 ثانية.
+- **تحديد معدل الطلبات**: عدّادات في جدول D1 ‏`rate_limit_counters` (عنوان IP مخزّن مشفّراً).
+- **ذاكرة Cloudflare الطرفية (Cache API)**: تخزين مؤقت للقراءات العامة لمدة 60 ثانية.
+- **Cloudflare KV**: فقط رمز الدخول المؤقت لإشعارات Firebase.
 - **Cloudflare R2**: ملفات الصور الأصلية والمصغّرة، بمفاتيح غير قابلة للتخمين.
 
 ## 6. دليل الاستخدام

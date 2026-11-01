@@ -50,7 +50,7 @@ common in the target market.
 
 1. `POST /api/potholes` (guest or authenticated — `attachAuth` runs but does
    not require a session).
-2. Per-IP rate limit checked in KV (`checkRateLimit`, `report_ip` scope); if
+2. Per-IP rate limit checked in D1 (`checkRateLimit`, `report_ip` scope, table `rate_limit_counters`); if
    authenticated, a second per-user check runs too.
 3. Body validated against `createPotholeSchema` (Zod) — coordinate plausibility
    is checked separately (`isPlausibleLibyaCoordinate`) since Zod validates
