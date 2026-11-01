@@ -273,7 +273,7 @@ See also:
 
 | | Cloudflare Pages (current) | Cloudflare Workers + Static Assets (new) |
 |---|---|---|
-| Address | https://hufra.pages.dev | https://hufra.&lt;your-subdomain&gt;.workers.dev |
+| Address | https://hufra.pages.dev | https://hufra.mohamedsalem811.workers.dev |
 | Config | `apps/api/wrangler.jsonc` | `apps/api/wrangler.worker.jsonc` |
 | Deployed by | CI on every push to `main` | CI on every push to `main` (and manual CI runs) |
 | Local | `npm run dev:sandbox` | `npm run dev:worker` |

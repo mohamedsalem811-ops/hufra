@@ -3,7 +3,7 @@
   //
   // Runs ALONGSIDE the Pages project (wrangler.jsonc) until the switch-over in
   // Phase 9: same code, same D1 database, R2 bucket and KV namespace, new address
-  // https://hufra.<your-subdomain>.workers.dev. CI deploys both on every push to main.
+  // https://hufra.mohamedsalem811.workers.dev. CI deploys both on every push to main.
   //
   // Deploy:  npx wrangler deploy -c wrangler.worker.jsonc --define __BUILD_ID__:'"<commit>"'
   // (__BUILD_ID__ stamps /static/css|js URLs so browsers fetch new files after each deploy.)
