@@ -18,6 +18,66 @@ const STATUS_LABELS_EN: Record<string, string> = {
   fixed: 'Fixed',
 }
 
+// ---------------------------------------------------------------------------
+// Reading notifications (shared by GET /api/notifications and the admin page).
+// ---------------------------------------------------------------------------
+
+/** Roles whose team notifications a user receives: admins and super admins both get "admin" ones. */
+function rolesFor(role: string): string[] {
+  if (role === 'super_admin') return ['admin', 'super_admin']
+  if (role === 'admin') return ['admin']
+  return []
+}
+
+export async function listNotificationsFor(
+  db: Bindings['DB'],
+  user: { userId: number; role: string },
+  limit = 50
+): Promise<{ results: unknown[]; unread_count: number }> {
+  const roles = rolesFor(user.role)
+  const roleClause = roles.length ? ` OR n.target_role IN (${roles.map(() => '?').join(',')})` : ''
+  const scope = `(n.target_user_id = ?${roleClause})`
+  // Personal notifications use their own read_at; team ones use this person's row in notification_reads.
+  const readAt = 'CASE WHEN n.target_user_id IS NOT NULL THEN n.read_at ELSE r.read_at END'
+  const join = 'LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?'
+  const binds = [user.userId, user.userId, ...roles]
+
+  const rows = await db
+    .prepare(
+      `SELECT n.id, n.target_role, n.target_user_id, n.type, n.payload_json, n.created_at, ${readAt} AS read_at
+       FROM notifications n ${join} WHERE ${scope} ORDER BY n.created_at DESC, n.id DESC LIMIT ?`
+    )
+    .bind(...binds, limit)
+    .all()
+  const unread = await db
+    .prepare(`SELECT COUNT(*) AS n FROM notifications n ${join} WHERE ${scope} AND ${readAt} IS NULL`)
+    .bind(...binds)
+    .first<{ n: number }>()
+  return { results: rows.results, unread_count: unread?.n ?? 0 }
+}
+
+export async function markAllNotificationsRead(db: Bindings['DB'], user: { userId: number; role: string }): Promise<void> {
+  const roles = rolesFor(user.role)
+  const statements = [
+    db
+      .prepare(
+        `UPDATE notifications SET read_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE target_user_id = ? AND read_at IS NULL`
+      )
+      .bind(user.userId),
+  ]
+  if (roles.length) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO notification_reads (notification_id, user_id)
+           SELECT id, ? FROM notifications WHERE target_role IN (${roles.map(() => '?').join(',')})`
+        )
+        .bind(user.userId, ...roles)
+    )
+  }
+  await db.batch(statements)
+}
+
 export function buildNotificationCopy(
   type: string,
   payload: Record<string, unknown>
