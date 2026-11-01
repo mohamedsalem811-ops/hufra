@@ -68,3 +68,25 @@ export function isForbiddenCrossSiteWrite(
   if (!origin) return false
   return !isAllowedOrigin(origin, requestUrl, env)
 }
+
+/**
+ * Whether login/refresh responses may include the tokens in the JSON body.
+ *
+ * - Web pages (any browser request with an Origin other than the native app
+ *   shells): NO. They get HttpOnly cookies only, so script running in the
+ *   page (e.g. from an XSS bug) can never read or copy a token.
+ * - The Capacitor app (capacitor://localhost, https://localhost...): yes. It
+ *   cannot use the site's cookies from its own origin.
+ * - Requests without an Origin (curl, server scripts, tests): yes.
+ *   Browsers always send Origin on POST, so a page cannot pretend to be one.
+ */
+export function tokensInBody(origin: string | undefined, requestUrl: string): boolean {
+  if (!origin) return true
+  try {
+    // A page served by this site itself is always the website.
+    if (origin === new URL(requestUrl).origin) return false
+  } catch {
+    /* unparsable URL: fall through */
+  }
+  return NATIVE_APP_ORIGINS.includes(origin)
+}

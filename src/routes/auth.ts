@@ -12,6 +12,7 @@ import {
 import { checkRateLimit, LOGIN_LIMIT_PER_IP, LOGIN_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
 import { hashIp, recordAudit } from '../lib/audit'
 import { COOKIE_NAME, attachAuth, requireAuth } from '../middleware/auth'
+import { tokensInBody } from '../lib/origins'
 
 const auth = new Hono<{ Bindings: Bindings }>()
 
@@ -42,6 +43,10 @@ async function setSessionCookies(c: any, accessToken: string, refreshToken: stri
     `hufra_refresh=${encodeURIComponent(refreshToken)}; ${base}; Max-Age=${REFRESH_TOKEN_TTL_SECONDS}`,
     { append: true }
   )
+  // Not a secret: only tells page scripts "a session exists, refreshing is worth trying".
+  c.header('Set-Cookie', `hufra_auth=1; Path=/; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=${REFRESH_TOKEN_TTL_SECONDS}`, {
+    append: true,
+  })
 }
 
 async function extractRefreshToken(c: any): Promise<string | null> {
@@ -105,6 +110,7 @@ function clearSessionCookies(c: any) {
   const base = `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=0`
   c.header('Set-Cookie', `${COOKIE_NAME}=; ${base}`, { append: true })
   c.header('Set-Cookie', `hufra_refresh=; ${base}`, { append: true })
+  c.header('Set-Cookie', `hufra_auth=; Path=/; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=0`, { append: true })
 }
 
 function refreshDenied(c: any, error: string, error_ar: string) {
@@ -185,11 +191,10 @@ auth.post('/login', async (c) => {
   const { accessToken, refreshToken } = await issueSession(c, user, ipHashed)
   await recordAudit(c.env.DB, { actorId: user.id, action: 'user.login', entity: 'users', entityId: user.id, ipHash: ipHashed })
 
-  return c.json({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    user: { id: user.id, email: user.email, code: user.code, role: user.role, locale: user.locale, display_name: user.display_name },
-  })
+  const userInfo = { id: user.id, email: user.email, code: user.code, role: user.role, locale: user.locale, display_name: user.display_name }
+  // Web pages get HttpOnly cookies only; the native app and API clients also get the tokens.
+  if (!tokensInBody(c.req.header('Origin'), c.req.url)) return c.json({ user: userInfo })
+  return c.json({ access_token: accessToken, refresh_token: refreshToken, user: userInfo })
 })
 
 // Refresh-token rotation: each refresh token works exactly once. A successful
@@ -261,6 +266,7 @@ auth.post('/refresh', async (c) => {
   }
 
   const { accessToken, refreshToken } = await issueSession(c, currentUser, await hashIp(clientIp(c), c.env.JWT_SECRET))
+  if (!tokensInBody(c.req.header('Origin'), c.req.url)) return c.json({ ok: true })
   return c.json({ access_token: accessToken, refresh_token: refreshToken })
 })
 

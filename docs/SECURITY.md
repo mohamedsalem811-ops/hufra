@@ -230,3 +230,20 @@ Migration `0009` applies the same clean-up to accounts deleted before this
 fix. New `pothole.create` audit entries record `reporter_contact: "[provided]"`
 instead of the number, because audit rows can never be edited. Entries written
 before this change still contain the numbers they were given.
+
+## 11. Website sessions are cookie-only
+
+- For a request from a web page, login and refresh responses **never contain
+  the tokens** (`tokensInBody` in `src/lib/origins.ts`). The session lives only
+  in the HttpOnly `hufra_session` / `hufra_refresh` cookies, so script running
+  in the page, including injected script from a future XSS bug, cannot read,
+  store or exfiltrate it. A page's request is recognised by its `Origin`
+  header, which browsers always send on POST and page script cannot remove.
+- The Capacitor app (`capacitor://localhost`, `https://localhost`) cannot use
+  the site's cookies from its own origin, so it still receives the tokens in
+  the body and keeps them in app storage. Requests with no `Origin` (curl,
+  server scripts) also receive them.
+- `public/static/js/api.js` never stores tokens on the website and deletes any
+  that older versions left in `localStorage`. A readable `hufra_auth=1` cookie
+  (no secret) tells the page whether a refresh is worth trying, so logged-out
+  visitors make no refresh calls.
