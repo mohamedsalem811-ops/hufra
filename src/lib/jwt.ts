@@ -9,6 +9,8 @@ export interface JwtPayload {
   exp: number // unix seconds
   iat: number
   typ: 'access' | 'refresh'
+  /** Random token id. Makes every refresh token unique, even two issued in the same second. */
+  jti?: string
 }
 
 function base64url(input: ArrayBuffer | string): string {
@@ -51,22 +53,27 @@ export async function signJwt(payload: JwtPayload, secret: string): Promise<stri
   return `${signingInput}.${base64url(signature)}`
 }
 
+/**
+ * Returns the payload of a correctly signed, unexpired token, or null for
+ * anything else - including malformed input (bad base64, wrong number of
+ * parts, non-JSON payload), which must read as "not logged in", never throw.
+ */
 export async function verifyJwt(token: string, secret: string): Promise<JwtPayload | null> {
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const [encodedHeader, encodedPayload, encodedSignature] = parts
-  const signingInput = `${encodedHeader}.${encodedPayload}`
-  const key = await hmacKey(secret)
-  const signatureBytes = base64urlDecode(encodedSignature)
-  const valid = await crypto.subtle.verify(
-    'HMAC',
-    key,
-    signatureBytes,
-    new TextEncoder().encode(signingInput)
-  )
-  if (!valid) return null
-
   try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const [encodedHeader, encodedPayload, encodedSignature] = parts
+    const signingInput = `${encodedHeader}.${encodedPayload}`
+    const key = await hmacKey(secret)
+    const signatureBytes = base64urlDecode(encodedSignature)
+    const valid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      signatureBytes,
+      new TextEncoder().encode(signingInput)
+    )
+    if (!valid) return null
+
     const payloadJson = new TextDecoder().decode(base64urlDecode(encodedPayload))
     const payload = JSON.parse(payloadJson) as JwtPayload
     if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) {

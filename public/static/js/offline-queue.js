@@ -185,6 +185,7 @@
               formData.append('stage', photo.stage || 'report');
               if (photo.width) formData.append('width_px', String(photo.width));
               if (photo.height) formData.append('height_px', String(photo.height));
+              if (created.upload_token) formData.append('upload_token', created.upload_token);
               await global.HufraApi.postForm('/photos/' + potholeId, formData);
             }
           }
@@ -221,7 +222,9 @@
           await removePendingAdminAction(act.id);
           syncedAdmin++;
         } catch (err) {
-          if (err && (err.status === 400 || err.status === 403 || err.status === 404)) {
+          // 409: the report is already in that status / was changed meanwhile.
+          // Retrying would never succeed, so drop it like other permanent errors.
+          if (err && (err.status === 400 || err.status === 403 || err.status === 404 || err.status === 409)) {
             await removePendingAdminAction(act.id);
           }
         }

@@ -72,3 +72,16 @@ function timingSafeEqual(a: string, b: string): boolean {
 export function isPasswordStrongEnough(password: string): boolean {
   return typeof password === 'string' && password.length >= 8
 }
+
+/**
+ * Passwords that have been published and must never authenticate anyone.
+ * `Hufra@Admin2026!` was the default super-admin password, printed in this
+ * repository's README, deploy.sh and migration 0006 - so every deployment
+ * that still uses it is open to anyone who has read the code.
+ * Keep in sync with scripts/set-admin-password.mjs.
+ */
+const KNOWN_PUBLIC_PASSWORDS = new Set(['Hufra@Admin2026!'])
+
+export function isKnownPublicPassword(password: string): boolean {
+  return KNOWN_PUBLIC_PASSWORDS.has(password)
+}

@@ -34,7 +34,7 @@ This document explains how the website and the Android/iOS mobile app connect to
 ### 2.2 Offline Field Reporting & Idempotent Sync (`public/static/js/offline-queue.js`, `migrations/0006_mobile_and_push.sql`)
 - **Citizen & Guest Offline Reports**:
   - Every report draft generates a unique `client_report_uuid`.
-  - Photos are compressed client-side into `full` (≤ 700 KB) and `thumb` (≤ 150 KB) WebP `Blob` objects via `image-compress.js`.
+  - Photos are compressed client-side into `full` (≤ 1280px, ~130 KB, server limit 400 KB) and `thumb` (≤ 320px, server limit 64 KB) WebP/JPEG `Blob` objects via `image-compress.js`. On sync, the `upload_token` returned by `POST /api/potholes` (also on a deduplicated retry) is sent with each photo.
   - If the user has no signal (`navigator.onLine === false`) or the connection drops mid-upload, `HufraOfflineQueue.enqueueReport()` stores the report payload and photo blobs in IndexedDB (`hufra_offline_db -> pending_reports`).
   - As soon as connectivity returns, `HufraOfflineQueue.syncAll()` automatically uploads the report and photos.
   - **Server-side Deduplication**: `POST /api/potholes` checks `client_report_uuid` against the unique index `idx_potholes_client_uuid`. If a flaky mobile connection retries a report that already succeeded, the server returns `200 OK` with `{ id, status, deduplicated: true }` instead of creating a duplicate pothole.
@@ -50,11 +50,52 @@ This document explains how the website and the Android/iOS mobile app connect to
   - `POST /api/notifications/read-all`: Marks notifications as read.
   - `POST /api/notifications/push-token`: Registers an `android`, `ios`, or `web` push token in the `device_push_tokens` table with the user's preferred locale (`ar` or `en`).
   - `DELETE /api/notifications/push-token`: Deactivates the device token on logout or opt-out.
-- **Push Delivery**:
-  - When `FCM_SERVER_KEY` or `PUSH_WEBHOOK_URL` is configured in Cloudflare Worker secrets, `notifyUser()` and `notifyAdmins()` automatically dispatch localized Arabic/English push payloads to all active `device_push_tokens` for the target user/admin.
+- **Push Delivery** (`src/lib/notifications.ts`, `src/lib/fcm.ts`):
+  - With the secret `FCM_SERVICE_ACCOUNT` set, `notifyUser()` and `notifyAdmins()` send localized Arabic/English notifications through **Firebase Cloud Messaging HTTP v1** to every active Android device token of the target user / all admins. (The legacy `FCM_SERVER_KEY` API this used before was shut down by Google in 2024 and is no longer read.)
+  - Delivery runs after the response is sent (`waitUntil`), 10 devices at a time, with one cached OAuth token per hour. Tokens Google reports as unregistered (app uninstalled) are switched off automatically. A Google outage never fails the report or status change.
+  - Tokens FCM cannot deliver to (raw iOS APNs tokens, browser tokens) are skipped, or sent to `PUSH_WEBHOOK_URL` if you run your own push relay.
   - In addition, active app/PWA sessions deliver OS/Service Worker notifications via `HufraBridge.showLocalNotification()`.
 
-## 3. iOS app for sideloading (testing)
+### Setting up Android push (one time)
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and create a project (or use an existing one).
+2. **Add an Android app** with package name `ly.tripoli.hufra`. Download `google-services.json`.
+3. In GitHub, go to repo **Settings -> Secrets and variables -> Actions -> New repository secret**. Name it `GOOGLE_SERVICES_JSON` and paste the whole file. The Mobile Build workflow puts it into the APK.
+4. In Firebase, open **Project settings -> Service accounts -> Generate new private key**. This downloads a JSON key file. Store the whole file as a Cloudflare secret:
+
+   ```bash
+   npx wrangler pages secret put FCM_SERVICE_ACCOUNT --project-name hufra < path/to/service-account.json
+   ```
+
+   Treat this file like a password: it can send notifications as your project. Don't commit it.
+5. Rebuild the APK (GitHub -> Actions -> Mobile Build -> Run workflow) and install it. In the app, turn on notifications on the account page. The device registers its token, and new reports / status changes now arrive as push notifications.
+
+### iPhone and website push: current limits
+
+- **iPhone app:** Apple only delivers push to apps signed with a **paid Apple Developer account**. The current unsigned / sideloaded build (free Apple ID via Sideloadly or AltStore) cannot receive push at all. With a paid account, the app also needs the Push Notifications capability and either direct APNs sending or the Firebase iOS SDK.
+- **Website:** the page does not yet subscribe the browser to Web Push (that needs VAPID keys and encrypted payloads). Until then, browsers only show notifications while the site is open.
+
+## 3. Native app: versions and requirements
+
+The native shell uses **Capacitor 8** (`@capacitor/*` 8.x).
+
+| | Minimum |
+|---|---|
+| iPhone | iOS 15 |
+| Android phone | Android 7.0 (API 24); built against / targeting API 36 |
+| Building | Node 22, Java 21 (Android), Xcode with the iOS 15+ SDK (macOS runner) |
+
+Notes from the 6 -> 8 upgrade:
+- iOS uses the UIScene lifecycle (`ios/App/App/SceneDelegate.swift`, generated by `cap migrate`).
+  `AppDelegate.swift` forwards the APNs device token to the PushNotifications plugin.
+- Android 15+ draws apps edge-to-edge. The pages already pad with `env(safe-area-inset-*)`
+  (`--safe-top` / `--safe-bottom` in `public/static/css/tokens.css`), and `capacitor.config.ts`
+  sets `SystemBars.insetsHandling: 'css'`. `StatusBar.setBackgroundColor` no longer works
+  there (the page header shows behind the status bar), so `native-bridge.js` ignores that failure.
+- `Camera.getPhoto` (used by `native-bridge.js`) is deprecated in camera 8 but still works.
+  It will need replacing with `takePhoto` / `chooseFromGallery` before Capacitor's next major version.
+
+## 4. iOS app for sideloading (testing)
 
 The iOS app is a native Capacitor shell (WKWebView, asphalt/yellow launch screen, haptics,
 status bar, camera, geolocation) that **bundles the HUFRA interface inside the app** (pages are pre-rendered from the real
@@ -63,7 +104,7 @@ offline. Only data (API, photos, map tiles) comes from the server. App Store sub
 push notifications are intentionally out of scope for now: the goal is testing on real
 iPhones via Sideloadly / AltStore with a free Apple ID.
 
-### 3.1 Get the IPA (no Mac needed)
+### 4.1 Get the IPA (no Mac needed)
 1. Deploy the web app (Cloudflare Pages) and note its URL, e.g. `https://hufra.pages.dev`.
 2. GitHub -> **Actions** -> *Mobile Build* -> **Run workflow**, paste that URL as `server_url`.
 3. When finished, download the **HUFRA-iOS-IPA** artifact (`HUFRA-ios-unsigned.ipa`, unzip once).
@@ -71,13 +112,13 @@ iPhones via Sideloadly / AltStore with a free Apple ID.
 The IPA is unsigned on purpose; Sideloadly/AltStore sign it with your Apple ID.
 
 
-### 3.2 Install it
+### 4.2 Install it
 - **Sideloadly** (Windows/macOS): connect the iPhone, drag the `.ipa` in, enter your Apple ID, press *Start*.
 - **AltStore**: install AltServer on your computer, then in AltStore *My Apps -> +* and pick the `.ipa`.
 - On the iPhone: *Settings -> General -> VPN & Device Management* -> trust your Apple ID.
 - Free Apple IDs expire after **7 days** and allow 3 sideloaded apps; just re-install/refresh.
 
-### 3.3 Build locally on a Mac (optional)
+### 4.3 Build locally on a Mac (optional)
 ```bash
 npm install
 CAPACITOR_SERVER_URL=https://hufra.pages.dev npx cap sync ios   # builds the app bundle (www/) automatically
@@ -87,14 +128,14 @@ npm run mobile:ios      # opens Xcode; pick your device and Run
 generates `www/`. `CAPACITOR_SERVER_URL` (default `https://hufra.pages.dev`) is baked in as the API,
 photo and map-tile server. After changing the UI, re-run *Mobile Build* to get a new IPA.
 
-### 3.4 Android (debug APK)
+### 4.4 Android (debug APK)
 The same workflow also produces `HUFRA-android-debug.apk`.
 
-### 3.5 Installable web app (PWA)
+### 4.5 Installable web app (PWA)
 On iOS Safari: Share -> *Add to Home Screen*. The service worker (`public/sw.js`, cache `hufra-v4`)
 pre-caches the shell, fonts, icons and the self-hosted Leaflet bundle (no third-party CDNs).
 
-## 4. Speed architecture
+## 5. Speed architecture
 
 - **Client router** (`public/static/js/router.js`): tab taps swap only `<main>`, footer and active-tab state
   (View Transitions where supported) instead of reloading the page. The `/map` page is **kept alive**

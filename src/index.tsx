@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Bindings } from './lib/types'
+import { isAllowedOrigin, isForbiddenCrossSiteWrite } from './lib/origins'
 
 import authRoutes from './routes/auth'
 import potholeRoutes from './routes/potholes'
@@ -26,31 +27,26 @@ import { renderAdminPage } from './pages/admin'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-const ALLOWED_MOBILE_ORIGINS = new Set([
-  'capacitor://localhost',
-  'ionic://localhost',
-  'http://localhost',
-  'https://localhost',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-])
-
+// Only trusted origins may call the API with credentials (see src/lib/origins.ts).
 app.use(
   '/api/*',
   cors({
-    origin: (origin) => {
-      if (!origin) return '*'
-      if (ALLOWED_MOBILE_ORIGINS.has(origin) || origin.endsWith('.pages.dev')) {
-        return origin
-      }
-      return origin
-    },
+    origin: (origin, c) => (isAllowedOrigin(origin, c.req.url, c.env) ? origin : null),
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
     credentials: true,
     maxAge: 86400,
   })
 )
+
+// CORS only hides responses from other sites; it does not stop the request
+// itself. Refuse state-changing API calls sent by untrusted web pages (CSRF).
+app.use('/api/*', async (c, next) => {
+  if (isForbiddenCrossSiteWrite(c.req.method, c.req.header('Origin'), c.req.url, c.env)) {
+    return c.json({ error: 'Cross-site request refused', error_ar: 'تم رفض طلب من موقع خارجي' }, 403)
+  }
+  return next()
+})
 
 app.use(
   '/media/*',
@@ -66,7 +62,10 @@ app.use(
   secureHeaders({
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // No inline scripts anywhere (see public/static/js/boot*.js): only files
+      // served by this site can run, so injected markup cannot execute code.
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'", 'data:'],
       imgSrc: ["'self'", 'data:', 'blob:'],
@@ -81,6 +80,7 @@ app.use(
       manifestSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
+      formAction: ["'self'"],
       frameAncestors: ["'self'"],
     },
     strictTransportSecurity: 'max-age=15552000; includeSubDomains',
@@ -111,7 +111,13 @@ app.get('/report', (c) => c.html(renderReportPage()))
 app.get('/transparency', (c) => c.html(renderTransparencyPage()))
 app.get('/trust', (c) => c.html(renderTrustPage()))
 
-app.get('/pothole/:id', (c) => c.html(renderPotholeDetailPage(c.req.param('id'))))
+// Report ids are integers (0 is the template the native app build renders, see
+// scripts/build-app.mjs); anything else is a 404 and is never echoed back.
+app.get('/pothole/:id', (c) => {
+  const raw = c.req.param('id')
+  if (!/^(0|[1-9]\d{0,9})$/.test(raw)) return c.notFound()
+  return c.html(renderPotholeDetailPage(Number(raw)))
+})
 
 app.get('/login', (c) => c.html(renderLoginPage()))
 app.get('/register', (c) => c.html(renderRegisterPage()))

@@ -1,14 +1,41 @@
-// Fetch wrapper for the HUFRA API supporting both web (HttpOnly cookies +
-// localStorage access token) and Capacitor mobile apps (Bearer access token +
-// persistent refresh token in storage / X-Refresh-Token header).
+// Fetch wrapper for the HUFRA API.
+//
+// Two ways of carrying the session:
+//  - Website: HttpOnly cookies only. The server never sends the tokens to a
+//    web page and this file never stores them, so script injected into a page
+//    cannot read or steal a session (see tokensInBody in src/lib/origins.ts).
+//  - Native app (Capacitor bundle): Bearer access token + refresh token kept
+//    in the app's storage, because the app's own origin (capacitor://localhost)
+//    cannot use the site's cookies.
 (function (global) {
   'use strict';
 
   var ACCESS_TOKEN_KEY = 'hufra_access_token';
   var REFRESH_TOKEN_KEY = 'hufra_refresh_token';
 
+  function isNative() {
+    return Boolean(
+      global.HUFRA_NATIVE_BUNDLE ||
+      (global.Capacitor && typeof global.Capacitor.isNativePlatform === 'function' && global.Capacitor.isNativePlatform())
+    );
+  }
+  var TOKEN_MODE = isNative();
+
+  function store() {
+    try { return global.localStorage; } catch (e) { return null; }
+  }
+
+  // Older versions of the website kept tokens in localStorage: remove them.
+  if (!TOKEN_MODE) {
+    try {
+      var ls = store();
+      if (ls) { ls.removeItem(ACCESS_TOKEN_KEY); ls.removeItem(REFRESH_TOKEN_KEY); }
+    } catch (e) { /* storage unavailable */ }
+  }
+
   function getApiBase() {
-    return global.HUFRA_API_BASE || localStorage.getItem('hufra_api_base') || '';
+    var ls = store();
+    return global.HUFRA_API_BASE || (ls && ls.getItem('hufra_api_base')) || '';
   }
 
   // Absolute origin that serves /media/* (R2 proxy). Empty on the website
@@ -18,33 +45,34 @@
   }
 
   function getAccessToken() {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
-  }
-
-  function setAccessToken(token) {
-    if (token) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
+    var ls = TOKEN_MODE && store();
+    return ls ? ls.getItem(ACCESS_TOKEN_KEY) : null;
   }
 
   function getRefreshToken() {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    var ls = TOKEN_MODE && store();
+    return ls ? ls.getItem(REFRESH_TOKEN_KEY) : null;
   }
 
   function setTokens(accessToken, refreshToken) {
-    if (accessToken) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    } else {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-    }
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    } else if (!accessToken) {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
+    var ls = TOKEN_MODE && store();
+    if (!ls) return; // website: the session lives in HttpOnly cookies
+    if (accessToken) ls.setItem(ACCESS_TOKEN_KEY, accessToken);
+    else ls.removeItem(ACCESS_TOKEN_KEY);
+    if (refreshToken) ls.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    else if (!accessToken) ls.removeItem(REFRESH_TOKEN_KEY);
+  }
+
+  /** Clear the stored session (logout). Passing a token is kept for compatibility. */
+  function setAccessToken(token) {
+    if (token) setTokens(token, getRefreshToken());
+    else setTokens(null, null);
+  }
+
+  /** True when a session may exist, so a refresh attempt is worthwhile. */
+  function maySessionExist() {
+    if (TOKEN_MODE) return !!getRefreshToken();
+    return /(?:^|;\s*)hufra_auth=1/.test(document.cookie || '');
   }
 
   function buildHeaders(extra, isJson) {
@@ -58,6 +86,7 @@
   async function request(path, options) {
     options = options || {};
     var isJson = options.body !== undefined && options.body !== null && !(options.body instanceof FormData);
+    var sentGeneration = refreshGeneration;
     var headers = buildHeaders(options.headers, isJson);
     if (options.headers && options.headers.Authorization) {
       headers.Authorization = options.headers.Authorization;
@@ -70,7 +99,9 @@
     });
 
     if (res.status === 401 && !options._retried && path !== '/auth/login' && path !== '/auth/refresh') {
-      var refreshed = await tryRefresh();
+      // If another request already refreshed while this one was in flight,
+      // just retry with the new access token instead of refreshing again.
+      var refreshed = refreshGeneration !== sentGeneration || (maySessionExist() && (await tryRefresh()));
       if (refreshed) {
         return request(path, Object.assign({}, options, { _retried: true }));
       }
@@ -89,22 +120,37 @@
     return data;
   }
 
-  async function tryRefresh() {
+  // Refresh tokens are single-use (the server rotates them), so parallel 401s
+  // must share ONE refresh call instead of each spending the same token.
+  var refreshInFlight = null;
+  // Incremented after every successful refresh (cookie or token mode).
+  var refreshGeneration = 0;
+
+  function tryRefresh() {
+    if (!refreshInFlight) {
+      refreshInFlight = doRefresh().finally(function () { refreshInFlight = null; });
+    }
+    return refreshInFlight;
+  }
+
+  async function doRefresh() {
     try {
       var refreshToken = getRefreshToken();
       var headers = { 'Content-Type': 'application/json' };
-      if (refreshToken) {
-        headers['X-Refresh-Token'] = refreshToken;
-      }
+      if (refreshToken) headers['X-Refresh-Token'] = refreshToken;
       var res = await fetch(getApiBase() + '/api/auth/refresh', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify(refreshToken ? { refresh_token: refreshToken } : {}),
+        body: '{}',
         credentials: 'include',
       });
-      if (!res.ok) return false;
+      if (!res.ok) {
+        if (res.status === 401) setTokens(null, null);
+        return false;
+      }
       var data = await res.json();
-      setTokens(data.access_token, data.refresh_token || refreshToken);
+      if (TOKEN_MODE && data.access_token) setTokens(data.access_token, data.refresh_token || refreshToken);
+      refreshGeneration++;
       return true;
     } catch (e) {
       return false;
@@ -130,5 +176,6 @@
     setTokens: setTokens,
     getApiBase: getApiBase,
     mediaBase: mediaBase,
+    usesTokens: function () { return TOKEN_MODE; },
   };
 })(window);

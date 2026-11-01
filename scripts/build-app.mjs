@@ -61,7 +61,6 @@ for (const [route, file] of Object.entries(PAGES)) {
   if (res.status !== 200) throw new Error(`Pre-render of ${route} failed: HTTP ${res.status}`)
   let html = await res.text()
   html = html.replace('<head>', '<head>\n' + flag)
-  html = html.replace(/<script>window\.__HUFRA_POTHOLE_ID__ = [^<]*<\/script>/, '')
   html = toBundleLinks(html)
   writeFileSync(join(out, file), html)
 }

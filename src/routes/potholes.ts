@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import type { Bindings, PotholeRow } from '../lib/types'
+import type { Bindings, PotholeRow, PotholeStatus } from '../lib/types'
+import { STATUS_ORDER } from '../lib/types'
 import { createPotholeSchema, updateStatusSchema, listQuerySchema } from '../lib/validation'
 import {
   boundingBoxForRadius,
@@ -8,16 +9,43 @@ import {
   nearestRegion,
   DUPLICATE_RADIUS_METERS,
 } from '../lib/geo'
-import { checkRateLimit, REPORT_LIMIT_PER_IP, REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
+import {
+  checkRateLimit,
+  REPORT_LIMIT_PER_IP,
+  REPORT_LIMIT_PER_USER,
+  REPORT_LIMIT_WINDOW_SECONDS,
+  UPVOTE_LIMIT_PER_IP,
+  UPVOTE_LIMIT_WINDOW_SECONDS,
+} from '../lib/rate-limit'
 import { recordAudit, hashIp } from '../lib/audit'
-import { notifyAdmins, notifyUser } from '../lib/notifications'
+import { notifyAdmins, notifyUser, deferFrom } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
-import { invalidatePublicCaches } from '../lib/cache'
+import { invalidatePublicCaches, cachedJson } from '../lib/cache'
+import { createUploadToken } from '../lib/upload-token'
+import { purgeReportPhotos } from '../lib/storage'
 
 const potholes = new Hono<{ Bindings: Bindings }>()
 
 function clientIp(c: any): string {
   return c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown'
+}
+
+// Columns that identify or contact the person who filed a report. They are
+// never part of a public response: reporter_contact is the optional phone
+// number from the report form, reporter_id links a report to an account, and
+// client_report_uuid is the reporting device's offline-sync id. Only admins
+// (who may need to call the reporter) receive them.
+const PRIVATE_REPORT_FIELDS = ['reporter_contact', 'reporter_id', 'client_report_uuid'] as const
+
+function isAdmin(c: any): boolean {
+  const role = c.get('auth')?.role
+  return role === 'admin' || role === 'super_admin'
+}
+
+export function toPublicReport<T extends object>(row: T): Omit<T, (typeof PRIVATE_REPORT_FIELDS)[number]> {
+  const copy: Record<string, unknown> = { ...(row as Record<string, unknown>) }
+  for (const field of PRIVATE_REPORT_FIELDS) delete copy[field]
+  return copy as Omit<T, (typeof PRIVATE_REPORT_FIELDS)[number]>
 }
 
 
@@ -77,7 +105,7 @@ potholes.get('/', attachAuth, async (c) => {
   `
   const rows = await c.env.DB.prepare(sql).bind(...params, limit, offset).all()
 
-  let results = rows.results as any[]
+  let results = (rows.results as any[]).map((row) => (isAdmin(c) ? row : toPublicReport(row)))
 
   if (near_lat !== undefined && near_lng !== undefined) {
     const radius = radius_m ?? 2000
@@ -87,6 +115,7 @@ potholes.get('/', attachAuth, async (c) => {
       .sort((a, b) => a.distance_m - b.distance_m)
   }
 
+  if (isAdmin(c)) c.header('Cache-Control', 'private, no-store')
   return c.json({ results, limit, offset })
 })
 
@@ -94,42 +123,44 @@ potholes.get('/', attachAuth, async (c) => {
 // GET /api/potholes/counters - live homepage counters (public, cached briefly)
 // ---------------------------------------------------------------------------
 potholes.get('/counters', async (c) => {
-  const cacheKey = 'counters:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'counters:v1',
+    async () => {
+      const totals = await c.env.DB.prepare(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'fixed' THEN 1 ELSE 0 END) as fixed,
+          SUM(CASE WHEN status = 'reported' THEN 1 ELSE 0 END) as reported,
+          SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
+          SUM(CASE WHEN status = 'under_repair' THEN 1 ELSE 0 END) as under_repair
+         FROM potholes WHERE deleted_at IS NULL`
+      ).first()
 
-  const totals = await c.env.DB.prepare(
-    `SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN status = 'fixed' THEN 1 ELSE 0 END) as fixed,
-      SUM(CASE WHEN status = 'reported' THEN 1 ELSE 0 END) as reported,
-      SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END) as verified,
-      SUM(CASE WHEN status = 'under_repair' THEN 1 ELSE 0 END) as under_repair
-     FROM potholes WHERE deleted_at IS NULL`
-  ).first()
+      const byRegion = await c.env.DB.prepare(
+        `SELECT r.id, r.name_ar, r.name_en,
+           COUNT(p.id) as total,
+           SUM(CASE WHEN p.status = 'fixed' THEN 1 ELSE 0 END) as fixed
+         FROM regions r
+         LEFT JOIN potholes p ON p.region_id = r.id AND p.deleted_at IS NULL
+         WHERE r.active = 1
+         GROUP BY r.id
+         ORDER BY total DESC`
+      ).all()
 
-  const byRegion = await c.env.DB.prepare(
-    `SELECT r.id, r.name_ar, r.name_en,
-       COUNT(p.id) as total,
-       SUM(CASE WHEN p.status = 'fixed' THEN 1 ELSE 0 END) as fixed
-     FROM regions r
-     LEFT JOIN potholes p ON p.region_id = r.id AND p.deleted_at IS NULL
-     WHERE r.active = 1
-     GROUP BY r.id
-     ORDER BY total DESC`
-  ).all()
+      const avgResponse = await c.env.DB.prepare(
+        `SELECT AVG(julianday(fixed_at) - julianday(created_at)) as avg_days
+         FROM potholes WHERE status = 'fixed' AND fixed_at IS NOT NULL AND deleted_at IS NULL`
+      ).first<{ avg_days: number | null }>()
 
-  const avgResponse = await c.env.DB.prepare(
-    `SELECT AVG(julianday(fixed_at) - julianday(created_at)) as avg_days
-     FROM potholes WHERE status = 'fixed' AND fixed_at IS NOT NULL AND deleted_at IS NULL`
-  ).first<{ avg_days: number | null }>()
-
-  const payload = {
-    totals,
-    by_region: byRegion.results,
-    avg_response_days: avgResponse?.avg_days ?? null,
-  }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = {
+        totals,
+        by_region: byRegion.results,
+        avg_response_days: avgResponse?.avg_days ?? null,
+      }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -138,24 +169,26 @@ potholes.get('/counters', async (c) => {
 // thumbnails for the homepage showcase (public, cached 60s).
 // ---------------------------------------------------------------------------
 potholes.get('/recent-fixed', async (c) => {
-  const cacheKey = 'recent_fixed:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'recent_fixed:v1',
+    async () => {
+      const rows = await c.env.DB.prepare(
+        `SELECT p.id, p.street_ar, p.street_en, p.fixed_at, p.created_at,
+           r.name_ar as region_name_ar, r.name_en as region_name_en,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
+         FROM potholes p
+         JOIN regions r ON r.id = p.region_id
+         WHERE p.status = 'fixed' AND p.deleted_at IS NULL
+         ORDER BY COALESCE(p.fixed_at, p.updated_at) DESC
+         LIMIT 6`
+      ).all()
 
-  const rows = await c.env.DB.prepare(
-    `SELECT p.id, p.street_ar, p.street_en, p.fixed_at, p.created_at,
-       r.name_ar as region_name_ar, r.name_en as region_name_en,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
-     FROM potholes p
-     JOIN regions r ON r.id = p.region_id
-     WHERE p.status = 'fixed' AND p.deleted_at IS NULL
-     ORDER BY COALESCE(p.fixed_at, p.updated_at) DESC
-     LIMIT 6`
-  ).all()
-
-  const payload = { results: rows.results }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = { results: rows.results }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -168,29 +201,31 @@ potholes.get('/recent-fixed', async (c) => {
 // the repair progress without a second request.
 // ---------------------------------------------------------------------------
 potholes.get('/showcase', async (c) => {
-  const cacheKey = 'showcase:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'showcase:v1',
+    async () => {
+      const select = `SELECT p.id, p.status, p.street_ar, p.street_en, p.fixed_at, p.under_repair_at, p.created_at,
+           r.name_ar as region_name_ar, r.name_en as region_name_en,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'during' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as during_thumb_key,
+           (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
+         FROM potholes p
+         JOIN regions r ON r.id = p.region_id
+         WHERE p.status = ? AND p.deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL)
+         ORDER BY COALESCE(p.fixed_at, p.under_repair_at, p.updated_at) DESC
+         LIMIT 6`
 
-  const select = `SELECT p.id, p.status, p.street_ar, p.street_en, p.fixed_at, p.under_repair_at, p.created_at,
-       r.name_ar as region_name_ar, r.name_en as region_name_en,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage IN ('before','report') AND ph.deleted_at IS NULL ORDER BY CASE WHEN ph.stage = 'before' THEN 0 ELSE 1 END, ph.created_at ASC LIMIT 1) as before_thumb_key,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'during' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as during_thumb_key,
-       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.stage = 'after' AND ph.deleted_at IS NULL ORDER BY ph.created_at DESC LIMIT 1) as after_thumb_key
-     FROM potholes p
-     JOIN regions r ON r.id = p.region_id
-     WHERE p.status = ? AND p.deleted_at IS NULL
-       AND EXISTS (SELECT 1 FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL)
-     ORDER BY COALESCE(p.fixed_at, p.under_repair_at, p.updated_at) DESC
-     LIMIT 6`
+      const [fixed, inProgress] = await Promise.all([
+        c.env.DB.prepare(select).bind('fixed').all(),
+        c.env.DB.prepare(select).bind('under_repair').all(),
+      ])
 
-  const [fixed, inProgress] = await Promise.all([
-    c.env.DB.prepare(select).bind('fixed').all(),
-    c.env.DB.prepare(select).bind('under_repair').all(),
-  ])
-
-  const payload = { fixed: fixed.results, in_progress: inProgress.results }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = { fixed: fixed.results, in_progress: inProgress.results }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
@@ -198,31 +233,33 @@ potholes.get('/showcase', async (c) => {
 // GET /api/potholes/top-reporter - homepage highlight (public, cached briefly)
 // ---------------------------------------------------------------------------
 potholes.get('/top-reporter', async (c) => {
-  const cacheKey = 'top_reporter:v1'
-  const cached = await c.env.KV.get(cacheKey)
-  if (cached) return c.json(JSON.parse(cached))
+  const payload = await cachedJson(
+    'top_reporter:v1',
+    async () => {
+      const top = await c.env.DB.prepare(
+        `SELECT u.display_name, u.code, COUNT(*) as report_count
+         FROM potholes p
+         JOIN users u ON u.id = p.reporter_id
+         WHERE p.reporter_id IS NOT NULL AND p.deleted_at IS NULL AND u.deleted_at IS NULL
+         GROUP BY p.reporter_id
+         ORDER BY report_count DESC
+         LIMIT 1`
+      ).first<{ display_name: string | null; code: string; report_count: number }>()
 
-  const top = await c.env.DB.prepare(
-    `SELECT u.display_name, u.code, COUNT(*) as report_count
-     FROM potholes p
-     JOIN users u ON u.id = p.reporter_id
-     WHERE p.reporter_id IS NOT NULL AND p.deleted_at IS NULL AND u.deleted_at IS NULL
-     GROUP BY p.reporter_id
-     ORDER BY report_count DESC
-     LIMIT 1`
-  ).first<{ display_name: string | null; code: string; report_count: number }>()
-
-  const payload = {
-    reporter: top ? { name: top.display_name || top.code, report_count: top.report_count } : null,
-  }
-  await c.env.KV.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 })
+      const payload = {
+        reporter: top ? { name: top.display_name || top.code, report_count: top.report_count } : null,
+      }
+      return payload
+    },
+    deferFrom(c)
+  )
   return c.json(payload)
 })
 
 // ---------------------------------------------------------------------------
 // GET /api/potholes/:id - detail (public)
 // ---------------------------------------------------------------------------
-potholes.get('/:id', async (c) => {
+potholes.get('/:id', attachAuth, async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
 
@@ -236,7 +273,7 @@ potholes.get('/:id', async (c) => {
 
   if (!pothole) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
-  await c.env.DB.prepare('UPDATE potholes SET view_count = view_count + 1 WHERE id = ?').bind(id).run()
+  // No per-view counter: nothing displayed it, and it cost a D1 write on every view.
 
   const photos = await c.env.DB.prepare(
     'SELECT id, thumb_key, r2_key, stage, created_at FROM pothole_photos WHERE pothole_id = ? AND deleted_at IS NULL ORDER BY created_at ASC'
@@ -250,7 +287,9 @@ potholes.get('/:id', async (c) => {
     .bind(id)
     .all()
 
-  return c.json({ pothole, photos: photos.results, history: history.results })
+  const admin = isAdmin(c)
+  if (admin) c.header('Cache-Control', 'private, no-store')
+  return c.json({ pothole: admin ? pothole : toPublicReport(pothole), photos: photos.results, history: history.results })
 })
 
 // ---------------------------------------------------------------------------
@@ -260,40 +299,33 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
 
-  const existing = await c.env.DB.prepare('SELECT id, upvotes_count FROM potholes WHERE id = ? AND deleted_at IS NULL')
-    .bind(id)
-    .first<{ id: number; upvotes_count: number }>()
+  const ip = clientIp(c)
+  const rl = await checkRateLimit(c.env, 'upvote_ip', ip, UPVOTE_LIMIT_PER_IP, UPVOTE_LIMIT_WINDOW_SECONDS)
+  if (!rl.allowed) {
+    return c.json({ error: 'Too many confirmations, please try again later', error_ar: 'تأكيدات كثيرة جداً، حاول لاحقاً' }, 429)
+  }
+
+  const existing = await c.env.DB.prepare('SELECT id FROM potholes WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
   const authCtx = c.get('auth')
-  const ip = clientIp(c)
-  const ipHash = await hashIp(ip, c.env.JWT_SECRET)
-  const voterKey = authCtx ? `user:${authCtx.userId}` : `ip:${ipHash}`
+  const voterKey = authCtx ? `user:${authCtx.userId}` : `ip:${await hashIp(ip, c.env.JWT_SECRET)}`
 
-  const already = await c.env.DB.prepare(
-    'SELECT id FROM pothole_upvotes WHERE pothole_id = ? AND voter_key = ?'
-  )
-    .bind(id, voterKey)
-    .first()
-
-  if (already) {
-    return c.json({ ok: true, already_upvoted: true, upvotes_count: existing.upvotes_count })
-  }
-
-  await c.env.DB.prepare(
-    'INSERT INTO pothole_upvotes (pothole_id, voter_key, user_id) VALUES (?, ?, ?)'
-  )
-    .bind(id, voterKey, authCtx?.userId ?? null)
-    .run()
-
-  await c.env.DB.prepare(
-    'UPDATE potholes SET upvotes_count = upvotes_count + 1 WHERE id = ?'
-  )
-    .bind(id)
-    .run()
-
-  const updatedCount = (existing.upvotes_count || 0) + 1
-  return c.json({ ok: true, already_upvoted: false, upvotes_count: updatedCount }, 201)
+  // One transaction: record the vote if new (the UNIQUE(pothole_id, voter_key)
+  // constraint makes duplicates a no-op), then recompute the counter from the
+  // votes table, so parallel requests can never double-count.
+  const db = c.env.DB
+  const [inserted] = await db.batch([
+    db.prepare('INSERT OR IGNORE INTO pothole_upvotes (pothole_id, voter_key, user_id) VALUES (?, ?, ?)').bind(
+      id,
+      voterKey,
+      authCtx?.userId ?? null
+    ),
+    db.prepare('UPDATE potholes SET upvotes_count = (SELECT COUNT(*) FROM pothole_upvotes WHERE pothole_id = ?) WHERE id = ?').bind(id, id),
+  ])
+  const row = await db.prepare('SELECT upvotes_count FROM potholes WHERE id = ?').bind(id).first<{ upvotes_count: number }>()
+  const already = !inserted.meta.changes
+  return c.json({ ok: true, already_upvoted: already, upvotes_count: row?.upvotes_count ?? 0 }, already ? 200 : 201)
 })
 
 // ---------------------------------------------------------------------------
@@ -314,19 +346,29 @@ potholes.post('/', attachAuth, async (c) => {
       .bind(data.client_report_uuid)
       .first<{ id: number; status: string }>()
     if (existingByUuid) {
-      return c.json({ id: existingByUuid.id, status: existingByUuid.status, deduplicated: true }, 200)
+      // Same device re-sending (offline sync retry): the uuid is private to that
+      // device, so it may get a fresh photo-upload permit for its own report.
+      return c.json(
+        {
+          id: existingByUuid.id,
+          status: existingByUuid.status,
+          deduplicated: true,
+          upload_token: await createUploadToken(existingByUuid.id, c.env.JWT_SECRET),
+        },
+        200
+      )
     }
   }
 
   const ip = clientIp(c)
-  const ipRl = await checkRateLimit(c.env.KV, 'report_ip', ip, REPORT_LIMIT_PER_IP, REPORT_LIMIT_WINDOW_SECONDS)
+  const ipRl = await checkRateLimit(c.env, 'report_ip', ip, REPORT_LIMIT_PER_IP, REPORT_LIMIT_WINDOW_SECONDS)
   if (!ipRl.allowed) {
     return c.json({ error: 'Too many reports from this network, please try again later', error_ar: 'عدد بلاغات كبير من هذا الاتصال، حاول لاحقاً' }, 429)
   }
 
   const authCtx = c.get('auth')
   if (authCtx) {
-    const userRl = await checkRateLimit(c.env.KV, 'report_user', String(authCtx.userId), REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS)
+    const userRl = await checkRateLimit(c.env, 'report_user', String(authCtx.userId), REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS)
     if (!userRl.allowed) {
       return c.json({ error: 'Too many reports from this account, please try again later', error_ar: 'عدد بلاغات كبير من هذا الحساب، حاول لاحقاً' }, 429)
     }
@@ -397,25 +439,83 @@ potholes.post('/', attachAuth, async (c) => {
     }
   }
 
-  await invalidatePublicCaches(c.env.KV)
-  await notifyAdmins(c.env.DB, 'new_report', { pothole_id: potholeId, severity: data.severity, region_id: regionId }, c.env)
+  await invalidatePublicCaches()
+  await notifyAdmins(c.env.DB, 'new_report', { pothole_id: potholeId, severity: data.severity, region_id: regionId }, c.env, deferFrom(c))
   await recordAudit(c.env.DB, {
     actorId: authCtx?.userId ?? null,
     action: 'pothole.create',
     entity: 'potholes',
     entityId: potholeId,
-    after: data,
+    // audit_logs can never be edited or deleted, so personal data must not go
+    // in: record whether a contact number was given, not the number itself.
+    after: { ...data, reporter_contact: data.reporter_contact ? '[provided]' : undefined },
     ipHash: await hashIp(ip, c.env.JWT_SECRET),
   })
 
-  return c.json({ id: potholeId, status: 'reported' }, 201)
+  // Permit for this client to attach its photos (see src/lib/upload-token.ts).
+  const uploadToken = await createUploadToken(potholeId, c.env.JWT_SECRET)
+  return c.json({ id: potholeId, status: 'reported', upload_token: uploadToken }, 201)
 })
+
+// ---------------------------------------------------------------------------
+// PATCH /api/potholes/:id/status - admin only, transitions lifecycle status
+// ---------------------------------------------------------------------------
+const STATUS_TIMESTAMP: Record<PotholeStatus, string | null> = {
+  reported: null,
+  verified: 'verified_at',
+  under_repair: 'under_repair_at',
+  fixed: 'fixed_at',
+}
+
+/** Minimum length of the reason required to move a report backwards. */
+export const REOPEN_NOTE_MIN_LENGTH = 5
+
+// Lifecycle rules: reported -> verified -> under_repair -> fixed.
+//   - Moving forward is allowed, including skipping a stage (a crew may
+//     already have fixed it). Only the target stage's timestamp is set.
+//   - Setting the current status again is refused (it used to overwrite the
+//     stage's timestamp, e.g. resetting fixed_at).
+//   - Moving backward (the pothole re-opened, or a mistake) needs a written
+//     reason, and clears the timestamps of the undone stages so "average fix
+//     time" stays correct. status_history keeps the full record either way.
+//   - The update only applies if the status is still what the admin saw, so
+//     two admins acting at once cannot silently overwrite each other.
+export function planStatusChange(
+  from: PotholeStatus,
+  to: PotholeStatus,
+  note: string | undefined
+): { ok: true; set: string[]; clear: string[]; ensure: string[] } | { ok: false; status: 400 | 409; error: string; error_ar: string } {
+  const fromIdx = STATUS_ORDER.indexOf(from)
+  const toIdx = STATUS_ORDER.indexOf(to)
+  if (fromIdx === toIdx) {
+    return { ok: false, status: 409, error: `Report is already "${to}"`, error_ar: 'البلاغ في هذه الحالة بالفعل' }
+  }
+  if (toIdx > fromIdx) {
+    const col = STATUS_TIMESTAMP[to]
+    return { ok: true, set: col ? [col] : [], clear: [], ensure: [] }
+  }
+  if (!note || note.trim().length < REOPEN_NOTE_MIN_LENGTH) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Moving a report back to an earlier status needs a reason in the note',
+      error_ar: 'إعادة البلاغ إلى حالة سابقة تتطلب كتابة السبب في الملاحظة',
+    }
+  }
+  const clear = STATUS_ORDER.slice(toIdx + 1)
+    .map((st) => STATUS_TIMESTAMP[st])
+    .filter((c): c is string => !!c)
+  // If the stage being returned to was skipped earlier, it starts now.
+  const target = STATUS_TIMESTAMP[to]
+  return { ok: true, set: [], clear, ensure: target ? [target] : [] }
+}
 
 // ---------------------------------------------------------------------------
 // PATCH /api/potholes/:id/status - admin only, transitions lifecycle status
 // ---------------------------------------------------------------------------
 potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), async (c) => {
   const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
   const authCtx = c.get('auth')!
   const body = await c.req.json().catch(() => null)
   const parsed = updateStatusSchema.safeParse(body)
@@ -425,40 +525,53 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
   if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
   const { status, note } = parsed.data
-  const timestampColumn: Record<string, string> = {
-    verified: 'verified_at',
-    under_repair: 'under_repair_at',
-    fixed: 'fixed_at',
+  const plan = planStatusChange(existing.status, status, note)
+  if (!plan.ok) return c.json({ error: plan.error, error_ar: plan.error_ar, current_status: existing.status }, plan.status)
+
+  const assignments = [
+    'status = ?',
+    ...plan.set.map((col) => `${col} = strftime('%Y-%m-%dT%H:%M:%fZ','now')`),
+    ...plan.clear.map((col) => `${col} = NULL`),
+    ...plan.ensure.map((col) => `${col} = COALESCE(${col}, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  ]
+  const db = c.env.DB
+  // One transaction: stage the actor/note for the status_history trigger,
+  // apply the change only if the status is unchanged since we read it, then
+  // drop the staging row (the trigger already consumed it on success).
+  const [, update] = await db.batch([
+    db.prepare(
+      `INSERT INTO pending_status_change (pothole_id, actor_id, note) VALUES (?, ?, ?)
+       ON CONFLICT(pothole_id) DO UPDATE SET actor_id = excluded.actor_id, note = excluded.note`
+    ).bind(id, authCtx.userId, note ?? null),
+    db.prepare(`UPDATE potholes SET ${assignments.join(', ')} WHERE id = ? AND status = ? AND deleted_at IS NULL`).bind(
+      status,
+      id,
+      existing.status
+    ),
+    db.prepare('DELETE FROM pending_status_change WHERE pothole_id = ?').bind(id),
+  ])
+  if (!update.meta.changes) {
+    return c.json(
+      { error: 'The report was changed by someone else meanwhile; reload and try again', error_ar: 'تم تعديل البلاغ من شخص آخر، أعد التحميل وحاول مجدداً' },
+      409
+    )
   }
-  const col = timestampColumn[status]
 
-  await c.env.DB.prepare(
-    `INSERT INTO pending_status_change (pothole_id, actor_id, note) VALUES (?, ?, ?)
-     ON CONFLICT(pothole_id) DO UPDATE SET actor_id = excluded.actor_id, note = excluded.note`
-  )
-    .bind(id, authCtx.userId, note ?? null)
-    .run()
-
-  const sql = col
-    ? `UPDATE potholes SET status = ?, ${col} = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
-    : `UPDATE potholes SET status = ? WHERE id = ?`
-  await c.env.DB.prepare(sql).bind(status, id).run()
-
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await recordAudit(c.env.DB, {
     actorId: authCtx.userId,
     action: 'pothole.status_change',
     entity: 'potholes',
     entityId: id,
     before: { status: existing.status },
-    after: { status },
+    after: { status, note: note ?? undefined },
   })
 
   if (existing.reporter_id) {
-    await notifyUser(c.env.DB, existing.reporter_id, 'status_change', { pothole_id: id, status }, c.env)
+    await notifyUser(c.env.DB, existing.reporter_id, 'status_change', { pothole_id: id, status }, c.env, deferFrom(c))
   }
 
-  return c.json({ ok: true, status })
+  return c.json({ ok: true, status, previous_status: existing.status })
 })
 
 // ---------------------------------------------------------------------------
@@ -481,13 +594,9 @@ potholes.delete('/:id', attachAuth, requireRole('admin', 'super_admin'), async (
     .bind(id)
     .run()
 
-  await c.env.DB.prepare(
-    `UPDATE pothole_photos SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE pothole_id = ? AND deleted_at IS NULL`
-  )
-    .bind(id)
-    .run()
+  await purgeReportPhotos(c.env.DB, c.env.PHOTOS, id)
 
-  await invalidatePublicCaches(c.env.KV)
+  await invalidatePublicCaches()
   await recordAudit(c.env.DB, {
     actorId: authCtx.userId,
     action: 'pothole.delete',

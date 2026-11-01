@@ -101,8 +101,9 @@
 
   async function load() {
     var root = document.getElementById('pothole-detail-root');
-    // Server-rendered pages inject the id; the bundled app uses pothole.html?id=N.
-    var id = window.__HUFRA_POTHOLE_ID__ || new URLSearchParams(location.search).get('id');
+    // The bundled app uses pothole.html?id=N; the website renders the id into
+    // data-pothole-id (an attribute, not an inline script, so CSP can forbid those).
+    var id = new URLSearchParams(location.search).get('id') || (root && root.getAttribute('data-pothole-id'));
     try {
       var data = await window.HufraApi.get('/potholes/' + id);
       var t = window.HufraI18n.t;

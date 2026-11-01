@@ -1,9 +1,10 @@
-// Fixed-window rate limiting backed by Cloudflare KV.
-// Applied per-IP and per-user on the report endpoint (and login) to prevent
-// spam/abuse per section 11. KV is eventually consistent but adequate for a
-// soft rate limit; a persistent rate_limit_events table exists as a fallback
-// audit trail (see migrations/0001_initial_schema.sql) but KV is the primary
-// low-latency limiter.
+// Fixed-window rate limiting backed by D1 (see migrations/0010_rate_limit_counters.sql).
+//
+// Each check is a single atomic statement:
+//   INSERT ... ON CONFLICT DO UPDATE SET count = count + 1 RETURNING count
+// so concurrent requests can never all "see" the same count, and no KV write
+// quota is used (KV's free tier is 1,000 writes/day; D1's is 100,000).
+// Keys (IPs, user ids) are stored only as salted SHA-256 hashes.
 
 import type { Bindings } from './types'
 
@@ -13,27 +14,46 @@ export interface RateLimitResult {
   resetSeconds: number
 }
 
+/** Delete expired counters on roughly 1 in PRUNE_EVERY checks (Pages Functions have no cron). */
+const PRUNE_EVERY = 50
+
+async function bucketFor(scope: string, key: string, salt: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:rl:${key}`))
+  const hex = Array.from(new Uint8Array(digest).slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${scope}:${hex}`
+}
+
 export async function checkRateLimit(
-  kv: Bindings['KV'],
+  env: Pick<Bindings, 'DB' | 'JWT_SECRET'>,
   scope: string,
   key: string,
   limit: number,
-  windowSeconds: number
+  windowSeconds: number,
+  nowMs = Date.now()
 ): Promise<RateLimitResult> {
-  const now = Math.floor(Date.now() / 1000)
+  const now = Math.floor(nowMs / 1000)
   const window = Math.floor(now / windowSeconds)
-  const kvKey = `rl:${scope}:${key}:${window}`
+  const resetAt = (window + 1) * windowSeconds
+  const bucket = await bucketFor(scope, key, env.JWT_SECRET || '')
 
-  const current = await kv.get(kvKey)
-  const count = current ? parseInt(current, 10) : 0
+  const row = await env.DB.prepare(
+    `INSERT INTO rate_limit_counters (bucket, window_start, count, expires_at) VALUES (?, ?, 1, ?)
+     ON CONFLICT(bucket, window_start) DO UPDATE SET count = count + 1
+     RETURNING count`
+  )
+    .bind(bucket, window, resetAt)
+    .first<{ count: number }>()
+  const count = row?.count ?? 1
 
-  if (count >= limit) {
-    const resetSeconds = (window + 1) * windowSeconds - now
-    return { allowed: false, remaining: 0, resetSeconds }
+  if (Math.random() < 1 / PRUNE_EVERY) {
+    await env.DB.prepare('DELETE FROM rate_limit_counters WHERE expires_at < ?').bind(now).run().catch(() => undefined)
   }
 
-  await kv.put(kvKey, String(count + 1), { expirationTtl: windowSeconds + 5 })
-  return { allowed: true, remaining: limit - count - 1, resetSeconds: (window + 1) * windowSeconds - now }
+  return {
+    allowed: count <= limit,
+    remaining: Math.max(0, limit - count),
+    resetSeconds: resetAt - now,
+  }
 }
 
 // Rate limit policy constants (section 11: "Rate limiting on the report
@@ -45,3 +65,5 @@ export const LOGIN_LIMIT_PER_IP = 10
 export const LOGIN_LIMIT_WINDOW_SECONDS = 15 * 60
 export const UPLOAD_LIMIT_PER_IP = 30
 export const UPLOAD_LIMIT_WINDOW_SECONDS = 60 * 60
+export const UPVOTE_LIMIT_PER_IP = 30
+export const UPVOTE_LIMIT_WINDOW_SECONDS = 60 * 60

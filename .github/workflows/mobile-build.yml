@@ -30,15 +30,15 @@ jobs:
       CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || 'https://hufra.pages.dev' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
       - name: Sync Capacitor iOS platform (installs CocoaPods, bakes in server URL)
         run: |
@@ -66,7 +66,7 @@ jobs:
           zip -qry HUFRA-ios-unsigned.ipa Payload
 
       - name: Upload iOS IPA Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: HUFRA-iOS-IPA
           path: ios/App/HUFRA-ios-unsigned.ipa
@@ -79,21 +79,21 @@ jobs:
       CAPACITOR_SERVER_URL: ${{ github.event.inputs.server_url || 'https://hufra.pages.dev' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
 
       - name: Setup Java JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
       - name: Add and sync Capacitor Android platform
         run: |
@@ -101,6 +101,23 @@ jobs:
             npx cap add android
           fi
           npx cap sync android
+
+      # Push notifications on Android need the Firebase config of YOUR project.
+      # Add it as the repository secret GOOGLE_SERVICES_JSON (the full contents of
+      # google-services.json from Firebase console -> Project settings -> Your apps
+      # -> Android app "ly.tripoli.hufra"). Capacitor's Android template applies the
+      # Google services Gradle plugin automatically when this file exists.
+      # Without the secret the APK still builds, just without push.
+      - name: Add Firebase config (google-services.json) for push
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            node -e 'const j=require("./android/app/google-services.json"); const ok=(j.client||[]).some(c=>c.client_info?.android_client_info?.package_name==="ly.tripoli.hufra"); if(!ok){console.error("google-services.json has no Android app with package ly.tripoli.hufra"); process.exit(1)} console.log("Firebase project:", j.project_info.project_id)'
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set - the APK will build without push notifications."
+          fi
 
       - name: Build Android APK
         run: |
@@ -110,7 +127,7 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk ../HUFRA-android-debug.apk
 
       - name: Upload Android APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: HUFRA-Android-APK
           path: HUFRA-android-debug.apk

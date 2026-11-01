@@ -32,19 +32,6 @@ export interface LayoutOptions {
 
 // Runs before first paint: theme, language/direction, text size and app mode
 // are applied to <html> so there is no flash of the wrong theme or layout.
-const EARLY_BOOT_SCRIPT = `(function(){try{
-var d=document.documentElement,ls=window.localStorage;
-var t=ls.getItem('hufra_theme')||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
-d.setAttribute('data-theme',t);
-var l=ls.getItem('hufra_locale')||'ar';d.setAttribute('lang',l);d.setAttribute('dir',l==='ar'?'rtl':'ltr');
-var f=ls.getItem('hufra_font_size');if(f&&f!=='base')d.setAttribute('data-font-size',f);
-var C=window.Capacitor,native=!!(C&&C.isNativePlatform&&C.isNativePlatform());
-var standalone=!!(navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
-if(native||standalone)d.classList.add('is-app');
-if(native){d.classList.add('is-native');d.classList.add('platform-'+(C.getPlatform?C.getPlatform():'native'));}
-var m=document.getElementById('meta-theme-color');if(m)m.setAttribute('content',t==='dark'?'#15181C':'#FFFFFF');
-}catch(e){}})();`
-
 export function renderLayout(bodyHtml: string, opts: LayoutOptions): string {
   const title = `${opts.title} | HUFRA - حفرة`
   return versionAssets(`<!DOCTYPE html>
@@ -64,7 +51,7 @@ export function renderLayout(bodyHtml: string, opts: LayoutOptions): string {
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/static/img/icons/apple-touch-icon.png">
-<script data-boot>${EARLY_BOOT_SCRIPT}</script>
+<script src="/static/js/boot-early.js" data-boot></script>
 <link rel="stylesheet" href="/static/css/fonts.css">
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/app.css">
@@ -100,17 +87,7 @@ ${renderTabBar(opts.activeNav)}
 <script src="/static/js/router.js" data-shared></script>
 ${opts.withMap ? '<script src="/static/js/map-common.js" data-shared></script>' : ''}
 ${opts.extraScripts || ''}
-<script data-boot>
-  document.addEventListener('DOMContentLoaded', function () {
-    if (window.HufraI18n) window.HufraI18n.translatePage(document);
-    if (window.lucide) window.lucide.createIcons();
-    var C = window.Capacitor;
-    var isNative = !!(C && C.isNativePlatform && C.isNativePlatform());
-    if (!isNative && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(function () {});
-    }
-  });
-</script>
+<script src="/static/js/boot.js" data-boot></script>
 </body>
 </html>`)
 }
@@ -246,6 +223,22 @@ function renderFooter(adminWhatsapp?: string): string {
     </div>
   </div>
 </footer>`
+}
+
+/**
+ * Serialize a value for embedding inside an inline <script> element.
+ * JSON.stringify alone is not safe there: a string containing "</script>"
+ * closes the element and lets the rest run as HTML. Escaping <, > and & (plus
+ * the U+2028/U+2029 line separators) keeps the output valid JSON/JS while
+ * making it impossible to break out of the script context.
+ */
+export function jsonForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
 }
 
 export function escapeHtml(input: string): string {

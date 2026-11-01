@@ -29,6 +29,11 @@ export class FakeKVNamespace {
   __clear() {
     this.store.clear()
   }
+
+  /** Test helper: number of stored keys. */
+  get size() {
+    return this.store.size
+  }
 }
 
 // Minimal fake of the D1 prepared-statement API. Records every bound
@@ -102,7 +107,17 @@ export class FakeR2Bucket {
     }
   }
 
-  async delete(key: string) {
-    this.store.delete(key)
+  async delete(key: string | string[]) {
+    for (const k of Array.isArray(key) ? key : [key]) this.store.delete(k)
+  }
+
+  /** Test helper: whether an object is currently stored. */
+  has(key: string) {
+    return this.store.has(key)
+  }
+
+  /** Test helper: number of stored objects. */
+  get size() {
+    return this.store.size
   }
 }

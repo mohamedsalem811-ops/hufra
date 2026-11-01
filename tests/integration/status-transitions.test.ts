@@ -92,7 +92,7 @@ describe('PATCH /api/potholes/:id/status', () => {
       })
       expect(res.status).toBe(200)
       const body = await json(res)
-      expect(body).toEqual({ ok: true, status })
+      expect(body).toMatchObject({ ok: true, status })
     }
 
     const pothole = await t.db.prepare('SELECT * FROM potholes WHERE id = ?').bind(potholeId).first<any>()

@@ -1,6 +1,6 @@
 import { renderLayout } from './layout'
 
-export function renderPotholeDetailPage(id: string): string {
+export function renderPotholeDetailPage(id: number): string {
   const body = `
 <div class="container page-narrow">
   <div class="page-head">
@@ -9,7 +9,7 @@ export function renderPotholeDetailPage(id: string): string {
     </a>
     <h1 data-i18n="pothole_detail_title">تفاصيل البلاغ</h1>
   </div>
-  <div id="pothole-detail-root">
+  <div id="pothole-detail-root" data-pothole-id="${id}">
     <div class="skeleton skeleton-map"></div>
     <div class="skeleton skeleton-title mt-4"></div>
     <div class="skeleton skeleton-sub mt-2"></div>
@@ -21,6 +21,6 @@ export function renderPotholeDetailPage(id: string): string {
     title: 'تفاصيل البلاغ',
     activeNav: 'pothole-detail',
     withMap: true,
-    extraScripts: `<script>window.__HUFRA_POTHOLE_ID__ = ${JSON.stringify(id)};</script><script src="/static/js/pothole-detail.js"></script>`,
+    extraScripts: `<script src="/static/js/pothole-detail.js"></script>`,
   })
 }

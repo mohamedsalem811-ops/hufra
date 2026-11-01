@@ -3,67 +3,18 @@ import type { Bindings } from '../lib/types'
 import { attachAuth, requireAuth } from '../middleware/auth'
 import { pushTokenSchema } from '../lib/validation'
 import { recordAudit } from '../lib/audit'
+import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
 const notifications = new Hono<{ Bindings: Bindings }>()
 
 notifications.use('*', attachAuth, requireAuth())
 
 notifications.get('/', async (c) => {
-  const authCtx = c.get('auth')!
-  const isAdmin = authCtx.role === 'admin' || authCtx.role === 'super_admin'
-
-  const rows = isAdmin
-    ? await c.env.DB.prepare(
-        `SELECT * FROM notifications
-         WHERE (target_user_id = ? OR target_role IN ('admin', ?))
-         ORDER BY created_at DESC LIMIT 50`
-      )
-        .bind(authCtx.userId, authCtx.role)
-        .all()
-    : await c.env.DB.prepare(
-        `SELECT * FROM notifications
-         WHERE target_user_id = ?
-         ORDER BY created_at DESC LIMIT 50`
-      )
-        .bind(authCtx.userId)
-        .all()
-
-  const unread = isAdmin
-    ? await c.env.DB.prepare(
-        `SELECT COUNT(*) as n FROM notifications
-         WHERE (target_user_id = ? OR target_role IN ('admin', ?)) AND read_at IS NULL`
-      )
-        .bind(authCtx.userId, authCtx.role)
-        .first<{ n: number }>()
-    : await c.env.DB.prepare(
-        `SELECT COUNT(*) as n FROM notifications
-         WHERE target_user_id = ? AND read_at IS NULL`
-      )
-        .bind(authCtx.userId)
-        .first<{ n: number }>()
-
-  return c.json({ results: rows.results, unread_count: unread?.n ?? 0 })
+  return c.json(await listNotificationsFor(c.env.DB, c.get('auth')!))
 })
 
 notifications.post('/read-all', async (c) => {
-  const authCtx = c.get('auth')!
-  const isAdmin = authCtx.role === 'admin' || authCtx.role === 'super_admin'
-
-  if (isAdmin) {
-    await c.env.DB.prepare(
-      `UPDATE notifications SET read_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE (target_user_id = ? OR target_role IN ('admin', ?)) AND read_at IS NULL`
-    )
-      .bind(authCtx.userId, authCtx.role)
-      .run()
-  } else {
-    await c.env.DB.prepare(
-      `UPDATE notifications SET read_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE target_user_id = ? AND read_at IS NULL`
-    )
-      .bind(authCtx.userId)
-      .run()
-  }
+  await markAllNotificationsRead(c.env.DB, c.get('auth')!)
   return c.json({ ok: true })
 })
 

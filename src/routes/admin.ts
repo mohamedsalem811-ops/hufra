@@ -3,7 +3,10 @@ import type { Bindings } from '../lib/types'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
+import { purgeReportPhotos } from '../lib/storage'
 import { z } from 'zod'
+import { emailSchema } from '../lib/validation'
+import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
 const admin = new Hono<{ Bindings: Bindings }>()
 
@@ -12,34 +15,13 @@ admin.use('*', attachAuth, requireRole('admin', 'super_admin'))
 // ---------------------------------------------------------------------------
 // Notifications bell/badge
 // ---------------------------------------------------------------------------
+// Same data as GET /api/notifications (kept for the admin page).
 admin.get('/notifications', async (c) => {
-  const authCtx = c.get('auth')!
-  const rows = await c.env.DB.prepare(
-    `SELECT * FROM notifications
-     WHERE (target_role = ? OR target_user_id = ?)
-     ORDER BY created_at DESC LIMIT 50`
-  )
-    .bind(authCtx.role, authCtx.userId)
-    .all()
-
-  const unread = await c.env.DB.prepare(
-    `SELECT COUNT(*) as n FROM notifications
-     WHERE (target_role = ? OR target_user_id = ?) AND read_at IS NULL`
-  )
-    .bind(authCtx.role, authCtx.userId)
-    .first<{ n: number }>()
-
-  return c.json({ results: rows.results, unread_count: unread?.n ?? 0 })
+  return c.json(await listNotificationsFor(c.env.DB, c.get('auth')!))
 })
 
 admin.post('/notifications/read-all', async (c) => {
-  const authCtx = c.get('auth')!
-  await c.env.DB.prepare(
-    `UPDATE notifications SET read_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-     WHERE (target_role = ? OR target_user_id = ?) AND read_at IS NULL`
-  )
-    .bind(authCtx.role, authCtx.userId)
-    .run()
+  await markAllNotificationsRead(c.env.DB, c.get('auth')!)
   return c.json({ ok: true })
 })
 
@@ -47,12 +29,13 @@ admin.post('/notifications/read-all', async (c) => {
 // Duplicate flags review
 // ---------------------------------------------------------------------------
 admin.get('/duplicates', async (c) => {
+  // Only flags that still need a decision: both reports must still exist.
   const rows = await c.env.DB.prepare(
     `SELECT df.*, p1.lat as pothole_lat, p1.lng as pothole_lng, p1.status as pothole_status,
             p2.lat as duplicate_lat, p2.lng as duplicate_lng, p2.status as duplicate_status
      FROM duplicate_flags df
-     JOIN potholes p1 ON p1.id = df.pothole_id
-     JOIN potholes p2 ON p2.id = df.duplicate_of_id
+     JOIN potholes p1 ON p1.id = df.pothole_id AND p1.deleted_at IS NULL
+     JOIN potholes p2 ON p2.id = df.duplicate_of_id AND p2.deleted_at IS NULL
      WHERE df.review_status = 'pending'
      ORDER BY df.created_at DESC`
   ).all()
@@ -61,31 +44,70 @@ admin.get('/duplicates', async (c) => {
 
 const reviewSchema = z.object({ decision: z.enum(['confirmed', 'rejected']) })
 
+// Review a duplicate flag once. "confirmed" removes the newer report
+// (pothole_id) as a duplicate of the older one; "rejected" keeps both.
 admin.patch('/duplicates/:id', async (c) => {
   const authCtx = c.get('auth')!
   const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
   const body = await c.req.json().catch(() => null)
   const parsed = reviewSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
+  const { decision } = parsed.data
 
-  await c.env.DB.prepare(
-    `UPDATE duplicate_flags SET review_status = ?, reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
+  const flag = await c.env.DB.prepare(
+    `SELECT df.id, df.pothole_id, df.duplicate_of_id, df.review_status,
+            p1.deleted_at AS dup_deleted, p2.deleted_at AS original_deleted
+     FROM duplicate_flags df
+     JOIN potholes p1 ON p1.id = df.pothole_id
+     JOIN potholes p2 ON p2.id = df.duplicate_of_id
+     WHERE df.id = ?`
   )
-    .bind(parsed.data.decision, authCtx.userId, id)
-    .run()
-
-  if (parsed.data.decision === 'confirmed') {
-    const flag = await c.env.DB.prepare('SELECT pothole_id FROM duplicate_flags WHERE id = ?').bind(id).first<{ pothole_id: number }>()
-    if (flag) {
-      await c.env.DB.prepare(`UPDATE potholes SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`)
-        .bind(flag.pothole_id)
-        .run()
-      await invalidatePublicCaches(c.env.KV)
-    }
+    .bind(id)
+    .first<{ id: number; pothole_id: number; duplicate_of_id: number; review_status: string; dup_deleted: string | null; original_deleted: string | null }>()
+  if (!flag) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
+  if (flag.review_status !== 'pending') {
+    return c.json({ error: `Already reviewed (${flag.review_status})`, error_ar: 'تمت مراجعة هذا التنبيه مسبقاً' }, 409)
+  }
+  if (flag.dup_deleted || flag.original_deleted) {
+    return c.json({ error: 'One of these reports was already deleted', error_ar: 'أحد هذين البلاغين محذوف بالفعل' }, 409)
   }
 
-  await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'duplicate.review', entity: 'duplicate_flags', entityId: id, after: parsed.data })
-  return c.json({ ok: true })
+  const db = c.env.DB
+  const statements = [
+    // Conditional on still being pending, so two admins cannot both apply it.
+    db.prepare(
+      `UPDATE duplicate_flags SET review_status = ?, reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       WHERE id = ? AND review_status = 'pending'`
+    ).bind(decision, authCtx.userId, id),
+  ]
+  if (decision === 'confirmed') {
+    statements.push(
+      db.prepare(
+        `UPDATE potholes SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE id = ? AND deleted_at IS NULL
+           AND EXISTS (SELECT 1 FROM duplicate_flags WHERE id = ? AND reviewed_by = ? AND review_status = 'confirmed')`
+      ).bind(flag.pothole_id, id, authCtx.userId)
+    )
+  }
+  const [marked] = await db.batch(statements)
+  if (!marked.meta.changes) {
+    return c.json({ error: 'Already reviewed', error_ar: 'تمت مراجعة هذا التنبيه مسبقاً' }, 409)
+  }
+
+  if (decision === 'confirmed') {
+    await purgeReportPhotos(db, c.env.PHOTOS, flag.pothole_id)
+    await invalidatePublicCaches()
+  }
+  await recordAudit(db, {
+    actorId: authCtx.userId,
+    action: 'duplicate.review',
+    entity: 'duplicate_flags',
+    entityId: id,
+    before: { review_status: 'pending', pothole_id: flag.pothole_id, duplicate_of_id: flag.duplicate_of_id },
+    after: { decision },
+  })
+  return c.json({ ok: true, decision, deleted_report_id: decision === 'confirmed' ? flag.pothole_id : null })
 })
 
 // ---------------------------------------------------------------------------
@@ -161,7 +183,7 @@ admin.get('/admins', requireRole('super_admin'), async (c) => {
   return c.json({ results: rows.results })
 })
 
-const promoteSchema = z.object({ email: z.string().email(), role: z.enum(['admin', 'super_admin']) })
+const promoteSchema = z.object({ email: emailSchema, role: z.enum(['admin', 'super_admin']) })
 
 admin.post('/admins/promote', requireRole('super_admin'), async (c) => {
   const authCtx = c.get('auth')!
@@ -177,7 +199,7 @@ admin.post('/admins/promote', requireRole('super_admin'), async (c) => {
   return c.json({ ok: true })
 })
 
-const demoteSchema = z.object({ email: z.string().email() })
+const demoteSchema = z.object({ email: emailSchema })
 
 // Remove admin rights (account becomes a normal user). Guard rails: you cannot
 // demote yourself and the last remaining super_admin can never be demoted.

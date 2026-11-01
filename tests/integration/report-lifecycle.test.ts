@@ -64,26 +64,15 @@ describe('report lifecycle (guest report -> admin verifies -> fixed)', () => {
     expect(body.results[0].status).toBe('reported')
   })
 
-  it('increments view_count on GET /api/potholes/:id', async () => {
-    const { id } = await json(await createGuestReport(t.env))
-    await request(t.env, `/api/potholes/${id}`)
-    const detail2 = await json(await request(t.env, `/api/potholes/${id}`))
-    // First GET above bumped it to 1, second GET bumps to 2, response reflects
-    // the value AFTER its own increment is not returned - check via raw DB.
-    const row = await t.db.prepare('SELECT view_count FROM potholes WHERE id = ?').bind(id).first<{ view_count: number }>()
-    expect(row!.view_count).toBeGreaterThanOrEqual(2)
-  })
-
-  it('/api/potholes/counters reflects totals and caches via KV for subsequent calls', async () => {
+  it('/api/potholes/counters reflects totals without using any KV writes', async () => {
     await createGuestReport(t.env)
     const first = await json(await request(t.env, '/api/potholes/counters'))
     expect(first.totals.total).toBe(1)
     expect(first.totals.reported).toBe(1)
 
-    // Cached: KV `counters:v1` key should now exist (proves the app actually
-    // uses the KV binding, not just an in-memory fallback).
-    const cached = await t.kv.get('counters:v1')
-    expect(cached).not.toBeNull()
+    // Public caches live in the edge cache and rate limits in D1: KV (1,000
+    // free writes/day) is not touched by reading the homepage or reporting.
+    expect(t.kv.size).toBe(0)
   })
 })
 

@@ -16,9 +16,12 @@ export interface Bindings {
   JWT_SECRET: string
   ADMIN_WHATSAPP?: string
   PUSH_WEBHOOK_URL?: string
-  FCM_SERVER_KEY?: string
+  /** Firebase service-account key (the whole JSON file) for FCM HTTP v1 push. See src/lib/fcm.ts. */
+  FCM_SERVICE_ACCOUNT?: string
   /** Optional tile URL template overriding OpenStreetMap, e.g. https://.../{z}/{x}/{y}.png?key=... */
   TILE_UPSTREAM?: string
+  /** Extra origins allowed to call the API (comma-separated), e.g. a custom domain. See src/lib/origins.ts. */
+  ALLOWED_ORIGINS?: string
 }
 
 export interface AuthContext {
@@ -121,5 +124,4 @@ export interface DevicePushTokenRow {
 
 export const STATUS_ORDER: PotholeStatus[] = ['reported', 'verified', 'under_repair', 'fixed']
 
-export const MAX_PHOTOS_PER_REPORT = 3
-export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 // 2 MB hard ceiling per photo (post-compression target is 300-500KB)
+// Photo limits live in src/lib/storage.ts (MAX_PHOTOS_PER_STAGE, MAX_*_IMAGE_BYTES).

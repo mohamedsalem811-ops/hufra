@@ -59,14 +59,6 @@ async function setStatus(adminToken: string, id: number, status: string) {
   expect(res.status).toBe(200)
 }
 
-describe('seeded default super admin login', () => {
-  it('admin@hufra.ly / Hufra@Admin2026! logs in as super_admin', async () => {
-    const { res, body } = await login('admin@hufra.ly', 'Hufra@Admin2026!')
-    expect(res.status).toBe(200)
-    expect(body.user.role).toBe('super_admin')
-  })
-})
-
 describe('DELETE /api/potholes/:id', () => {
   it('is admin-only, hides the report everywhere and clears the showcase cache', async () => {
     const admin = await makeUser('adm@example.com', 'admin')
@@ -162,7 +154,8 @@ describe('POST /api/admin/admins/demote', () => {
 
   it('refuses to demote the last remaining super_admin', async () => {
     const a = await makeUser('sa1@example.com', 'super_admin')
-    // Leave exactly two super admins: sa1 and sa2 (retire the seeded default account).
+    // Leave exactly two super admins: sa1 and sa2 (retire the seeded default account,
+    // which migration 0007 has already made unusable).
     await t.db.prepare(`UPDATE users SET role = 'user' WHERE email = 'admin@hufra.ly'`).run()
     const b = await makeUser('sa2@example.com', 'super_admin')
     const demote = (tok: string, email: string) =>

@@ -94,3 +94,11 @@ describe('nowSeconds', () => {
     expect(Math.abs(t - Math.floor(Date.now() / 1000))).toBeLessThanOrEqual(1)
   })
 })
+
+describe('verifyJwt with malformed input', () => {
+  it('returns null instead of throwing', async () => {
+    for (const bad of ['broken.access.token', 'a.b.c', '!!!.@@@.###', '', 'x', 'a.b', 'e30.e30.%%%']) {
+      await expect(verifyJwt(bad, 'secret')).resolves.toBeNull()
+    }
+  })
+})
