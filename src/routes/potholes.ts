@@ -9,7 +9,14 @@ import {
   nearestRegion,
   DUPLICATE_RADIUS_METERS,
 } from '../lib/geo'
-import { checkRateLimit, REPORT_LIMIT_PER_IP, REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
+import {
+  checkRateLimit,
+  REPORT_LIMIT_PER_IP,
+  REPORT_LIMIT_PER_USER,
+  REPORT_LIMIT_WINDOW_SECONDS,
+  UPVOTE_LIMIT_PER_IP,
+  UPVOTE_LIMIT_WINDOW_SECONDS,
+} from '../lib/rate-limit'
 import { recordAudit, hashIp } from '../lib/audit'
 import { notifyAdmins, notifyUser, deferFrom } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
@@ -266,7 +273,7 @@ potholes.get('/:id', attachAuth, async (c) => {
 
   if (!pothole) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
-  await c.env.DB.prepare('UPDATE potholes SET view_count = view_count + 1 WHERE id = ?').bind(id).run()
+  // No per-view counter: nothing displayed it, and it cost a D1 write on every view.
 
   const photos = await c.env.DB.prepare(
     'SELECT id, thumb_key, r2_key, stage, created_at FROM pothole_photos WHERE pothole_id = ? AND deleted_at IS NULL ORDER BY created_at ASC'
@@ -292,40 +299,33 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
 
-  const existing = await c.env.DB.prepare('SELECT id, upvotes_count FROM potholes WHERE id = ? AND deleted_at IS NULL')
-    .bind(id)
-    .first<{ id: number; upvotes_count: number }>()
+  const ip = clientIp(c)
+  const rl = await checkRateLimit(c.env, 'upvote_ip', ip, UPVOTE_LIMIT_PER_IP, UPVOTE_LIMIT_WINDOW_SECONDS)
+  if (!rl.allowed) {
+    return c.json({ error: 'Too many confirmations, please try again later', error_ar: 'تأكيدات كثيرة جداً، حاول لاحقاً' }, 429)
+  }
+
+  const existing = await c.env.DB.prepare('SELECT id FROM potholes WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
   const authCtx = c.get('auth')
-  const ip = clientIp(c)
-  const ipHash = await hashIp(ip, c.env.JWT_SECRET)
-  const voterKey = authCtx ? `user:${authCtx.userId}` : `ip:${ipHash}`
+  const voterKey = authCtx ? `user:${authCtx.userId}` : `ip:${await hashIp(ip, c.env.JWT_SECRET)}`
 
-  const already = await c.env.DB.prepare(
-    'SELECT id FROM pothole_upvotes WHERE pothole_id = ? AND voter_key = ?'
-  )
-    .bind(id, voterKey)
-    .first()
-
-  if (already) {
-    return c.json({ ok: true, already_upvoted: true, upvotes_count: existing.upvotes_count })
-  }
-
-  await c.env.DB.prepare(
-    'INSERT INTO pothole_upvotes (pothole_id, voter_key, user_id) VALUES (?, ?, ?)'
-  )
-    .bind(id, voterKey, authCtx?.userId ?? null)
-    .run()
-
-  await c.env.DB.prepare(
-    'UPDATE potholes SET upvotes_count = upvotes_count + 1 WHERE id = ?'
-  )
-    .bind(id)
-    .run()
-
-  const updatedCount = (existing.upvotes_count || 0) + 1
-  return c.json({ ok: true, already_upvoted: false, upvotes_count: updatedCount }, 201)
+  // One transaction: record the vote if new (the UNIQUE(pothole_id, voter_key)
+  // constraint makes duplicates a no-op), then recompute the counter from the
+  // votes table, so parallel requests can never double-count.
+  const db = c.env.DB
+  const [inserted] = await db.batch([
+    db.prepare('INSERT OR IGNORE INTO pothole_upvotes (pothole_id, voter_key, user_id) VALUES (?, ?, ?)').bind(
+      id,
+      voterKey,
+      authCtx?.userId ?? null
+    ),
+    db.prepare('UPDATE potholes SET upvotes_count = (SELECT COUNT(*) FROM pothole_upvotes WHERE pothole_id = ?) WHERE id = ?').bind(id, id),
+  ])
+  const row = await db.prepare('SELECT upvotes_count FROM potholes WHERE id = ?').bind(id).first<{ upvotes_count: number }>()
+  const already = !inserted.meta.changes
+  return c.json({ ok: true, already_upvoted: already, upvotes_count: row?.upvotes_count ?? 0 }, already ? 200 : 201)
 })
 
 // ---------------------------------------------------------------------------

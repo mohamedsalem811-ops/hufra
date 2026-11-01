@@ -65,3 +65,5 @@ export const LOGIN_LIMIT_PER_IP = 10
 export const LOGIN_LIMIT_WINDOW_SECONDS = 15 * 60
 export const UPLOAD_LIMIT_PER_IP = 30
 export const UPLOAD_LIMIT_WINDOW_SECONDS = 60 * 60
+export const UPVOTE_LIMIT_PER_IP = 30
+export const UPVOTE_LIMIT_WINDOW_SECONDS = 60 * 60
