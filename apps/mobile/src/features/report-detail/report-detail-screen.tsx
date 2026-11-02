@@ -13,6 +13,7 @@ import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
 import { useAuth } from '../auth/auth-provider';
+import { CampaignCard } from '../donations/campaign-card';
 import { placeName } from '../reports/format';
 import { SEVERITY_LABEL } from '../reports/status';
 import { StatusBadge } from '../reports/status-badge';
@@ -156,6 +157,8 @@ export function ReportDetailScreen({ id }: { id: number }) {
           ) : null}
 
           {view.description ? <AppText style={styles.description}>{view.description}</AppText> : null}
+
+          <CampaignCard potholeId={p.id} />
 
           {view.measures.length ? (
             <View style={styles.measures}>

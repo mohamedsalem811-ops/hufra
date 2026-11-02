@@ -56,6 +56,7 @@ function RootStack() {
           <Stack.Screen name="auth/sign-up" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="notifications" />
+          <Stack.Screen name="donations" />
         </Stack.Protected>
       </Stack>
       {onboarded ? <PushHandler /> : null}

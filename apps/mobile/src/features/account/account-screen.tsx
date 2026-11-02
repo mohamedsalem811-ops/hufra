@@ -2,7 +2,7 @@ import { radius, space } from '@hufra/brand';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bell, FileDown, Info, LogOut, Settings, ShieldCheck } from 'lucide-react-native';
+import { Bell, FileDown, HandHeart, Info, LogOut, Settings, ShieldCheck } from 'lucide-react-native';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -126,6 +126,7 @@ export function AccountScreen() {
               onPress={() => router.push('/notifications')}
             />
           ) : null}
+          {user ? <ListRow icon={HandHeart} label={t('account.donations')} onPress={() => router.push('/donations')} /> : null}
           {user ? (
             <ListRow icon={FileDown} label={t('account.export')} hint={t('account.exportHint')} busy={exportData.isPending} onPress={runExport} />
           ) : null}
