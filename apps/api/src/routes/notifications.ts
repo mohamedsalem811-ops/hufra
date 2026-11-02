@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import type { Bindings } from '../lib/types'
 import { attachAuth, requireAuth } from '../middleware/auth'
 import { pushTokenSchema } from '../lib/validation'
+import { updateNotificationPreferencesSchema } from '@hufra/contracts'
+import { readPage } from '../lib/paging'
 import { recordAudit } from '../lib/audit'
 import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
@@ -10,7 +12,35 @@ const notifications = new Hono<{ Bindings: Bindings }>()
 notifications.use('*', attachAuth, requireAuth())
 
 notifications.get('/', async (c) => {
-  return c.json(await listNotificationsFor(c.env.DB, c.get('auth')!))
+  const page = readPage(c.req.query())
+  if (!page) return c.json({ error: 'Invalid query', error_ar: 'معايير بحث غير صحيحة' }, 400)
+  c.header('Cache-Control', 'private, no-store')
+  return c.json(await listNotificationsFor(c.env.DB, c.get('auth')!, page))
+})
+
+// GET/PUT /api/notifications/preferences - which notifications also alert the phone (plan 7.1).
+notifications.get('/preferences', async (c) => {
+  const row = await c.env.DB.prepare('SELECT push_report_updates, push_donation_updates FROM users WHERE id = ?')
+    .bind(c.get('auth')!.userId)
+    .first<{ push_report_updates: number; push_donation_updates: number }>()
+  c.header('Cache-Control', 'private, no-store')
+  return c.json({ report_updates: row?.push_report_updates !== 0, donation_updates: row?.push_donation_updates !== 0 })
+})
+
+notifications.put('/preferences', async (c) => {
+  const authCtx = c.get('auth')!
+  const parsed = updateNotificationPreferencesSchema.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
+  const { report_updates, donation_updates } = parsed.data
+  const sets: string[] = []
+  const binds: number[] = []
+  if (report_updates !== undefined) sets.push('push_report_updates = ?'), binds.push(report_updates ? 1 : 0)
+  if (donation_updates !== undefined) sets.push('push_donation_updates = ?'), binds.push(donation_updates ? 1 : 0)
+  if (sets.length) await c.env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...binds, authCtx.userId).run()
+  const row = await c.env.DB.prepare('SELECT push_report_updates, push_donation_updates FROM users WHERE id = ?')
+    .bind(authCtx.userId)
+    .first<{ push_report_updates: number; push_donation_updates: number }>()
+  return c.json({ report_updates: row?.push_report_updates !== 0, donation_updates: row?.push_donation_updates !== 0 })
 })
 
 notifications.post('/read-all', async (c) => {

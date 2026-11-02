@@ -122,6 +122,8 @@ export const adminPotholeDetailResponseSchema = publicPotholeDetailResponseSchem
 /** GET /api/potholes/mine/list: the caller's own reports, including their own contact field. */
 export const myPotholesResponseSchema = z.strictObject({
   results: z.array(z.strictObject({ ...publicPotholeFields, ...privatePotholeFields, cover_thumb_key: nullableText })),
+  /** Pass back as ?cursor= for the next page; null at the end. */
+  next_cursor: nullableText,
 })
 
 export const createPotholeResponseSchema = z.strictObject({
@@ -255,6 +257,7 @@ export const notificationSchema = z.strictObject({
 export const notificationListResponseSchema = z.strictObject({
   results: z.array(notificationSchema),
   unread_count: z.number().int().min(0),
+  next_cursor: nullableText,
 })
 
 export const okResponseSchema = z.looseObject({ ok: z.literal(true) })

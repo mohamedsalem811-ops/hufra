@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin'
 import donorRoutes from './routes/donors'
 import notificationRoutes from './routes/notifications'
 import campaignRoutes from './routes/campaigns'
+import appInfoRoutes from './routes/app-info'
 import donationRoutes from './routes/donations'
 import adminDonationRoutes from './routes/admin-donations'
 import tileRoutes from './routes/tiles'
@@ -104,6 +105,7 @@ app.route('/api/admin', adminRoutes)
 app.route('/api/donors', donorRoutes)
 app.route('/api/notifications', notificationRoutes)
 app.route('/api/campaigns', campaignRoutes)
+app.route('/api/app', appInfoRoutes)
 app.route('/api/donations', donationRoutes)
 app.route('/api/admin', adminDonationRoutes)
 
