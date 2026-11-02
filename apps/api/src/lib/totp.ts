@@ -27,7 +27,7 @@ function base32Encode(bytes: Uint8Array): string {
   return output
 }
 
-function base32Decode(input: string): Uint8Array {
+function base32Decode(input: string): Uint8Array<ArrayBuffer> {
   const clean = input.toUpperCase().replace(/=+$/, '')
   let bits = 0
   let value = 0
@@ -45,7 +45,7 @@ function base32Decode(input: string): Uint8Array {
   return new Uint8Array(output)
 }
 
-async function hmacSha1(keyBytes: Uint8Array, message: Uint8Array): Promise<ArrayBuffer> {
+async function hmacSha1(keyBytes: Uint8Array<ArrayBuffer>, message: Uint8Array<ArrayBuffer>): Promise<ArrayBuffer> {
   const key = await crypto.subtle.importKey(
     'raw',
     keyBytes,
@@ -56,7 +56,7 @@ async function hmacSha1(keyBytes: Uint8Array, message: Uint8Array): Promise<Arra
   return crypto.subtle.sign('HMAC', key, message)
 }
 
-function intToBytes(num: number): Uint8Array {
+function intToBytes(num: number): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(8)
   let big = BigInt(num)
   for (let i = 7; i >= 0; i--) {

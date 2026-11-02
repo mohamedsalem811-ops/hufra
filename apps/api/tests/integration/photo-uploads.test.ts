@@ -20,7 +20,7 @@ beforeEach(() => {
   t = createTestEnv()
 })
 
-function form(full: Uint8Array, thumb: Uint8Array, extra: Record<string, string> = {}, type = 'image/webp') {
+function form(full: Uint8Array<ArrayBuffer>, thumb: Uint8Array<ArrayBuffer>, extra: Record<string, string> = {}, type = 'image/webp') {
   const fd = new FormData()
   fd.append('full', new File([full], 'photo', { type }))
   fd.append('thumb', new File([thumb], 'thumb', { type }))
