@@ -288,8 +288,23 @@ potholes.get('/:id', attachAuth, async (c) => {
     .all()
 
   const admin = isAdmin(c)
-  if (admin) c.header('Cache-Control', 'private, no-store')
-  return c.json({ pothole: admin ? pothole : toPublicReport(pothole), photos: photos.results, history: history.results })
+  const authCtx = c.get('auth')
+  // Signed-in callers also learn their own relation to the report (is it theirs,
+  // did they already confirm it). It is personal, so it must never be cached.
+  let viewer: { mine: boolean; upvoted: boolean } | undefined
+  if (authCtx) {
+    const vote = await c.env.DB.prepare('SELECT 1 AS ok FROM pothole_upvotes WHERE pothole_id = ? AND voter_key = ?')
+      .bind(id, `user:${authCtx.userId}`)
+      .first()
+    viewer = { mine: pothole.reporter_id === authCtx.userId, upvoted: !!vote }
+  }
+  if (admin || authCtx) c.header('Cache-Control', 'private, no-store')
+  return c.json({
+    pothole: admin ? pothole : toPublicReport(pothole),
+    photos: photos.results,
+    history: history.results,
+    ...(viewer ? { viewer } : {}),
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -616,7 +631,8 @@ potholes.get('/mine/list', attachAuth, async (c) => {
   if (!authCtx) return c.json({ error: 'Authentication required', error_ar: 'يجب تسجيل الدخول' }, 401)
 
   const rows = await c.env.DB.prepare(
-    `SELECT p.*, r.name_ar as region_name_ar, r.name_en as region_name_en
+    `SELECT p.*, r.name_ar as region_name_ar, r.name_en as region_name_en,
+       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL ORDER BY ph.created_at ASC LIMIT 1) as cover_thumb_key
      FROM potholes p JOIN regions r ON r.id = p.region_id
      WHERE p.reporter_id = ? AND p.deleted_at IS NULL
      ORDER BY p.created_at DESC`

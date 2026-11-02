@@ -15,6 +15,8 @@ export function errorMessageKey(error: unknown): MessageKey {
     if (error.kind === 'network') return 'error.network';
     if (error.kind === 'timeout') return 'error.timeout';
     if (error.kind === 'unauthorized') return 'error.signedOut';
+    if (error.status === 404) return 'error.notFound';
+    if (error.status === 429) return 'error.tooMany';
     return 'error.server';
   }
   return 'error.body';

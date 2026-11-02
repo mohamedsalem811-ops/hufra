@@ -20,7 +20,7 @@ import { STATUS_LABEL, statusColors } from '../reports/status';
 import { buildClusterIndex } from './clusters';
 import { FilterSheet } from './filter-sheet';
 import { activeFilterCount, ALL_STATUSES, applyFilters, DEFAULT_FILTERS, onlyStatus, type MapFilters } from './filters';
-import { DEFAULT_ZOOM, isValidBounds, LIBYA_BOUNDS, toBboxParam, TRIPOLI_CENTER, type Bounds } from './geo';
+import { DEFAULT_ZOOM, isValidBounds, LIBYA_BOUNDS, toBboxParam, TRIPOLI_CENTER, type Bounds, type LngLat, type MapFocus } from './geo';
 import { buildMapStyle } from './map-style';
 import { ReportPreview } from './report-preview';
 import { StatusPin } from './status-pin';
@@ -28,20 +28,37 @@ import { useMapReports, useRegions } from './use-map-reports';
 
 /** Rough Greater Tripoli viewport, used until the map reports its real one. */
 const INITIAL_VIEW = { bounds: [13.07, 32.8, 13.32, 32.97] as Bounds, zoom: DEFAULT_ZOOM };
+/** Zoom used when the map opens on one report. */
+const FOCUS_ZOOM = 17;
+
+/** A small viewport around a point, used until the map reports its real one. */
+function viewAround([lng, lat]: LngLat) {
+  return { bounds: [lng - 0.004, lat - 0.004, lng + 0.004, lat + 0.004] as Bounds, zoom: FOCUS_ZOOM };
+}
+
 /** More annotations than this slows phones down; clustering keeps the real number far lower. */
 const MAX_ANNOTATIONS = 250;
 
-/** The public map (design board 2, screens 2-4; plan 6.1). */
-export function MapScreen() {
+/**
+ * The public map (design board 2, screens 2-4; plan 6.1). `focus` (from a
+ * report's "Open on map") centres the map on that report and opens its preview;
+ * `status` (Home "See all") shows only that status.
+ */
+export function MapScreen({ focus = null, status = null }: { focus?: MapFocus | null; status?: PotholeStatus | null }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, scheme } = useTheme();
   const { t, locale } = useI18n();
   const camera = useRef<CameraRef>(null);
 
-  const [view, setView] = useState(INITIAL_VIEW);
-  const [filters, setFilters] = useState<MapFilters>(DEFAULT_FILTERS);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [initialCamera] = useState(() =>
+    focus ? { center: focus.lngLat, zoom: FOCUS_ZOOM } : { center: TRIPOLI_CENTER, zoom: DEFAULT_ZOOM },
+  );
+  const [view, setView] = useState(() => (focus ? viewAround(focus.lngLat) : INITIAL_VIEW));
+  const [filters, setFilters] = useState<MapFilters>(() =>
+    status ? { ...DEFAULT_FILTERS, statuses: onlyStatus(status) } : DEFAULT_FILTERS,
+  );
+  const [selectedId, setSelectedId] = useState<number | null>(focus?.id ?? null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const [notice, setNotice] = useState<MessageKey | null>(null);
@@ -49,6 +66,27 @@ export function MapScreen() {
   useEffect(() => {
     hasLocationPermission().then(setShowUser);
   }, []);
+
+  // A new focus while the map tab is already open: fly there, clear filters that could hide it, open it.
+  const focusId = focus?.id;
+  const focusLng = focus?.lngLat[0];
+  const focusLat = focus?.lngLat[1];
+  useEffect(() => {
+    if (focusId === undefined || focusLng === undefined || focusLat === undefined) return;
+    const timer = setTimeout(() => {
+      setFilters(DEFAULT_FILTERS);
+      setSelectedId(focusId);
+      camera.current?.flyTo({ center: [focusLng, focusLat], zoom: FOCUS_ZOOM, duration: 700 });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [focusId, focusLng, focusLat]);
+
+  // A status asked for while the tab is already open (Home "See all").
+  useEffect(() => {
+    if (!status) return;
+    const timer = setTimeout(() => setFilters((f) => ({ ...f, statuses: onlyStatus(status) })), 0);
+    return () => clearTimeout(timer);
+  }, [status]);
 
   const reportsQuery = useMapReports(toBboxParam(view.bounds));
   const regions = useRegions().data ?? [];
@@ -104,7 +142,7 @@ export function MapScreen() {
       >
         <Camera
           ref={camera}
-          initialViewState={{ center: TRIPOLI_CENTER, zoom: DEFAULT_ZOOM }}
+          initialViewState={initialCamera}
           maxBounds={LIBYA_BOUNDS}
           minZoom={6}
           maxZoom={18}

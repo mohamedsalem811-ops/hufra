@@ -1,4 +1,6 @@
 // Native modules that do not exist under Jest.
+// Worklets' own mock runs worklets as plain functions (needed by gesture handler and Reanimated).
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 jest.mock('expo-secure-store', () => {
   const data = new Map<string, string>();
   return {
@@ -23,7 +25,7 @@ jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
 }));
 
-// Query cache without garbage-collection timers (gcTime Infinity), so Jest can exit after each file.
+// Query and mutation caches without garbage-collection timers (gcTime Infinity), so Jest can exit after each file.
 jest.mock('@/api/query-client', () => {
   const actual = jest.requireActual('@/api/query-client');
   return {
@@ -32,6 +34,7 @@ jest.mock('@/api/query-client', () => {
       const client = actual.createQueryClient();
       client.setDefaultOptions({
         queries: { ...client.getDefaultOptions().queries, gcTime: Infinity, retry: false },
+        mutations: { ...client.getDefaultOptions().mutations, gcTime: Infinity, retry: false },
       });
       return client;
     },

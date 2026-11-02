@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { useBoot } from '@/app-shell/boot';
 import { OnboardingProvider, useOnboarding } from '@/app-shell/onboarding';
 import { AppProviders } from '@/app-shell/providers';
+import { PushHandler } from '@/features/push/push-handler';
 import { ErrorView } from '@/components/error-view';
 import { fontAssets } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
@@ -24,7 +25,7 @@ export default function RootLayout() {
 
   if (!ready || !boot.ready) return null;
   return (
-    <AppProviders locale={boot.locale} themeMode={boot.themeMode}>
+    <AppProviders locale={boot.locale} themeMode={boot.themeMode} textSize={boot.textSize}>
       <OnboardingProvider initial={boot.onboarded}>
         <RootStack />
       </OnboardingProvider>
@@ -49,8 +50,11 @@ function RootStack() {
           <Stack.Screen name="new-report" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
           <Stack.Screen name="auth/sign-in" />
           <Stack.Screen name="auth/sign-up" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="notifications" />
         </Stack.Protected>
       </Stack>
+      {onboarded ? <PushHandler /> : null}
     </>
   );
 }

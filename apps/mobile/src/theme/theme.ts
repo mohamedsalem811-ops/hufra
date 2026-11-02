@@ -25,3 +25,17 @@ export async function loadThemeMode(store: KeyValueStore): Promise<ThemeMode> {
 export function saveThemeMode(store: KeyValueStore, mode: ThemeMode): Promise<void> {
   return store.set(MODE_KEY, mode);
 }
+
+/** In-app text size, on top of the phone's own text size setting. */
+export type TextSize = 'default' | 'large' | 'larger';
+export const TEXT_SCALE: Record<TextSize, number> = { default: 1, large: 1.15, larger: 1.3 };
+const TEXT_KEY = 'hufra.textSize';
+
+export async function loadTextSize(store: KeyValueStore): Promise<TextSize> {
+  const saved = await store.get(TEXT_KEY).catch(() => null);
+  return saved === 'large' || saved === 'larger' ? saved : 'default';
+}
+
+export function saveTextSize(store: KeyValueStore, size: TextSize): Promise<void> {
+  return store.set(TEXT_KEY, size);
+}

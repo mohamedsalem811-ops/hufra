@@ -1,5 +1,5 @@
-import { AccountPlaceholder } from '@/screens/account-placeholder';
+import { AccountScreen } from '@/features/account/account-screen';
 
 export default function AccountRoute() {
-  return <AccountPlaceholder />;
+  return <AccountScreen />;
 }

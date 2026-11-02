@@ -62,6 +62,21 @@ jobs:
         working-directory: .
         run: npm ci
 
+      # Android push needs the Firebase config of the HUFRA project: add the full
+      # google-services.json (Firebase console -> Project settings -> Your apps ->
+      # Android app "ly.tripoli.hufra") as the repository secret GOOGLE_SERVICES_JSON.
+      # app.config.js picks the file up. Without the secret the APK builds without push.
+      - name: Add Firebase config (google-services.json) for push
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+            node -e 'const j=require("./google-services.json"); const ok=(j.client||[]).some(c=>c.client_info?.android_client_info?.package_name==="ly.tripoli.hufra"); if(!ok){console.error("google-services.json has no Android app with package ly.tripoli.hufra"); process.exit(1)} console.log("Firebase project:", j.project_info.project_id)'
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set - the APK will build without push notifications."
+          fi
+
       - name: Generate the native Android project (expo prebuild)
         run: npx expo prebuild --platform android --no-install
 

@@ -89,6 +89,24 @@ describe('public endpoints (anonymous)', () => {
     const body = await expectContract(await get(`/api/potholes/${reportId}`), C.publicPotholeDetailResponseSchema)
     expect(body.photos).toHaveLength(1)
     expect(body.history.map((h) => h.to_status)).toEqual(['reported', 'verified', 'under_repair', 'fixed'])
+    // Anonymous callers get no personal block, and the public copy may be cached.
+    expect(body.viewer).toBeUndefined()
+  })
+
+  it('GET /api/potholes/:id signed in: viewer says whose report it is and whether it was confirmed', async () => {
+    const res = await get(`/api/potholes/${reportId}`, citizen.token)
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
+    const own = await expectContract(res, C.publicPotholeDetailResponseSchema)
+    expect(own.viewer).toEqual({ mine: true, upvoted: false })
+    // The detail still never names the reporter.
+    expect(own.pothole).not.toHaveProperty('reporter_id')
+
+    const other = await account('other-viewer@example.com')
+    const before = await expectContract(await get(`/api/potholes/${reportId}`, other.token), C.publicPotholeDetailResponseSchema)
+    expect(before.viewer).toEqual({ mine: false, upvoted: false })
+    await post(`/api/potholes/${reportId}/upvote`, {}, other.token)
+    const after = await expectContract(await get(`/api/potholes/${reportId}`, other.token), C.publicPotholeDetailResponseSchema)
+    expect(after.viewer).toEqual({ mine: false, upvoted: true })
   })
 
   it('homepage and transparency endpoints', async () => {
@@ -148,6 +166,8 @@ describe('citizen endpoints', () => {
     const mine = await expectContract(await get('/api/potholes/mine/list', citizen.token), C.myPotholesResponseSchema)
     // The reporter sees their own contact number; nobody else does.
     expect(mine.results.find((r) => r.id === reportId)?.reporter_contact).toBe('+218 91 000 0000')
+    // Each of my reports carries its first photo's thumbnail for the list.
+    expect(mine.results.find((r) => r.id === reportId)?.cover_thumb_key).toMatch(/\.webp$/)
 
     const notes = await expectContract(await get('/api/notifications', citizen.token), C.notificationListResponseSchema)
     expect(notes.results.some((n) => n.type === 'status_change')).toBe(true)

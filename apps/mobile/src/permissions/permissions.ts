@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 
@@ -49,4 +50,21 @@ export async function currentPosition(): Promise<Coordinates | null> {
   } catch {
     return null;
   }
+}
+
+/** Current state of each permission the app uses, without asking (Settings screen). */
+export async function permissionStates(): Promise<Record<'location' | 'camera' | 'notifications', PermissionResult>> {
+  const read = async (get: () => Promise<{ status: string }>) => {
+    try {
+      return toResult((await get()).status);
+    } catch {
+      return 'undetermined' as const;
+    }
+  };
+  const [location, camera, notifications] = await Promise.all([
+    read(() => Location.getForegroundPermissionsAsync()),
+    read(() => ImagePicker.getCameraPermissionsAsync()),
+    read(() => Notifications.getPermissionsAsync()),
+  ]);
+  return { location, camera, notifications };
 }
