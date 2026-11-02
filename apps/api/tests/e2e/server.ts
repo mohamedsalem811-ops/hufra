@@ -65,8 +65,14 @@ http
     })
     const cookies = (r.headers as any).getSetCookie?.() ?? []
     if (cookies.length) out['set-cookie'] = cookies
+    const payload = Buffer.from(await r.arrayBuffer())
     res.writeHead(r.status, out)
-    res.end(Buffer.from(await r.arrayBuffer()))
+    res.end(payload)
+    // One line per API call, so a failed end-to-end run shows what the app asked for.
+    if (url.pathname.startsWith('/api/')) {
+      const detail = r.status >= 400 ? ` ${payload.toString('utf8').slice(0, 200)}` : ''
+      console.log(`${new Date().toISOString()} ${req.method} ${url.pathname} ${r.status}${detail}`)
+    }
   })
   .listen(port, async () => {
     if (!process.argv.includes('--no-seed')) await seed()
