@@ -52,7 +52,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          # No Gradle cache here: the android/ folder only exists after prebuild.
 
       - name: Install dependencies (workspace root)
         working-directory: .
