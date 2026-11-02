@@ -3,6 +3,7 @@ import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-c
 
 import { ApiProvider } from '@/api/api-provider';
 import { AuthProvider } from '@/features/auth/auth-provider';
+import { OutboxProvider } from '@/features/outbox/outbox-provider';
 import { I18nProvider } from '@/i18n/i18n-provider';
 import type { Locale } from '@/i18n/locale';
 import type { ThemeMode } from '@/theme/theme';
@@ -23,7 +24,9 @@ export function AppProviders({
       <I18nProvider locale={locale}>
         <ThemeProvider initialMode={themeMode}>
           <ApiProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <OutboxProvider>{children}</OutboxProvider>
+            </AuthProvider>
           </ApiProvider>
         </ThemeProvider>
       </I18nProvider>

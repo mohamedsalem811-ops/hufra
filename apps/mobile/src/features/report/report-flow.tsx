@@ -1,7 +1,7 @@
 import { radius, space } from '@hufra/brand';
 import { useQueryClient } from '@tanstack/react-query';
 import { randomUUID } from 'expo-crypto';
-import { Check, ChevronLeft, ChevronRight, UserRound, X } from 'lucide-react-native';
+import { Check, ChevronLeft, ChevronRight, CloudUpload, UserRound, X } from 'lucide-react-native';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,8 @@ import type { MessageKey } from '@/i18n/messages';
 import { useTheme } from '@/theme/theme-provider';
 
 import { useAuth } from '../auth/auth-provider';
+import { classifyFailure } from '../outbox/processor';
+import { isOnline, useOutbox } from '../outbox/outbox-provider';
 import { canContinue, draftReducer, emptyDraft, isDirty, STEPS, type Step } from './draft';
 import { LocationStep } from './location-step';
 import { preparePhoto } from './photo-compress';
@@ -52,13 +54,15 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
   const [sending, setSending] = useState<SubmitProgress | null>(null);
   const [failure, setFailure] = useState<{ key: MessageKey; state: SubmitState } | null>(null);
   const [sentId, setSentId] = useState<number | null>(null);
+  const [savedOffline, setSavedOffline] = useState(false);
+  const outbox = useOutbox();
   // One id per report: if the phone re-sends after a dropped connection, the server returns the same report.
   const clientUuid = useRef(randomUUID()).current;
   const stepIndex = STEPS.indexOf(draft.step);
   const Back = isRTL ? ChevronRight : ChevronLeft;
 
   function leave() {
-    if (!isDirty(draft) || sentId !== null) return nav.close();
+    if (!isDirty(draft) || sentId !== null || savedOffline) return nav.close();
     Alert.alert(t('report.leave.title'), t('report.leave.body'), [
       { text: t('report.leave.cancel'), style: 'cancel' },
       { text: t('report.leave.confirm'), style: 'destructive', onPress: nav.close },
@@ -77,8 +81,15 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
     return () => sub.remove();
   });
 
+  /** No signal: keep the report on the phone; the outbox sends it when the connection returns. */
+  async function keepForLater(state: SubmitState) {
+    await outbox.enqueue(clientUuid, toCreateInput(draft, locale, clientUuid), draft.photos, state);
+    setSavedOffline(true);
+  }
+
   async function send(from: SubmitState = initialSubmitState) {
     setFailure(null);
+    if (!(await isOnline())) return keepForLater(from);
     try {
       const { reportId } = await submitReport(toCreateInput(draft, locale, clientUuid), draft.photos, {
         api,
@@ -89,6 +100,15 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
       queryClient.invalidateQueries({ queryKey: ['map-reports'] });
     } catch (e) {
       const state = e instanceof SubmitError ? e.state : from;
+      if (classifyFailure(e, state) !== 'failed') {
+        // Connection dropped, server busy or session expired: keep it and send it later, automatically.
+        try {
+          await keepForLater(state);
+          return;
+        } catch {
+          // Could not save on the phone either: fall through to the retry message.
+        }
+      }
       setFailure({ key: e instanceof SubmitError && e.reportCreated ? 'report.photosFailed' : 'report.sendFailed', state });
     } finally {
       setSending(null);
@@ -96,6 +116,7 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
   }
 
   if (sentId !== null) return <Sent id={sentId} nav={nav} />;
+  if (savedOffline) return <SavedOffline nav={nav} />;
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.bg.canvas }]}>
@@ -196,6 +217,30 @@ function Sent({ id, nav }: { id: number; nav: ReportFlowNav }) {
       <View style={styles.sentActions}>
         <Button variant="brand" label={t('report.sent.view')} onPress={() => nav.openReport(id)} />
         <Button variant="text" label={t('report.sent.home')} onPress={nav.close} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+/** Design board 6, screen 2: kept on the phone, sent automatically, once. */
+function SavedOffline({ nav }: { nav: ReportFlowNav }) {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  return (
+    <SafeAreaView style={[styles.root, styles.sent, { backgroundColor: colors.bg.canvas }]}>
+      <View style={styles.sentTop}>
+        <View style={[styles.sentHalo, { backgroundColor: colors.bg.brandTint }]}>
+          <CloudUpload size={48} color={colors.brand.primary} strokeWidth={1.8} />
+        </View>
+        <AppText variant="title1" accessibilityRole="header" style={styles.center}>
+          {t('outbox.saved.title')}
+        </AppText>
+        <AppText tone="secondary" style={styles.center}>
+          {t('outbox.saved.body')}
+        </AppText>
+      </View>
+      <View style={styles.sentActions}>
+        <Button variant="brand" label={t('outbox.saved.ok')} onPress={nav.close} />
       </View>
     </SafeAreaView>
   );

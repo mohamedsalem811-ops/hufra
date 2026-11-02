@@ -156,6 +156,20 @@ export const ar = {
   'account.signedInAs': 'مسجّل الدخول باسم {email}',
   'account.signOut': 'تسجيل الخروج',
   'account.signedOutHint': 'سجّل الدخول لتبلّغ عن الحفر وتتابع بلاغاتك.',
+  'outbox.saved.title': 'حفظنا بلاغك على هاتفك',
+  'outbox.saved.body': 'لا يوجد اتصال الآن. سنرسل البلاغ تلقائياً عند عودة الإنترنت، مرة واحدة فقط، وسنخبرك عند وصوله.',
+  'outbox.saved.ok': 'حسناً',
+  'outbox.title': 'بانتظار الإرسال',
+  'outbox.waiting': 'بانتظار الإرسال',
+  'outbox.waitingHint': 'يُرسل تلقائياً عند عودة الإنترنت',
+  'outbox.failed': 'تعذّر الإرسال',
+  'outbox.failedHint': 'رفض الخادم هذا البلاغ. يمكنك حذفه وإرسال بلاغ جديد.',
+  'outbox.sendNow': 'أرسل الآن',
+  'outbox.delete': 'حذف',
+  'outbox.deleteConfirm': 'حذف هذا البلاغ من هاتفك؟',
+  'outbox.photos': '{n} صور',
+  'outbox.signInToSend': 'سجّل الدخول لإرسال البلاغات المحفوظة.',
+  'myReports.empty': 'لا بلاغات بعد. شفت حفرة في طريقك؟ بلّغ عنها في أقل من دقيقة، وتابعها هنا حتى تُصلح.',
 } as const;
 
 export type MessageKey = keyof typeof ar;
@@ -314,6 +328,20 @@ export const en: Record<MessageKey, string> = {
   'account.signedInAs': 'Signed in as {email}',
   'account.signOut': 'Sign out',
   'account.signedOutHint': 'Sign in to report potholes and follow your reports.',
+  'outbox.saved.title': 'Your report is saved on your phone',
+  'outbox.saved.body': "There's no connection right now. We'll send your report automatically when you're back online, only once.",
+  'outbox.saved.ok': 'OK',
+  'outbox.title': 'Waiting to send',
+  'outbox.waiting': 'Waiting to send',
+  'outbox.waitingHint': 'Sent automatically when you are back online',
+  'outbox.failed': 'Could not be sent',
+  'outbox.failedHint': 'The server did not accept this report. You can delete it and send a new one.',
+  'outbox.sendNow': 'Send now',
+  'outbox.delete': 'Delete',
+  'outbox.deleteConfirm': 'Delete this report from your phone?',
+  'outbox.photos': '{n} photos',
+  'outbox.signInToSend': 'Sign in to send the saved reports.',
+  'myReports.empty': 'No reports yet. Seen a pothole? Report it in under a minute and follow it here until it is fixed.',
 };
 
 export const messages = { ar, en } as const;
