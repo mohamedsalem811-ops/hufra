@@ -1,5 +1,7 @@
 # Settings - text size and appearance are remembered
 appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
 ---
 - tapOn: "حسابي"
 - tapOn: "الإعدادات"

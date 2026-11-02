@@ -1,5 +1,7 @@
 # Sign in from the Account tab
 appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
 ---
 - tapOn: "حسابي"
 - extendedWaitUntil:

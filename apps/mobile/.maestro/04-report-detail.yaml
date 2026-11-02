@@ -1,5 +1,7 @@
 # A report opened from a link - details, timeline and its repair campaign
 appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
 ---
 - openLink: "hufra://pothole/1"
 - extendedWaitUntil:

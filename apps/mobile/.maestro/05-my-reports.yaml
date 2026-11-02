@@ -1,5 +1,7 @@
 # My reports lists the person's report and filters by status
 appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
 ---
 - tapOn: "بلاغاتي"
 - extendedWaitUntil:

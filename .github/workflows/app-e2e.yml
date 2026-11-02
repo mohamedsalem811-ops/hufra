@@ -89,9 +89,12 @@ jobs:
           disable-animations: true
           # Cold boots on shared runners sometimes take longer than the default 10 minutes.
           emulator-boot-timeout: 900
+          cores: 4
+          ram-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            sleep 45 && adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null || true
             maestro test apps/mobile/.maestro --format junit --output maestro-report.xml --test-output-dir maestro-output --debug-output maestro-debug || (echo '--- Screen at failure (visible texts) ---'; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"\|content-desc="[^"]*"' | grep -v '=""' | head -80; echo '--- App log (warnings and errors) ---'; adb logcat -d -s ReactNativeJS:W ReactNative:E AndroidRuntime:E | tail -60; exit 1)
 
       - name: Show the test API log
