@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import { Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -7,8 +7,9 @@ import { useEffect } from 'react';
 import { useBoot } from '@/app-shell/boot';
 import { OnboardingProvider, useOnboarding } from '@/app-shell/onboarding';
 import { AppProviders } from '@/app-shell/providers';
-import { PushHandler } from '@/features/push/push-handler';
 import { ErrorView } from '@/components/error-view';
+import { breadcrumb, reportError } from '@/crash/crash';
+import { PushHandler } from '@/features/push/push-handler';
 import { fontAssets } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
@@ -37,6 +38,9 @@ export default function RootLayout() {
 function RootStack() {
   const { scheme, colors } = useTheme();
   const { onboarded } = useOnboarding();
+  // The screen path (public, never personal data) goes with crash reports.
+  const pathname = usePathname();
+  useEffect(() => breadcrumb(`screen ${pathname}`), [pathname]);
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -62,9 +66,10 @@ function RootStack() {
 /**
  * Last-resort screen for a crash while rendering any route. Providers may be
  * the thing that failed, so it rebuilds them with safe defaults.
- * Crash reporting (Firebase Crashlytics) is wired here in Phase 6.8.
+ * The error is sent to crash reporting (Firebase Crashlytics, Android).
  */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => reportError(error, 'crash screen shown'), [error]);
   return (
     <AppProviders locale="ar" themeMode="system">
       <ErrorView error={error} onRetry={retry} />

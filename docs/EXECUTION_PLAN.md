@@ -139,7 +139,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **8.3 Admin tests**: component tests and browser end-to-end tests (Playwright) in CI.
 
-**8.4 Website** (`apps/web`): Astro, Arabic/English, right-to-left. Pages: home (what HUFRA is), how it works, regions covered, public transparency numbers (read-only), about / partners / donors, contact, download (app store badges once live), privacy policy, terms and donation rules (written against Libyan Law No. 6 of 2022 on electronic transactions and Law No. 5 of 2022 on cybercrime; reviewed by a Libyan lawyer before publishing), support/FAQ, partner showcase, account deletion information (required by Google Play).
+**8.4 Website** (`apps/web`): Astro, Arabic/English, right-to-left. Pages: home (what HUFRA is), how it works, regions covered, public transparency numbers (read-only), about / partners / donors, contact, download (app store badges once live), privacy policy, terms and donation rules (written against Libyan Law No. 6 of 2022 on electronic transactions and Law No. 5 of 2022 on cybercrime; reviewed by a Libyan lawyer before publishing; it must list the services that receive data: Cloudflare (hosting, storage), Google Firebase (Android push tokens, crash reports without names, emails or locations), OpenStreetMap tiles via our proxy), support/FAQ, partner showcase, account deletion information (required by Google Play).
 
 **8.5 Shared report links**: `/r/<id>` shows the photo, area and status with "Open in the app / Get the app", plus the files that let phones open the app directly (Android `assetlinks.json`; Apple's file, which works in Phase 10).
 

@@ -53,6 +53,11 @@ jest.mock('expo-file-system', () => ({
   Directory: jest.fn(() => ({ exists: false, create: jest.fn(), delete: jest.fn() })),
   Paths: { document: 'file:///documents' },
 }));
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(async () => {}),
+  notificationAsync: jest.fn(async () => {}),
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
+}));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'test-uuid-0001' }));
 
 // Offline outbox: in-memory store instead of SQLite; network reported as online.

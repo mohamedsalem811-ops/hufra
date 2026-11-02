@@ -12,6 +12,7 @@ import { Button } from '@/components/button';
 import { useI18n } from '@/i18n/i18n-provider';
 import type { MessageKey } from '@/i18n/messages';
 import { useTheme } from '@/theme/theme-provider';
+import { haptic } from '@/feedback/haptics';
 
 import { useAuth } from '../auth/auth-provider';
 import { classifyFailure } from '../outbox/processor';
@@ -96,6 +97,7 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
         prepare: preparePhoto,
         onProgress: setSending,
       }, from);
+      haptic.success();
       setSentId(reportId);
       queryClient.invalidateQueries({ queryKey: ['map-reports'] });
       queryClient.invalidateQueries({ queryKey: ['my-reports'] });
