@@ -87,6 +87,8 @@ jobs:
           target: google_apis
           profile: pixel_6
           disable-animations: true
+          # Cold boots on shared runners sometimes take longer than the default 10 minutes.
+          emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
