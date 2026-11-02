@@ -29,6 +29,16 @@
     "plugins": [
       "expo-router",
       [
+        "expo-localization",
+        {
+          "supportedLocales": [
+            "ar",
+            "en"
+          ],
+          "supportsRTL": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0B4A6F",
@@ -45,7 +55,8 @@
         {
           "displayName": "حفرة"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

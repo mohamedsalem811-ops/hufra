@@ -15,12 +15,20 @@ Plan: `docs/EXECUTION_PLAN.md`, Phase 5 and 6. Designs: the "App screens (4.2)" 
 
 ```
 src/
-  app/        Expo Router routes only (every file is a screen)
-  screens/    screen bodies rendered by routes, with colocated tests
-  hooks/      reusable hooks (use-theme)
+  app/          Expo Router routes only (every file is a screen); _layout.tsx boots the app
+  app-shell/    boot (saved language/theme, layout direction) and the provider stack
+  screens/      screen bodies rendered by routes, with colocated tests
+  components/   shared UI (AppText, ErrorView)
+  api/          typed API client (zod contracts, single-flight token refresh), query cache, token store
+  i18n/         Arabic/English text and right-to-left handling
+  theme/        brand colours (light/dark/system), Readex Pro fonts
+  config/       API address per build (EXPO_PUBLIC_API_URL, default: the live Worker)
+  storage/      Keychain/Keystore key-value store
 ```
 
-Native `ios/` and `android/` folders are **generated** (`npx expo prebuild`) and never committed; native settings live in `app.json` and config plugins.
+**Language and direction.** Arabic is the default on every phone. The native layout direction is fixed when the app starts, so the app reloads once (behind the splash screen) when the direction has to change, and right after the person switches language.
+
+**Sessions.** Access and refresh tokens live in the Keychain/Keystore. On a 401 the client refreshes once, even when several requests fail at the same time (the server treats a reused refresh token as theft), stores the rotated pair and retries. A rejected refresh clears the session; a refresh that fails because the phone is offline keeps it.
 
 ## Commands
 
