@@ -26,6 +26,7 @@ import { renderTrustPage } from './pages/trust'
 import { renderLoginPage, renderRegisterPage } from './pages/auth-pages'
 import { renderAccountPage } from './pages/account'
 import { renderAdminPage } from './pages/admin'
+import { renderDonatePage } from './pages/donate'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -121,6 +122,18 @@ app.get('/pothole/:id', (c) => {
   const raw = c.req.param('id')
   if (!/^(0|[1-9]\d{0,9})$/.test(raw)) return c.notFound()
   return c.html(renderPotholeDetailPage(Number(raw)))
+})
+
+// Donation pages (plan 6.9): campaign, my donations, one donation.
+const pageId = (raw: string) => (/^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null)
+app.get('/donate/:id', (c) => {
+  const id = pageId(c.req.param('id'))
+  return id ? c.html(renderDonatePage('campaign', id, c.env.ADMIN_WHATSAPP)) : c.notFound()
+})
+app.get('/donations', (c) => c.html(renderDonatePage('mine', null, c.env.ADMIN_WHATSAPP)))
+app.get('/donations/:id', (c) => {
+  const id = pageId(c.req.param('id'))
+  return id ? c.html(renderDonatePage('donation', id, c.env.ADMIN_WHATSAPP)) : c.notFound()
 })
 
 app.get('/login', (c) => c.html(renderLoginPage()))

@@ -13,7 +13,7 @@
 declare const __BUILD_ID__: string
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev'
 
-function versionAssets(html: string): string {
+export function versionAssets(html: string): string {
   return html.replace(/\b(src|href)="(\/static\/(?:css|js)\/[^"?]+)"/g, `$1="$2?v=${BUILD_ID}"`)
 }
 

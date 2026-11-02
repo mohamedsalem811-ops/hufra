@@ -21,7 +21,8 @@
         }
         var redirect = new URLSearchParams(location.search).get('redirect');
         var dest = redirect || (data.user.role === 'admin' || data.user.role === 'super_admin' ? '/admin' : '/account');
-        if (dest.charAt(0) !== '/' || dest.charAt(1) === '/') dest = '/account';
+        // Only paths on this site ('/x'), never '//host' or '/\\host' (browsers read both as another site).
+        if (dest.charAt(0) !== '/' || dest.charAt(1) === '/' || dest.charAt(1) === '\\') dest = '/account';
         window.HufraRouter ? window.HufraRouter.go(dest) : (location.href = dest);
       } catch (err) {
         errorEl.textContent = err.message || window.HufraI18n.t('error_generic');
@@ -65,7 +66,10 @@
       };
       try {
         await window.HufraApi.post('/auth/register', payload);
-        window.HufraRouter ? window.HufraRouter.go('/login') : (location.href = '/login');
+        // Keep where the person was going (e.g. a donation page) through sign-in.
+        var next = new URLSearchParams(location.search).get('redirect');
+        var login = next ? '/login?redirect=' + encodeURIComponent(next) : '/login';
+        window.HufraRouter ? window.HufraRouter.go(login) : (location.href = login);
       } catch (err) {
         errorEl.textContent = err.message || window.HufraI18n.t('error_generic');
         errorEl.classList.remove('hidden');

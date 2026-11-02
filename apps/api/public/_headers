@@ -14,3 +14,8 @@
   Cache-Control: no-cache
 /manifest.webmanifest
   Cache-Control: public, max-age=3600
+# Brand kit copied from packages/brand (fonts and logo change only with a new name).
+/static/brand/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+/static/brand/*
+  Cache-Control: public, max-age=86400

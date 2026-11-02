@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 // Thin adapter that exposes better-sqlite3 through the small subset of the
 // Cloudflare D1Database API HUFRA's code actually uses (prepare/bind/run/
 // first/all). This lets integration tests run the REAL migration SQL
@@ -70,7 +71,9 @@ export function createMigratedTestDb(): MiniD1Database {
   raw.pragma('journal_mode = WAL')
   raw.pragma('foreign_keys = ON')
 
-  const migrationsDir = path.resolve(__dirname, '../../../migrations')
+  // __dirname under Vitest; import.meta.url when run directly by Node (tests/e2e-server.ts).
+  const here = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url))
+  const migrationsDir = path.resolve(here, '../../../migrations')
   const files = fs
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
