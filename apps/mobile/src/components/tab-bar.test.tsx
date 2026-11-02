@@ -40,9 +40,9 @@ describe('TabBar', () => {
         <TabBar {...p} />
       </AppProviders>,
     );
-    fireEvent.press(screen.getByRole('tab', { name: 'Report' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Report' }));
     expect(navigateToTab).toHaveBeenCalledWith('report-key');
-    fireEvent.press(screen.getByRole('tab', { name: 'Home' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Home' }));
     expect(emit).toHaveBeenCalledTimes(2);
     expect(navigateToTab).toHaveBeenCalledTimes(1);
   });

@@ -14,7 +14,7 @@ describe('ErrorView', () => {
       </AppProviders>,
     );
     expect(screen.getByText('لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'حاول مرة أخرى' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'حاول مرة أخرى' }));
     expect(retry).toHaveBeenCalledTimes(1);
   });
 

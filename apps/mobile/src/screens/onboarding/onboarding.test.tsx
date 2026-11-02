@@ -21,7 +21,7 @@ describe('Welcome', () => {
     expect(screen.getByText('صوّر الحفرة')).toBeTruthy();
     expect(screen.getByText('حدّد موقعها')).toBeTruthy();
     expect(screen.getByText('تابعها حتى تُصلح')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'ابدأ' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'ابدأ' }));
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 });
@@ -58,7 +58,7 @@ describe('PermissionStep', () => {
     await view;
     expect(screen.getByRole('header', { name: 'Your location puts the pothole in its place' })).toBeTruthy();
     expect(screen.getByLabelText('Step 1 of 2')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Allow location' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Allow location' }));
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
     expect(onAllow).toHaveBeenCalledTimes(1);
   });
@@ -69,7 +69,7 @@ describe('PermissionStep', () => {
     });
     const { onDone, view } = renderStep(failing);
     await view;
-    fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
     expect(onDone).toHaveBeenCalledTimes(1);
     expect(failing).not.toHaveBeenCalled();
   });
@@ -77,7 +77,7 @@ describe('PermissionStep', () => {
   it('skips the rest', async () => {
     const { onSkip, view } = renderStep(jest.fn(async () => 'denied'));
     await view;
-    fireEvent.press(screen.getByRole('button', { name: 'Skip' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Skip' }));
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
 });

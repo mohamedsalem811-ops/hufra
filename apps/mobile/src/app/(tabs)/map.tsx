@@ -1,7 +1,5 @@
-import { Map as MapIcon } from 'lucide-react-native';
-
-import { TabPlaceholder } from '@/screens/tab-placeholder';
+import { MapScreen } from '@/features/map/map-screen';
 
 export default function MapRoute() {
-  return <TabPlaceholder icon={MapIcon} title="tabs.map" />;
+  return <MapScreen />;
 }

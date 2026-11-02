@@ -28,3 +28,25 @@ export async function requestNotifications(): Promise<PermissionResult> {
     return 'undetermined';
   }
 }
+
+export type Coordinates = { latitude: number; longitude: number };
+
+/** Whether location is already allowed (no prompt). */
+export async function hasLocationPermission(): Promise<boolean> {
+  try {
+    return (await Location.getForegroundPermissionsAsync()).status === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+/** Where the phone is: the last known fix if recent enough, otherwise a fresh one. Null if unavailable. */
+export async function currentPosition(): Promise<Coordinates | null> {
+  try {
+    const last = await Location.getLastKnownPositionAsync({ maxAge: 2 * 60 * 1000 });
+    const pos = last ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+    return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+  } catch {
+    return null;
+  }
+}
