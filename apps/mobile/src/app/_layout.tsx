@@ -45,6 +45,7 @@ function RootStack() {
         </Stack.Protected>
         <Stack.Protected guard={onboarded}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="pothole/[id]" />
         </Stack.Protected>
       </Stack>
     </>

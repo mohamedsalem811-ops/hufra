@@ -5,7 +5,7 @@ import { useTheme } from '@/theme/theme-provider';
 
 import { AppText } from './app-text';
 
-type Variant = 'primary' | 'secondary' | 'text';
+type Variant = 'primary' | 'brand' | 'secondary' | 'text';
 
 interface ButtonProps extends Omit<PressableProps, 'style' | 'children'> {
   label: string;
@@ -15,6 +15,7 @@ interface ButtonProps extends Omit<PressableProps, 'style' | 'children'> {
 
 /**
  * primary: signal orange, dark text (brand rule: orange is a fill, text on it is dark).
+ * brand: sea blue with its on-brand text, for confirming choices (e.g. "Show N reports").
  * secondary: outlined in brand blue. text: link-style, still a 48 px touch target.
  */
 export function Button({ label, variant = 'primary', style, disabled, ...rest }: ButtonProps) {
@@ -31,6 +32,11 @@ export function Button({ label, variant = 'primary', style, disabled, ...rest }:
           backgroundColor: pressed ? colors.action.primaryPressed : colors.action.primary,
           minHeight: touchTarget + 8,
         },
+        variant === 'brand' && {
+          backgroundColor: colors.brand.primary,
+          opacity: pressed ? 0.85 : 1,
+          minHeight: touchTarget + 8,
+        },
         variant === 'secondary' && {
           borderWidth: 1.5,
           borderColor: colors.brand.primary,
@@ -45,7 +51,13 @@ export function Button({ label, variant = 'primary', style, disabled, ...rest }:
         variant="bodyStrong"
         style={{
           color:
-            variant === 'primary' ? colors.action.onPrimary : variant === 'secondary' ? colors.brand.primary : colors.text.link,
+            variant === 'primary'
+              ? colors.action.onPrimary
+              : variant === 'brand'
+                ? colors.brand.onPrimary
+                : variant === 'secondary'
+                  ? colors.brand.primary
+                  : colors.text.link,
         }}
       >
         {label}

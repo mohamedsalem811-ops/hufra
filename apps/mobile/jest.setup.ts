@@ -22,3 +22,18 @@ jest.mock('expo-location', () => ({
 jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
 }));
+
+// Query cache without garbage-collection timers (gcTime Infinity), so Jest can exit after each file.
+jest.mock('@/api/query-client', () => {
+  const actual = jest.requireActual('@/api/query-client');
+  return {
+    ...actual,
+    createQueryClient: () => {
+      const client = actual.createQueryClient();
+      client.setDefaultOptions({
+        queries: { ...client.getDefaultOptions().queries, gcTime: Infinity, retry: false },
+      });
+      return client;
+    },
+  };
+});

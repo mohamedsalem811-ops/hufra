@@ -18,6 +18,7 @@ src/
   app/          Expo Router routes only: _layout.tsx boots the app; onboarding/ (first run); (tabs)/ (Home, Map, Report, My reports, Account)
   app-shell/    boot (saved language/theme/first-run flag, layout direction), onboarding state, provider stack
   permissions/  location and notification prompts (asked only after our own explanation screen)
+  features/     feature modules: map/ (MapLibre map, clustering, filters, preview), reports/ (status, badges, formatting)
   screens/      screen bodies rendered by routes, with colocated tests
   components/   shared UI (AppText, Button, TabBar, ErrorView)
   api/          typed API client (zod contracts, single-flight token refresh), query cache, token store
@@ -28,6 +29,8 @@ src/
 ```
 
 **Language and direction.** Arabic is the default on every phone. The native layout direction is fixed when the app starts, so the app reloads once (behind the splash screen) when the direction has to change, and right after the person switches language.
+
+**Map.** MapLibre with OpenStreetMap raster tiles from our own edge-cached `/tiles` proxy (no key, no cost). Reports in the visible area come from the public list endpoint (bbox, padded and rounded so small pans reuse the cache). Pins are grouped on the phone with `supercluster` and drawn as React views, so every status has its own glyph (never colour alone) and counts need no map fonts.
 
 **Sessions.** Access and refresh tokens live in the Keychain/Keystore. On a 401 the client refreshes once, even when several requests fail at the same time (the server treats a reused refresh token as theft), stores the rotated pair and retries. A rejected refresh clears the session; a refresh that fails because the phone is offline keeps it.
 
