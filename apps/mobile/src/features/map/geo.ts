@@ -27,3 +27,20 @@ export function toBboxParam([west, south, east, north]: Bounds, pad = 0.25, deci
 export function isValidBounds(b: unknown): b is Bounds {
   return Array.isArray(b) && b.length === 4 && b.every((n) => typeof n === 'number' && Number.isFinite(n));
 }
+
+/** A report the map should centre on and open (from "Open on map"). */
+export interface MapFocus {
+  id: number;
+  lngLat: LngLat;
+}
+
+/** Route params -> focus, or null when missing or outside Libya. */
+export function parseFocus(params: { focus?: string; lat?: string; lng?: string }): MapFocus | null {
+  const id = Number(params.focus);
+  const lat = Number(params.lat);
+  const lng = Number(params.lng);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const [west, south, east, north] = LIBYA_BOUNDS;
+  if (lng < west || lng > east || lat < south || lat > north) return null;
+  return { id, lngLat: [lng, lat] };
+}

@@ -1,8 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { ReportDetailBasic } from '@/features/reports/report-detail-basic';
+import { ReportDetailScreen } from '@/features/report-detail/report-detail-screen';
 
 export default function PotholeRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <ReportDetailBasic id={Number(id)} />;
+  return <ReportDetailScreen id={Number(id)} />;
 }

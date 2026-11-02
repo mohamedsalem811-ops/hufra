@@ -113,6 +113,8 @@ export const publicPotholeDetailResponseSchema = z.strictObject({
   pothole: publicPotholeDetailSchema,
   photos: z.array(photoSchema),
   history: z.array(statusHistoryEntrySchema),
+  /** Only for a signed-in caller: is this their report, and did they already confirm it. */
+  viewer: z.strictObject({ mine: z.boolean(), upvoted: z.boolean() }).optional(),
 })
 /** GET /api/potholes/:id as seen by an admin. */
 export const adminPotholeDetailResponseSchema = publicPotholeDetailResponseSchema.extend({ pothole: adminPotholeDetailSchema })

@@ -288,8 +288,23 @@ potholes.get('/:id', attachAuth, async (c) => {
     .all()
 
   const admin = isAdmin(c)
-  if (admin) c.header('Cache-Control', 'private, no-store')
-  return c.json({ pothole: admin ? pothole : toPublicReport(pothole), photos: photos.results, history: history.results })
+  const authCtx = c.get('auth')
+  // Signed-in callers also learn their own relation to the report (is it theirs,
+  // did they already confirm it). It is personal, so it must never be cached.
+  let viewer: { mine: boolean; upvoted: boolean } | undefined
+  if (authCtx) {
+    const vote = await c.env.DB.prepare('SELECT 1 AS ok FROM pothole_upvotes WHERE pothole_id = ? AND voter_key = ?')
+      .bind(id, `user:${authCtx.userId}`)
+      .first()
+    viewer = { mine: pothole.reporter_id === authCtx.userId, upvoted: !!vote }
+  }
+  if (admin || authCtx) c.header('Cache-Control', 'private, no-store')
+  return c.json({
+    pothole: admin ? pothole : toPublicReport(pothole),
+    photos: photos.results,
+    history: history.results,
+    ...(viewer ? { viewer } : {}),
+  })
 })
 
 // ---------------------------------------------------------------------------

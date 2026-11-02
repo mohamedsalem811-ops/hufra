@@ -1,7 +1,9 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
-  setupFiles: ['<rootDir>/jest.setup.ts'],
+  setupFiles: ['react-native-gesture-handler/jestSetup', '<rootDir>/jest.setup.ts'],
+  // Reanimated's own resolver swaps its native parts for the JavaScript ones under Jest.
+  resolver: 'react-native-reanimated/jest/resolver',
   testPathIgnorePatterns: ['/node_modules/', '/ios/', '/android/'],
   // Expo's recommended list, plus the ESM-only clustering packages used by the map.
   transformIgnorePatterns: [
