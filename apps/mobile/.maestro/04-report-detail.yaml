@@ -1,5 +1,5 @@
+# A report opened from a link - details, timeline and its repair campaign
 appId: ly.tripoli.hufra
-name: A report opened from a link - details, timeline and its repair campaign
 ---
 - openLink: "hufra://pothole/1"
 - extendedWaitUntil:

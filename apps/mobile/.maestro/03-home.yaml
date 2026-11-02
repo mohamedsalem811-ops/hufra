@@ -1,5 +1,5 @@
+# Home shows city numbers and greets the person
 appId: ly.tripoli.hufra
-name: Home shows city numbers and greets the person
 ---
 - tapOn: "الرئيسية"
 - extendedWaitUntil:

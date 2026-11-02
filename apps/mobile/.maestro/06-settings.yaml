@@ -1,5 +1,5 @@
+# Settings - text size and appearance are remembered
 appId: ly.tripoli.hufra
-name: Settings - text size and appearance are remembered
 ---
 - tapOn: "حسابي"
 - tapOn: "الإعدادات"

@@ -1,5 +1,5 @@
+# First run - welcome, location and notifications, then the app
 appId: ly.tripoli.hufra
-name: First run - welcome, location and notifications, then the app
 ---
 - launchApp:
     clearState: true

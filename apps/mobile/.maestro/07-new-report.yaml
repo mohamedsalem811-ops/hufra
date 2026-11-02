@@ -1,5 +1,5 @@
+# New report - location, a gallery photo, details, review, sent
 appId: ly.tripoli.hufra
-name: New report - location, a gallery photo, details, review, sent
 ---
 # A photo in the emulator's gallery, and GPS in Tripoli.
 - addMedia:

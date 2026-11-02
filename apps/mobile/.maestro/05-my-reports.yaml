@@ -1,5 +1,5 @@
+# My reports lists the person's report and filters by status
 appId: ly.tripoli.hufra
-name: My reports lists the person's report and filters by status
 ---
 - tapOn: "بلاغاتي"
 - extendedWaitUntil:

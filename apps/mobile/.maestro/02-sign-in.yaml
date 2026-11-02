@@ -1,5 +1,5 @@
+# Sign in from the Account tab
 appId: ly.tripoli.hufra
-name: Sign in from the Account tab
 ---
 - tapOn: "حسابي"
 - extendedWaitUntil:
