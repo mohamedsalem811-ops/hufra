@@ -14,6 +14,7 @@ import type { MessageKey } from '@/i18n/messages';
 import { currentPosition, hasLocationPermission, requestLocation } from '@/permissions/permissions';
 import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
+import { haptic } from '@/feedback/haptics';
 
 import { placeName } from '../reports/format';
 import { STATUS_LABEL, statusColors } from '../reports/status';
@@ -173,7 +174,10 @@ export function MapScreen({ focus = null, status = null }: { focus?: MapFocus | 
               id={`r${item.id}`}
               lngLat={item.lngLat}
               anchor="bottom"
-              onPress={() => setSelectedId(item.id)}
+              onPress={() => {
+                haptic.select();
+                setSelectedId(item.id);
+              }}
             >
               <View
                 accessible

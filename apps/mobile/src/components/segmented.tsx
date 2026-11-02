@@ -2,6 +2,7 @@ import { radius, space } from '@hufra/brand';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme-provider';
+import { haptic } from '@/feedback/haptics';
 
 import { AppText } from './app-text';
 
@@ -27,7 +28,10 @@ export function Segmented({
             key={o.key}
             accessibilityRole="radio"
             accessibilityState={{ checked: o.selected }}
-            onPress={() => onSelect(o.key)}
+            onPress={() => {
+              if (!o.selected) haptic.select();
+              onSelect(o.key);
+            }}
             style={[styles.option, o.selected && { backgroundColor: colors.bg.surface }]}
           >
             <AppText variant={o.selected ? 'bodyStrong' : 'body'} tone={o.selected ? 'primary' : 'secondary'} numberOfLines={1}>

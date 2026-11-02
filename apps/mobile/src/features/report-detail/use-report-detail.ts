@@ -2,6 +2,7 @@ import { publicPotholeDetailResponseSchema, upvoteResponseSchema, type PotholeDe
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useApi } from '@/api/api-provider';
+import { haptic } from '@/feedback/haptics';
 
 import { useAuth } from '../auth/auth-provider';
 
@@ -31,7 +32,9 @@ export function useConfirmReport(id: number) {
   const userId = state.status === 'signedIn' ? state.user.id : null;
   return useMutation({
     mutationFn: () => api.request(`/api/potholes/${id}/upvote`, { method: 'POST', schema: upvoteResponseSchema }),
+    onError: () => haptic.error(),
     onSuccess: (res) => {
+      haptic.success();
       queryClient.setQueryData<PotholeDetailResponse>(detailKey(id, userId), (old) =>
         old
           ? {

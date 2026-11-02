@@ -12,6 +12,9 @@ import { useTheme } from '@/theme/theme-provider';
 
 import { AppText } from './app-text';
 
+/** The bar keeps its height with very large phone text (screen readers still read the full label). */
+const TAB_LABEL_MAX_SCALE = 1.4;
+
 export type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 /** Route name -> icon and label. Order follows the routes in (tabs)/_layout.tsx. */
@@ -79,7 +82,7 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
                   >
                     <Icon size={26} color={colors.action.onPrimary} strokeWidth={2.6} />
                   </View>
-                  <AppText variant="caption" style={[fontFor(600), { color: colors.text.primary }]}>
+                  <AppText variant="caption" numberOfLines={1} maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE} style={[fontFor(600), { color: colors.text.primary }]}>
                     {label}
                   </AppText>
                 </>
@@ -99,7 +102,12 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
             style={({ pressed }) => [styles.item, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Icon size={24} color={color} strokeWidth={focused ? 2.2 : 2} />
-            <AppText variant="caption" numberOfLines={1} style={[fontFor(focused ? 700 : 500), { color }]}>
+            <AppText
+              variant="caption"
+              numberOfLines={1}
+              maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
+              style={[fontFor(focused ? 700 : 500), { color }]}
+            >
               {label}
             </AppText>
           </Pressable>

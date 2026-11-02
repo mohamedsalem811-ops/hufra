@@ -1,7 +1,7 @@
-// Extends app.json. Android push needs the Firebase config of the HUFRA
-// project (google-services.json). CI writes it from the GOOGLE_SERVICES_JSON
-// repository secret; it is never committed. Without it the app still builds,
-// just without push.
+// Extends app.json. Android push and crash reports need the Firebase config of
+// the HUFRA project (google-services.json). CI writes it from the
+// GOOGLE_SERVICES_JSON repository secret; it is never committed. Without it the
+// app still builds, just without push and crash reports.
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -9,6 +9,8 @@ module.exports = ({ config }) => {
   const file = './google-services.json';
   if (fs.existsSync(path.join(__dirname, file))) {
     config.android = { ...config.android, googleServicesFile: file };
+    // Firebase app + Crashlytics Gradle setup (Android only: see react-native.config.js).
+    config.plugins = [...(config.plugins ?? []), '@react-native-firebase/app', '@react-native-firebase/crashlytics'];
   }
   return config;
 };

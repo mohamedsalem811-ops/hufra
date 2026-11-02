@@ -216,6 +216,29 @@ jobs:
             echo "JWT_SECRET generated and stored on the Worker (never printed)."
           fi
 
+      # Android push: the Firebase service-account key lives in the GitHub
+      # secret FCM_SERVICE_ACCOUNT (added in the browser, no computer needed)
+      # and is copied to the Worker on every deploy. It is checked first and
+      # never printed. Without the secret, push is simply off.
+      - name: Copy the FCM_SERVICE_ACCOUNT secret to the Worker (Android push)
+        env:
+          FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FCM_SERVICE_ACCOUNT" ]; then
+            echo "::warning::FCM_SERVICE_ACCOUNT secret not set - push notifications stay off."
+            exit 0
+          fi
+          printf '%s' "$FCM_SERVICE_ACCOUNT" | node -e '
+            let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+              let j; try { j = JSON.parse(s) } catch { console.error("FCM_SERVICE_ACCOUNT is not valid JSON (paste the whole key file)"); process.exit(1) }
+              if (j.type !== "service_account" || !j.project_id || !j.client_email || !j.private_key) {
+                console.error("FCM_SERVICE_ACCOUNT is not a Firebase service-account key (Project settings -> Service accounts -> Generate new private key)"); process.exit(1)
+              }
+              console.log("Firebase project:", j.project_id)
+            })'
+          printf '%s' "$FCM_SERVICE_ACCOUNT" | npx wrangler secret put FCM_SERVICE_ACCOUNT -c wrangler.worker.jsonc
+          echo "FCM_SERVICE_ACCOUNT stored on the Worker (never printed)."
+
       # Check the LIVE Worker after every deploy (from GitHub's network).
       - name: Smoke test the live Worker
         env:
