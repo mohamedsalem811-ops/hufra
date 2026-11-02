@@ -51,10 +51,10 @@ export function SignInForm({ onDone, onCreateAccount, onBack }: { onDone: () => 
 
   return (
     <FormScreen title={t('auth.signIn.title')} subtitle={t('auth.signIn.subtitle')} onBack={onBack}>
-      <Field label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" ltr />
+      <Field testID="auth-email" label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" ltr />
       <PasswordField value={password} onChangeText={setPassword} autoComplete="current-password" onSubmit={submit} />
       <ErrorText messageKey={error} />
-      <Button label={t('auth.signIn.submit')} onPress={submit} disabled={busy} />
+      <Button testID="auth-submit" label={t('auth.signIn.submit')} onPress={submit} disabled={busy} />
       <Divider label={t('auth.or')} />
       <Button variant="secondary" label={t('auth.createAccount')} onPress={onCreateAccount} disabled={busy} />
     </FormScreen>
@@ -206,6 +206,7 @@ function PasswordField({
       </AppText>
       <View>
         <TextInput
+          testID="auth-password"
           accessibilityLabel={t('auth.password')}
           value={value}
           onChangeText={onChangeText}

@@ -30,6 +30,10 @@ describe('classifyFailure', () => {
     expect(classifyFailure(fail(new ApiError('http', 'x', 400)), noReport)).toBe('failed');
     expect(classifyFailure(fail(new ApiError('invalid_response', 'x', 200)), noReport)).toBe('failed');
   });
+
+  it('does not blame the connection for a problem on the phone (e.g. an unreadable photo)', () => {
+    expect(classifyFailure(fail(new Error('Could not read the image'), created), created)).toBe('failed');
+  });
 });
 
 describe('outbox processor', () => {

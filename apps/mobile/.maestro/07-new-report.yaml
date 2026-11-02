@@ -1,0 +1,55 @@
+# New report - location, a gallery photo, details, review, sent
+appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
+---
+# A photo in the emulator's gallery, and GPS in Tripoli.
+- addMedia:
+    - "pothole.jpg"
+- setLocation:
+    latitude: 32.8890
+    longitude: 13.1800
+- tapOn: "بلّغ"
+- extendedWaitUntil:
+    visible: "تأكيد الموقع"
+    timeout: 30000
+- tapOn: "موقعي الحالي"
+- tapOn: "تأكيد الموقع"
+- extendedWaitUntil:
+    visible: "أضف صور الحفرة"
+    timeout: 15000
+- tapOn: "المعرض"
+# Android's photo picker: pick the first photo, then confirm.
+- extendedWaitUntil:
+    visible:
+      id: ".*icon_thumbnail"
+    timeout: 20000
+- tapOn:
+    id: ".*icon_thumbnail"
+    index: 0
+- tapOn:
+    text: "(Add|إضافة|Done|تم).*"
+    optional: true
+- extendedWaitUntil:
+    visible: "1 من 3 صور"
+    timeout: 30000
+- tapOn: "التالي"
+- extendedWaitUntil:
+    visible: "ما مدى خطورتها؟"
+    timeout: 15000
+- tapOn: "تجبر السائق على التخفيف"
+- tapOn: "التالي"
+- extendedWaitUntil:
+    visible: "راجع بلاغك"
+    timeout: 15000
+- takeScreenshot: 07-review
+- tapOn: "إرسال البلاغ"
+- extendedWaitUntil:
+    visible: "شكراً! وصل بلاغك"
+    timeout: 60000
+- takeScreenshot: 07-sent
+- tapOn: "العودة للرئيسية"
+- tapOn: "بلاغاتي"
+- extendedWaitUntil:
+    visible: "الكل 2"
+    timeout: 20000

@@ -104,6 +104,8 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
       queryClient.invalidateQueries({ queryKey: ['home'] });
     } catch (e) {
       const state = e instanceof SubmitError ? e.state : from;
+      // Shown in the device log (logcat / Console), never to the person: helps diagnose field reports.
+      console.warn('[report] send failed:', e instanceof SubmitError ? String(e.cause) : String(e));
       if (classifyFailure(e, state) !== 'failed') {
         // Connection dropped, server busy or session expired: keep it and send it later, automatically.
         try {

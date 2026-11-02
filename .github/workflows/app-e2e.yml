@@ -1,0 +1,116 @@
+name: App end-to-end (Android emulator · Maestro)
+
+# Plan 6.10: the main journeys on a real Android emulator, driven by Maestro
+# (apps/mobile/.maestro). The app is a test build pointing at the seeded local
+# API (apps/api/tests/e2e/server.ts) on this runner, so nothing touches
+# production data. Screenshots, Maestro's debug output and the API log are
+# uploaded on every run.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'apps/api/src/**'
+      - 'apps/api/tests/e2e/**'
+      - 'packages/**'
+      - '.github/workflows/app-e2e.yml'
+
+concurrency:
+  group: app-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Main journeys on Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies (workspace root)
+        run: npm ci
+
+      # Hardware acceleration for the emulator (GitHub's Linux runners support KVM).
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start the seeded test API
+        run: |
+          nohup npx tsx apps/api/tests/e2e/server.ts 8788 > e2e-api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if grep -q 'e2e server on' e2e-api.log; then break; fi
+            sleep 1
+          done
+          grep -q 'e2e server on' e2e-api.log || { cat e2e-api.log; exit 1; }
+          curl -fsS http://localhost:8788/api/donations/config
+
+      # The emulator reaches this runner at 10.0.2.2. HUFRA_E2E=1 allows plain
+      # HTTP to it (test builds only, see apps/mobile/app.config.js).
+      - name: Build the test APK (x86_64 emulator)
+        working-directory: apps/mobile
+        env:
+          HUFRA_E2E: '1'
+          EXPO_PUBLIC_API_URL: http://10.0.2.2:8788
+        run: |
+          npx expo prebuild --platform android --no-install
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=x86_64
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the journeys on an Android 14 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          # Cold boots on shared runners sometimes take longer than the default 10 minutes.
+          emulator-boot-timeout: 900
+          cores: 4
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            sleep 45 && adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null || true
+            maestro test apps/mobile/.maestro --format junit --output maestro-report.xml --test-output-dir maestro-output --debug-output maestro-debug || (echo '--- Screen at failure (visible texts) ---'; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"\|content-desc="[^"]*"' | grep -v '=""' | head -80; echo '--- App log (warnings and errors) ---'; adb logcat -d -s ReactNativeJS:W ReactNative:E AndroidRuntime:E | tail -60; exit 1)
+
+      - name: Show the test API log
+        if: always()
+        run: tail -n 80 e2e-api.log || true
+
+      - name: Upload screenshots, Maestro output and the API log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: HUFRA-e2e-results
+          path: |
+            maestro-report.xml
+            maestro-output
+            maestro-debug
+            *.png
+            e2e-api.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { z } from 'zod';
 
 import { ApiError, type ApiClient } from '@/api/client';
@@ -80,6 +81,7 @@ describe('photo compression', () => {
         if (width === '1280') return quality === '0.5' ? 300_000 : 500_000;
         return 40_000;
       },
+      measure: async () => ({ width: 4000, height: 3000 }),
     };
     const out = await preparePhoto(photo(1), encoder);
     expect(out.full).toMatchObject({ width: 1280, height: 960, bytes: 300_000 });
@@ -88,8 +90,22 @@ describe('photo compression', () => {
   });
 
   it('gives up rather than sending an oversized photo', async () => {
-    const encoder: Encoder = { encode: async (uri, size) => ({ uri, ...size }), sizeOf: () => 9_000_000 };
+    const encoder: Encoder = { encode: async (uri, size) => ({ uri, ...size }), sizeOf: () => 9_000_000, measure: async () => ({ width: 1, height: 1 }) };
     await expect(preparePhoto(photo(1), encoder)).rejects.toThrow(/after compression/);
+  });
+
+  it('measures a photo the picker reported as 0 x 0 before resizing it', async () => {
+    const sizes: { width: number; height: number }[] = [];
+    const encoder: Encoder = {
+      encode: async (uri, size) => {
+        sizes.push(size);
+        return { uri, ...size };
+      },
+      sizeOf: () => 1000,
+      measure: async () => ({ width: 3000, height: 4000 }),
+    };
+    await preparePhoto({ uri: 'content://picked', width: 0, height: 0 }, encoder);
+    expect(sizes[0]).toEqual({ width: 960, height: 1280 });
   });
 });
 
@@ -120,6 +136,25 @@ describe('submitReport', () => {
     expect(res).toEqual({ reportId: 42 });
     expect(calls).toEqual(['/api/potholes', '/api/photos/42', '/api/photos/42']);
     expect(progress).toHaveBeenCalledWith({ phase: 'uploading', done: 1, total: 2 });
+  });
+
+  it("sends photos as file parts Expo's fetch can read (not React Native's { uri } objects)", async () => {
+    const appended: [string, unknown][] = [];
+    const append = jest.spyOn(FormData.prototype, 'append').mockImplementation(function (this: FormData, name: string, value: unknown) {
+      appended.push([name, value]);
+    });
+    const { api } = fakeApi((p) =>
+      p === '/api/potholes' ? { id: 7, status: 'reported', upload_token: 'tok' } : { id: 1, r2_key: 'k', thumb_key: 't', stage: 'report' },
+    );
+    await submitReport(toCreateInput(ready, 'ar', 'u-12345678'), ready.photos.slice(0, 1), { api, prepare: async () => prepared });
+    append.mockRestore();
+    // Expo's multipart encoder accepts strings, Blobs and expo-file-system Files; it rejects { uri, name, type }
+    // ("Unsupported FormDataPart implementation"), which silently lost every report photo on real phones.
+    const files = appended.filter(([name]) => name === 'full' || name === 'thumb').map(([, v]) => v);
+    expect(files).toHaveLength(2);
+    const made = jest.mocked(File).mock.results.map((r) => r.value);
+    for (const f of files) expect(made).toContain(f);
+    expect(files.map((f) => (f as { uri: string }).uri)).toEqual(['f', 't']);
   });
 
   it('on a failed photo, a retry continues from that photo without creating the report again', async () => {

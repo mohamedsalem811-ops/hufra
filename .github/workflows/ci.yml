@@ -104,7 +104,7 @@ jobs:
         run: npm run lint
 
       - name: Unit tests
-        run: npm test -- --ci
+        run: npm test -- --ci --coverage
 
       - name: Bundle for Android and iOS (proves the JavaScript compiles and assets resolve)
         run: npx expo export --platform android --platform ios --output-dir "$RUNNER_TEMP/expo-export"

@@ -12,5 +12,9 @@ module.exports = ({ config }) => {
     // Firebase app + Crashlytics Gradle setup (Android only: see react-native.config.js).
     config.plugins = [...(config.plugins ?? []), '@react-native-firebase/app', '@react-native-firebase/crashlytics'];
   }
+  // End-to-end test build (CI only): allows plain HTTP to the local test API.
+  if (process.env.HUFRA_E2E === '1') {
+    config.plugins = [...(config.plugins ?? []), './plugins/with-e2e-cleartext'];
+  }
   return config;
 };

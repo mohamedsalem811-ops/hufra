@@ -1,0 +1,14 @@
+# End-to-end journeys on an Android emulator (plan 6.10). The app talks to the
+# seeded local test API (apps/api/tests/e2e/server.ts): a donor account
+# donor@e2e.ly, one report on Al Jumhuriya St with a photo, and an open repair
+# campaign. The flows run in this order; later ones build on the signed-in session.
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 01-onboarding
+    - 02-sign-in
+    - 03-home
+    - 04-report-detail
+    - 05-my-reports
+    - 06-settings
+    - 07-new-report

@@ -1,0 +1,28 @@
+# First run - welcome, location and notifications, then the app
+appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+# First start switches to Arabic right-to-left and may reload once.
+- runFlow: subflows/dismiss-system-dialogs.yaml
+- extendedWaitUntil:
+    visible: "ابدأ"
+    timeout: 90000
+- takeScreenshot: 01-welcome
+- tapOn: "ابدأ"
+- extendedWaitUntil:
+    visible: "موقعك يضع الحفرة في مكانها"
+    timeout: 15000
+- tapOn: "السماح بالموقع"
+- extendedWaitUntil:
+    visible: "اعرف متى تُصلح الحفرة"
+    timeout: 15000
+- tapOn: "تفعيل الإشعارات"
+- extendedWaitUntil:
+    visible: "الرئيسية"
+    timeout: 30000
+- takeScreenshot: 01-home-first

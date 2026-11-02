@@ -1,0 +1,9 @@
+# Shared step: a slow emulator sometimes shows "<app> isn't responding" for
+# Android's own apps (e.g. the launcher). Tap "Wait" so the journey can go on.
+appId: ly.tripoli.hufra
+---
+- runFlow:
+    when:
+      visible: ".*isn't responding.*"
+    commands:
+      - tapOn: "Wait"

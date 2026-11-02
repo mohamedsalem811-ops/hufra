@@ -1,0 +1,12 @@
+# Home shows city numbers and greets the person
+appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
+---
+- tapOn: "الرئيسية"
+- extendedWaitUntil:
+    visible: "مرحباً سالم"
+    timeout: 20000
+- assertVisible: "بانتظار الإصلاح: 1"
+- assertVisible: "أُصلحت مؤخراً"
+- takeScreenshot: 03-home

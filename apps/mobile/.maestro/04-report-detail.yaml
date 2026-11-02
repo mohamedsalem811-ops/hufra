@@ -1,0 +1,23 @@
+# A report opened from a link - details, timeline and its repair campaign
+appId: ly.tripoli.hufra
+onFlowStart:
+  - runFlow: subflows/dismiss-system-dialogs.yaml
+---
+- openLink: "hufra://pothole/1"
+- extendedWaitUntil:
+    visible: "شارع الجمهورية"
+    timeout: 30000
+- assertVisible: "بلاغك"
+- scrollUntilVisible:
+    element: "حملة الإصلاح"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "0 د.ل مؤكدة من 1,200 د.ل"
+- assertVisible: "تبرّع لإصلاحها"
+- takeScreenshot: 04-campaign
+- scrollUntilVisible:
+    element: "مراحل البلاغ"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: 04-timeline
+- tapOn: "رجوع"

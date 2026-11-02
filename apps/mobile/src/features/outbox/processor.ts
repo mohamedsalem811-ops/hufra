@@ -14,7 +14,10 @@ export type FailureAction = 'later' | 'permit' | 'failed';
 
 export function classifyFailure(error: unknown, state: SubmitState): FailureAction {
   const cause = error instanceof SubmitError ? error.cause : error;
-  if (!(cause instanceof ApiError)) return 'later';
+  // The API client turns every connection problem into an ApiError ('network' / 'timeout').
+  // Anything else happened on the phone (e.g. a photo that cannot be read): waiting for
+  // a connection would never fix it, so the person sees it and can try again.
+  if (!(cause instanceof ApiError)) return 'failed';
   if (cause.kind === 'network' || cause.kind === 'timeout' || cause.kind === 'unauthorized') return 'later';
   if (cause.kind === 'http' && (cause.status ?? 0) >= 500) return 'later';
   if (cause.kind === 'http' && (cause.status === 429 || cause.status === 408)) return 'later';
