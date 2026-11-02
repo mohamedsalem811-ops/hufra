@@ -10,9 +10,15 @@ import { messages, type MessageKey } from './messages';
 interface I18nValue {
   locale: Locale;
   isRTL: boolean;
-  t: (key: MessageKey) => string;
+  /** Text for the current language; {name} placeholders are filled from vars. */
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
   /** Saves the language and reloads the app so the layout direction follows. */
   setLocale: (locale: Locale) => Promise<void>;
+}
+
+export function interpolate(text: string, vars?: Record<string, string | number>): string {
+  if (!vars) return text;
+  return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match));
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -26,7 +32,7 @@ export function I18nProvider({ locale, children }: { locale: Locale; children: R
 
   const value = useMemo<I18nValue>(() => {
     const table = messages[locale];
-    return { locale, isRTL: locale === 'ar', t: (key) => table[key], setLocale };
+    return { locale, isRTL: locale === 'ar', t: (key, vars) => interpolate(table[key], vars), setLocale };
   }, [locale, setLocale]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

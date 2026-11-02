@@ -8,7 +8,8 @@ name: App build (Expo · Android APK & iPhone IPA)
 # Store signing (Play upload key, Apple distribution) comes in Phase 10.
 #
 # Run it from GitHub: Actions -> "App build" -> Run workflow, or push a tag app-v*.
-# It also runs on pull requests that change this workflow, so the build itself is tested.
+# It also runs on pull requests that change the app (or this workflow), so every step
+# comes with phone builds to install before approving.
 # The old Capacitor build (mobile-build.yml) stays until Phase 9.
 
 on:
@@ -19,6 +20,9 @@ on:
   pull_request:
     paths:
       - '.github/workflows/app-build.yml'
+      - 'apps/mobile/**'
+      - 'packages/brand/**'
+      - 'packages/contracts/**'
 
 concurrency:
   group: app-build-${{ github.ref }}

@@ -14,3 +14,11 @@ jest.mock('expo-secure-store', () => {
 
 // Safe-area insets: the library's own Jest mock (renders children with fixed insets).
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
+
+// Permission prompts: granted by default; tests override per case.
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+}));
+jest.mock('expo-notifications', () => ({
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+}));
