@@ -15,10 +15,11 @@ Plan: `docs/EXECUTION_PLAN.md`, Phase 5 and 6. Designs: the "App screens (4.2)" 
 
 ```
 src/
-  app/          Expo Router routes only (every file is a screen); _layout.tsx boots the app
-  app-shell/    boot (saved language/theme, layout direction) and the provider stack
+  app/          Expo Router routes only: _layout.tsx boots the app; onboarding/ (first run); (tabs)/ (Home, Map, Report, My reports, Account)
+  app-shell/    boot (saved language/theme/first-run flag, layout direction), onboarding state, provider stack
+  permissions/  location and notification prompts (asked only after our own explanation screen)
   screens/      screen bodies rendered by routes, with colocated tests
-  components/   shared UI (AppText, ErrorView)
+  components/   shared UI (AppText, Button, TabBar, ErrorView)
   api/          typed API client (zod contracts, single-flight token refresh), query cache, token store
   i18n/         Arabic/English text and right-to-left handling
   theme/        brand colours (light/dark/system), Readex Pro fonts
@@ -45,7 +46,7 @@ Add native packages with `npx expo install <pkg>` so versions match the SDK (set
 CI (`.github/workflows/ci.yml`, job "Mobile app") runs typecheck, lint, tests and an Android + iOS JavaScript bundle on every push and pull request.
 ## Installable builds (owner testing)
 
-GitHub → **Actions → "App build (Expo · Android APK & iPhone IPA)" → Run workflow** (or push a tag `app-v1.0.0`).
+Pull requests that change the app build both automatically. Otherwise: GitHub → **Actions → "App build (Expo · Android APK & iPhone IPA)" → Run workflow** (or push a tag `app-v1.0.0`).
 After about 15–30 minutes, download the artifacts from the run page:
 
 - **HUFRA-Android-APK**: unzip and open the `.apk` on the phone (allow "install unknown apps"). New APKs install over old ones.

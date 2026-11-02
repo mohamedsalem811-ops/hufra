@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { useBoot } from '@/app-shell/boot';
+import { OnboardingProvider, useOnboarding } from '@/app-shell/onboarding';
 import { AppProviders } from '@/app-shell/providers';
 import { ErrorView } from '@/components/error-view';
 import { fontAssets } from '@/theme/fonts';
@@ -24,17 +25,28 @@ export default function RootLayout() {
   if (!ready || !boot.ready) return null;
   return (
     <AppProviders locale={boot.locale} themeMode={boot.themeMode}>
-      <ThemedStack />
+      <OnboardingProvider initial={boot.onboarded}>
+        <RootStack />
+      </OnboardingProvider>
     </AppProviders>
   );
 }
 
-function ThemedStack() {
+/** First run shows onboarding; afterwards the tabs. The guards swap them without a back stack. */
+function RootStack() {
   const { scheme, colors } = useTheme();
+  const { onboarded } = useOnboarding();
   return (
     <>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg.canvas } }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg.canvas } }}>
+        <Stack.Protected guard={!onboarded}>
+          <Stack.Screen name="onboarding" />
+        </Stack.Protected>
+        <Stack.Protected guard={onboarded}>
+          <Stack.Screen name="(tabs)" />
+        </Stack.Protected>
+      </Stack>
     </>
   );
 }

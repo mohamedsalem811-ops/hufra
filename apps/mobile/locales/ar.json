@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "حفرة",
+    "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لنضع الحفرة في المكان الصحيح على الخريطة، ولنريك البلاغات القريبة منك.",
+    "NSCameraUsageDescription": "نستخدم الكاميرا لتصوير الحفرة التي تبلّغ عنها.",
+    "NSPhotoLibraryUsageDescription": "نستخدم صورك فقط عندما تختار صورة للحفرة من المعرض."
+  }
+}

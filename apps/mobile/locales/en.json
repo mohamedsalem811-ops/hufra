@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "حفرة",
+    "NSLocationWhenInUseUsageDescription": "We use your location to put the pothole in the right place on the map and to show reports near you.",
+    "NSCameraUsageDescription": "We use the camera to photograph the pothole you report.",
+    "NSPhotoLibraryUsageDescription": "We only use your photos when you pick a picture of the pothole from your gallery."
+  }
+}
