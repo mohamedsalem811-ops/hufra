@@ -90,7 +90,8 @@
           "photosPermission": "نستخدم صورك فقط عندما تختار صورة للحفرة من المعرض.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

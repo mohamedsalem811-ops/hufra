@@ -1,7 +1,7 @@
 import { radius, space } from '@hufra/brand';
 import type { LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
@@ -13,19 +13,24 @@ import { useTheme } from '@/theme/theme-provider';
 export function TabPlaceholder({
   icon: Icon,
   title,
+  before,
   children,
 }: {
   icon: LucideIcon;
   title: MessageKey;
+  /** Real content shown above the "coming soon" card. */
+  before?: ReactNode;
   children?: ReactNode;
 }) {
   const { colors } = useTheme();
   const { t } = useI18n();
   return (
-    <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.bg.canvas }]}>
+    <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.bg.canvas }]}>
+      <ScrollView contentContainerStyle={styles.root}>
       <AppText variant="title1" accessibilityRole="header">
         {t(title)}
       </AppText>
+      {before}
       <View style={[styles.card, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}>
         <View style={[styles.icon, { backgroundColor: colors.bg.brandTint }]}>
           <Icon size={32} color={colors.brand.primary} strokeWidth={1.75} />
@@ -35,12 +40,14 @@ export function TabPlaceholder({
         </AppText>
       </View>
       {children}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: space[7], gap: space[7] },
+  flex: { flex: 1 },
+  root: { padding: space[7], gap: space[7] },
   card: {
     borderWidth: 1,
     borderRadius: radius.xl,

@@ -45,5 +45,19 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
 }));
 jest.mock('expo-image-manipulator', () => ({ ImageManipulator: { manipulate: jest.fn() }, SaveFormat: { JPEG: 'jpeg' } }));
-jest.mock('expo-file-system', () => ({ File: jest.fn(() => ({ size: 0 })) }));
+jest.mock('expo-file-system', () => ({
+  File: jest.fn((...parts: unknown[]) => ({ size: 0, exists: false, uri: parts.map(String).join('/'), copy: jest.fn(async () => {}) })),
+  Directory: jest.fn(() => ({ exists: false, create: jest.fn(), delete: jest.fn() })),
+  Paths: { document: 'file:///documents' },
+}));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'test-uuid-0001' }));
+
+// Offline outbox: in-memory store instead of SQLite; network reported as online.
+jest.mock('@/features/outbox/store', () => {
+  const actual = jest.requireActual('@/features/outbox/store');
+  return { ...actual, createSqliteOutbox: () => actual.memoryOutbox() };
+});
+jest.mock('expo-network', () => ({
+  getNetworkStateAsync: jest.fn(async () => ({ isConnected: true, isInternetReachable: true })),
+  addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
