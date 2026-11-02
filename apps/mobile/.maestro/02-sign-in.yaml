@@ -1,0 +1,29 @@
+appId: ly.tripoli.hufra
+name: Sign in from the Account tab
+---
+- tapOn: "حسابي"
+- extendedWaitUntil:
+    visible: "سجّل الدخول لتبلّغ عن الحفر وتتابع بلاغاتك."
+    timeout: 15000
+- tapOn:
+    text: "تسجيل الدخول"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "auth-email"
+    timeout: 15000
+- tapOn:
+    id: "auth-email"
+- inputText: "donor@e2e.ly"
+- tapOn:
+    id: "auth-password"
+- inputText: "Str0ngP@ssw0rd!"
+- hideKeyboard
+- tapOn:
+    id: "auth-submit"
+# Back on the account screen, signed in.
+- extendedWaitUntil:
+    visible: "سالم"
+    timeout: 30000
+- assertVisible: "donor@e2e.ly"
+- takeScreenshot: 02-account-signed-in

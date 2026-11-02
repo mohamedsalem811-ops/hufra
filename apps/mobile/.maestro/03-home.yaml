@@ -1,0 +1,10 @@
+appId: ly.tripoli.hufra
+name: Home shows city numbers and greets the person
+---
+- tapOn: "الرئيسية"
+- extendedWaitUntil:
+    visible: "مرحباً سالم"
+    timeout: 20000
+- assertVisible: "بانتظار الإصلاح: 1"
+- assertVisible: "أُصلحت مؤخراً"
+- takeScreenshot: 03-home

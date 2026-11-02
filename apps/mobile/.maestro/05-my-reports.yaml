@@ -1,0 +1,12 @@
+appId: ly.tripoli.hufra
+name: My reports lists the person's report and filters by status
+---
+- tapOn: "بلاغاتي"
+- extendedWaitUntil:
+    visible: "الكل 1"
+    timeout: 20000
+- assertVisible: "شارع الجمهورية"
+- tapOn: "أُصلحت 0"
+- assertVisible: "لا بلاغات هنا."
+- tapOn: "الكل 1"
+- takeScreenshot: 05-my-reports

@@ -1,0 +1,14 @@
+appId: ly.tripoli.hufra
+name: Settings - text size and appearance are remembered
+---
+- tapOn: "حسابي"
+- tapOn: "الإعدادات"
+- extendedWaitUntil:
+    visible: "حجم الخط"
+    timeout: 15000
+- tapOn: "أكبر"
+- tapOn: "داكن"
+- takeScreenshot: 06-settings-large-dark
+- tapOn: "عادي"
+- tapOn: "تلقائي"
+- tapOn: "رجوع"
