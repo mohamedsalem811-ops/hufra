@@ -29,6 +29,8 @@ export interface Encoder {
   /** Resize to the given size and save as a fresh JPEG (no EXIF: the file is re-encoded). */
   encode(uri: string, size: { width: number; height: number }, quality: number): Promise<{ uri: string; width: number; height: number }>;
   sizeOf(uri: string): number;
+  /** Pixel size of an image whose size the picker did not report. */
+  measure(uri: string): Promise<{ width: number; height: number }>;
 }
 
 export const nativeEncoder: Encoder = {
@@ -39,6 +41,10 @@ export const nativeEncoder: Encoder = {
   },
   sizeOf(uri) {
     return new File(uri).size ?? 0;
+  },
+  async measure(uri) {
+    const image = await ImageManipulator.manipulate(uri).renderAsync();
+    return { width: image.width, height: image.height };
   },
 };
 
@@ -66,7 +72,9 @@ export async function preparePhoto(
   source: { uri: string; width: number; height: number },
   encoder: Encoder = nativeEncoder,
 ): Promise<PreparedPhoto> {
-  const full = await encodeWithin(encoder, source, PHOTO_LIMITS.full);
+  // Some pickers (e.g. Android's photo picker) can return 0 x 0: measure the real size first.
+  const known = source.width > 0 && source.height > 0 ? source : { uri: source.uri, ...(await encoder.measure(source.uri)) };
+  const full = await encodeWithin(encoder, known, PHOTO_LIMITS.full);
   const thumb = await encodeWithin(encoder, full, PHOTO_LIMITS.thumb);
   return { full, thumb };
 }

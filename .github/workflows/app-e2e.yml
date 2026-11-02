@@ -90,7 +90,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-            maestro test apps/mobile/.maestro --format junit --output maestro-report.xml --test-output-dir maestro-output --debug-output maestro-debug || (echo '--- Screen at failure (visible texts) ---'; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"\|content-desc="[^"]*"' | grep -v '=""' | head -80; exit 1)
+            maestro test apps/mobile/.maestro --format junit --output maestro-report.xml --test-output-dir maestro-output --debug-output maestro-debug || (echo '--- Screen at failure (visible texts) ---'; adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"\|content-desc="[^"]*"' | grep -v '=""' | head -80; echo '--- App log (warnings and errors) ---'; adb logcat -d -s ReactNativeJS:W ReactNative:E AndroidRuntime:E | tail -60; exit 1)
 
       - name: Show the test API log
         if: always()
