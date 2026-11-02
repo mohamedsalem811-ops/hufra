@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "حفرة",
+    "slug": "hufra",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "../../packages/brand/assets/app/icon.png",
+    "scheme": "hufra",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "ly.tripoli.hufra",
+      "supportsTablet": false,
+      "icon": "../../packages/brand/assets/app/icon.png"
+    },
+    "android": {
+      "package": "ly.tripoli.hufra",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B4A6F",
+        "foregroundImage": "../../packages/brand/assets/app/adaptive-foreground.png",
+        "backgroundImage": "../../packages/brand/assets/app/adaptive-background.png",
+        "monochromeImage": "../../packages/brand/assets/app/adaptive-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B4A6F",
+          "image": "../../packages/brand/assets/app/splash-icon.png",
+          "imageWidth": 200,
+          "dark": {
+            "backgroundColor": "#0B141B",
+            "image": "../../packages/brand/assets/app/splash-icon.png"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

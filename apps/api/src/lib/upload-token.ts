@@ -22,7 +22,7 @@ function b64url(bytes: ArrayBuffer): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function b64urlDecode(s: string): Uint8Array {
+function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   const p = s.replace(/-/g, '+').replace(/_/g, '/')
   const bin = atob(p + '='.repeat((4 - (p.length % 4)) % 4))
   const out = new Uint8Array(bin.length)

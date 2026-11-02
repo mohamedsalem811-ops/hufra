@@ -74,6 +74,41 @@ jobs:
           path: apps/api/coverage/
           retention-days: 14
 
+  mobile-app:
+    name: "Mobile app (Expo): typecheck, lint, test, bundle"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      # Use the versions bundled with the installed Expo SDK; no calls to expo.dev.
+      EXPO_OFFLINE: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (workspace root)
+        working-directory: .
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test -- --ci
+
+      - name: Bundle for Android and iOS (proves the JavaScript compiles and assets resolve)
+        run: npx expo export --platform android --platform ios --output-dir "$RUNNER_TEMP/expo-export"
+
   deploy:
     name: Deploy to Cloudflare Pages
     needs: build-and-test

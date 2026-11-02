@@ -1,7 +1,7 @@
 {
   "name": "hufra",
   "private": true,
-  "description": "HUFRA monorepo: apps/api (backend), later apps/mobile, apps/admin, apps/web and shared packages. See docs/EXECUTION_PLAN.md.",
+  "description": "HUFRA monorepo: apps/api (backend), apps/mobile (Expo citizen app), later apps/admin, apps/web and shared packages. See docs/EXECUTION_PLAN.md.",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -36,6 +36,10 @@
     "brand:build": "npm run build -w @hufra/brand",
     "test:packages": "npm run typecheck -w @hufra/brand -w @hufra/contracts && npm test -w @hufra/brand -w @hufra/contracts && npm run check -w @hufra/brand",
     "dev:worker": "npm run dev:worker -w @hufra/api --",
-    "deploy:worker": "npm run deploy:worker -w @hufra/api --"
+    "deploy:worker": "npm run deploy:worker -w @hufra/api --",
+    "app:start": "npm run start -w @hufra/mobile --",
+    "app:android": "npm run android -w @hufra/mobile --",
+    "app:ios": "npm run ios -w @hufra/mobile --",
+    "test:mobile": "npm run typecheck -w @hufra/mobile && npm run lint -w @hufra/mobile && npm test -w @hufra/mobile"
   }
 }
