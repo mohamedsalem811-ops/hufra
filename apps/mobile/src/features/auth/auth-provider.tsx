@@ -6,6 +6,9 @@ import { z } from 'zod';
 import { useApi } from '@/api/api-provider';
 import { ApiError } from '@/api/client';
 import type { Locale } from '@/i18n/locale';
+import { secureStore } from '@/storage/secure';
+
+import { forgetPush, unregisterPush } from '../push/push';
 
 export interface SessionUser {
   id: number;
@@ -94,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const signOut = useCallback(async ({ remote = true }: { remote?: boolean } = {}) => {
     const session = await tokens.get();
+    // This phone should stop getting this person's notifications.
+    if (session && remote) await unregisterPush(api, secureStore);
+    else await forgetPush(secureStore);
     if (session && remote) {
       // Best effort: tell the server to retire the refresh token, then forget locally either way.
       await api

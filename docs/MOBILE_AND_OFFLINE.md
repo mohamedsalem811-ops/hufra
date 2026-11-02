@@ -62,15 +62,17 @@ This document explains how the website and the Android/iOS mobile app connect to
 
 1. Go to [console.firebase.google.com](https://console.firebase.google.com) and create a project (or use an existing one).
 2. **Add an Android app** with package name `ly.tripoli.hufra`. Download `google-services.json`.
-3. In GitHub, go to repo **Settings -> Secrets and variables -> Actions -> New repository secret**. Name it `GOOGLE_SERVICES_JSON` and paste the whole file. The Mobile Build workflow puts it into the APK.
-4. In Firebase, open **Project settings -> Service accounts -> Generate new private key**. This downloads a JSON key file. Store the whole file as a Cloudflare secret:
+3. In GitHub, go to repo **Settings -> Secrets and variables -> Actions -> New repository secret**. Name it `GOOGLE_SERVICES_JSON` and paste the whole file. The **App build** workflow (`.github/workflows/app-build.yml`) writes it to `apps/mobile/google-services.json`, and `apps/mobile/app.config.js` adds it to the Expo build. The file is never committed.
+4. In Firebase, open **Project settings -> Service accounts -> Generate new private key**. This downloads a JSON key file. Store the whole file as a Cloudflare secret of the Worker (and of Pages until the switch-over):
 
    ```bash
-   npx wrangler pages secret put FCM_SERVICE_ACCOUNT --project-name hufra < path/to/service-account.json
+   npx wrangler secret put FCM_SERVICE_ACCOUNT -c apps/api/wrangler.worker.jsonc < path/to/service-account.json
    ```
 
    Treat this file like a password: it can send notifications as your project. Don't commit it.
-5. Rebuild the APK (GitHub -> Actions -> Mobile Build -> Run workflow) and install it. In the app, turn on notifications on the account page. The device registers its token, and new reports / status changes now arrive as push notifications.
+5. Run **App build** again (GitHub -> Actions -> App build -> Run workflow, or push to the PR) and install the new APK. Allow notifications when the app asks (or later in the phone's settings). While signed in, the app registers this phone, and status changes on your reports arrive as notifications; tapping one opens the report.
+
+Without the `GOOGLE_SERVICES_JSON` secret the APK still builds and works, just without push.
 
 ### iPhone and website push: current limits
 

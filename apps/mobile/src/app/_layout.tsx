@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { useBoot } from '@/app-shell/boot';
 import { OnboardingProvider, useOnboarding } from '@/app-shell/onboarding';
 import { AppProviders } from '@/app-shell/providers';
+import { PushHandler } from '@/features/push/push-handler';
 import { ErrorView } from '@/components/error-view';
 import { fontAssets } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
@@ -53,6 +54,7 @@ function RootStack() {
           <Stack.Screen name="notifications" />
         </Stack.Protected>
       </Stack>
+      {onboarded ? <PushHandler /> : null}
     </>
   );
 }

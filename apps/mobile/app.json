@@ -79,7 +79,8 @@
         "expo-notifications",
         {
           "icon": "../../packages/brand/assets/app/notification-icon.png",
-          "color": "#0B4A6F"
+          "color": "#0B4A6F",
+          "defaultChannel": "default"
         }
       ],
       "@maplibre/maplibre-react-native",
