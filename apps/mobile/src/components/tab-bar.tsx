@@ -1,5 +1,5 @@
 import { radius, space } from '@hufra/brand';
-import type { Tabs } from 'expo-router';
+import { useRouter, type Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { ClipboardList, House, Map as MapIcon, Plus, User, type LucideIcon } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -31,6 +31,7 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <View
@@ -57,13 +58,15 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
         };
 
         if (item.primary) {
+          // Reporting opens full screen over the tabs (design board 3) instead of switching tab.
+          const openReport = () => router.push('/new-report');
           return (
             <Pressable
               key={route.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={label}
-              onPress={onPress}
+              onPress={openReport}
               style={styles.item}
             >
               {({ pressed }) => (

@@ -46,6 +46,9 @@ function RootStack() {
         <Stack.Protected guard={onboarded}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="pothole/[id]" />
+          <Stack.Screen name="new-report" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+          <Stack.Screen name="auth/sign-in" />
+          <Stack.Screen name="auth/sign-up" />
         </Stack.Protected>
       </Stack>
     </>

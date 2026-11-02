@@ -1,8 +1,11 @@
 import { radius, space } from '@hufra/brand';
 import { User } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
+import { Button } from '@/components/button';
+import { useAuth } from '@/features/auth/auth-provider';
 import { useI18n } from '@/i18n/i18n-provider';
 import type { Locale } from '@/i18n/locale';
 import type { MessageKey } from '@/i18n/messages';
@@ -27,6 +30,7 @@ export function AccountPlaceholder() {
   ];
   return (
     <TabPlaceholder icon={User} title="tabs.account">
+      <Session />
       <Segmented
         title={t('account.language')}
         options={languages.map((l) => ({ key: l.value, label: l.label, selected: l.value === locale }))}
@@ -38,6 +42,34 @@ export function AccountPlaceholder() {
         onSelect={(key) => setMode(key as ThemeMode)}
       />
     </TabPlaceholder>
+  );
+}
+
+function Session() {
+  const { t } = useI18n();
+  const router = useRouter();
+  const { state, signOut } = useAuth();
+  if (state.status === 'loading') return null;
+  if (state.status === 'signedIn') {
+    return (
+      <View style={styles.group}>
+        {state.user.email ? (
+          <AppText variant="small" tone="secondary">
+            {t('account.signedInAs', { email: state.user.email })}
+          </AppText>
+        ) : null}
+        <Button variant="secondary" label={t('account.signOut')} onPress={signOut} />
+      </View>
+    );
+  }
+  return (
+    <View style={styles.group}>
+      <AppText variant="small" tone="secondary">
+        {t('account.signedOutHint')}
+      </AppText>
+      <Button label={t('auth.signIn.title')} onPress={() => router.push('/auth/sign-in')} />
+      <Button variant="text" label={t('auth.createAccount')} onPress={() => router.push('/auth/sign-up')} />
+    </View>
   );
 }
 

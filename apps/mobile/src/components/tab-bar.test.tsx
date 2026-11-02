@@ -4,6 +4,9 @@ import { AppProviders } from '@/app-shell/providers';
 
 import { TabBar, type BottomTabBarProps } from './tab-bar';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
 const names = ['index', 'map', 'report', 'my-reports', 'account'];
 
 function props(index: number) {
@@ -40,10 +43,22 @@ describe('TabBar', () => {
         <TabBar {...p} />
       </AppProviders>,
     );
-    await fireEvent.press(screen.getByRole('tab', { name: 'Report' }));
-    expect(navigateToTab).toHaveBeenCalledWith('report-key');
+    await fireEvent.press(screen.getByRole('tab', { name: 'Map' }));
+    expect(navigateToTab).toHaveBeenCalledWith('map-key');
     await fireEvent.press(screen.getByRole('tab', { name: 'Home' }));
     expect(emit).toHaveBeenCalledTimes(2);
     expect(navigateToTab).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens reporting full screen instead of switching tab', async () => {
+    const { p, navigateToTab } = props(0);
+    await render(
+      <AppProviders locale="en" themeMode="light">
+        <TabBar {...p} />
+      </AppProviders>,
+    );
+    await fireEvent.press(screen.getByRole('tab', { name: 'Report' }));
+    expect(mockPush).toHaveBeenCalledWith('/new-report');
+    expect(navigateToTab).not.toHaveBeenCalled();
   });
 });

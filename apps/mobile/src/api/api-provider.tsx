@@ -11,6 +11,8 @@ import { createTokenStore, type TokenStore } from './token-store';
 interface ApiValue {
   api: ApiClient;
   tokens: TokenStore;
+  /** Called when the server ends the session (refresh rejected). Returns an unsubscribe function. */
+  onSignedOut: (listener: () => void) => () => void;
 }
 
 const ApiContext = createContext<ApiValue | null>(null);
@@ -18,8 +20,16 @@ const ApiContext = createContext<ApiValue | null>(null);
 /** One API client and one query cache for the whole app. */
 export function ApiProvider({ children }: { children: ReactNode }) {
   const [value] = useState<ApiValue>(() => {
+    const listeners = new Set<() => void>();
     const tokens = createTokenStore(secureStore);
-    return { tokens, api: createApiClient({ baseUrl: API_URL, tokens }) };
+    return {
+      tokens,
+      api: createApiClient({ baseUrl: API_URL, tokens, onSignedOut: () => listeners.forEach((l) => l()) }),
+      onSignedOut: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
   });
   const [queryClient] = useState(createQueryClient);
   return (

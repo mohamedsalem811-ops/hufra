@@ -5,7 +5,7 @@ import { fontFor, type FontWeight } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
 export type TextVariant = keyof typeof typeScale;
-type Tone = 'primary' | 'secondary' | 'inverse' | 'onBrand';
+type Tone = 'primary' | 'secondary' | 'tertiary' | 'inverse' | 'onBrand';
 
 interface AppTextProps extends TextProps {
   variant?: TextVariant;

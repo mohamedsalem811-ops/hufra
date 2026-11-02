@@ -82,7 +82,15 @@
           "color": "#0B4A6F"
         }
       ],
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "نستخدم الكاميرا لتصوير الحفرة التي تبلّغ عنها.",
+          "photosPermission": "نستخدم صورك فقط عندما تختار صورة للحفرة من المعرض.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
