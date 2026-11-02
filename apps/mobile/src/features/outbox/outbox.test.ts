@@ -1,6 +1,6 @@
 import { ApiError } from '@/api/client';
 
-import { SubmitError } from '../report/submit';
+import { SubmitError, type SubmitState } from '../report/submit';
 import { classifyFailure, createOutboxProcessor, newOutboxItem } from './processor';
 import { memoryOutbox, type OutboxItem } from './store';
 
@@ -8,11 +8,11 @@ const input = { lat: 32.89, lng: 13.19, severity: 'medium' as const, client_repo
 const photo = { uri: 'file:///documents/outbox/u/photo-1.jpg', width: 1280, height: 960 };
 const item = (uuid: string, minute: number): OutboxItem =>
   newOutboxItem(uuid, { ...input, client_report_uuid: uuid }, [photo], { reportId: null, uploadToken: null, uploaded: 0 }, new Date(Date.UTC(2026, 10, 2, 10, minute)));
-const fail = (error: unknown, state = { reportId: null, uploadToken: null, uploaded: 0 }) => new SubmitError(error, state);
+const fail = (error: unknown, state: SubmitState = { reportId: null, uploadToken: null, uploaded: 0 }) => new SubmitError(error, state);
 
 describe('classifyFailure', () => {
-  const noReport = { reportId: null, uploadToken: null, uploaded: 0 };
-  const created = { reportId: 9, uploadToken: 'tok', uploaded: 1 };
+  const noReport: SubmitState = { reportId: null, uploadToken: null, uploaded: 0 };
+  const created: SubmitState = { reportId: 9, uploadToken: 'tok', uploaded: 1 };
 
   it('waits for the next chance on connection, timeout, busy server or no session', () => {
     expect(classifyFailure(fail(new ApiError('network', 'x')), noReport)).toBe('later');
