@@ -41,9 +41,10 @@ const MAX_ANNOTATIONS = 250;
 
 /**
  * The public map (design board 2, screens 2-4; plan 6.1). `focus` (from a
- * report's "Open on map") centres the map on that report and opens its preview.
+ * report's "Open on map") centres the map on that report and opens its preview;
+ * `status` (Home "See all") shows only that status.
  */
-export function MapScreen({ focus = null }: { focus?: MapFocus | null }) {
+export function MapScreen({ focus = null, status = null }: { focus?: MapFocus | null; status?: PotholeStatus | null }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, scheme } = useTheme();
@@ -54,7 +55,9 @@ export function MapScreen({ focus = null }: { focus?: MapFocus | null }) {
     focus ? { center: focus.lngLat, zoom: FOCUS_ZOOM } : { center: TRIPOLI_CENTER, zoom: DEFAULT_ZOOM },
   );
   const [view, setView] = useState(() => (focus ? viewAround(focus.lngLat) : INITIAL_VIEW));
-  const [filters, setFilters] = useState<MapFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<MapFilters>(() =>
+    status ? { ...DEFAULT_FILTERS, statuses: onlyStatus(status) } : DEFAULT_FILTERS,
+  );
   const [selectedId, setSelectedId] = useState<number | null>(focus?.id ?? null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showUser, setShowUser] = useState(false);
@@ -77,6 +80,13 @@ export function MapScreen({ focus = null }: { focus?: MapFocus | null }) {
     }, 0);
     return () => clearTimeout(timer);
   }, [focusId, focusLng, focusLat]);
+
+  // A status asked for while the tab is already open (Home "See all").
+  useEffect(() => {
+    if (!status) return;
+    const timer = setTimeout(() => setFilters((f) => ({ ...f, statuses: onlyStatus(status) })), 0);
+    return () => clearTimeout(timer);
+  }, [status]);
 
   const reportsQuery = useMapReports(toBboxParam(view.bounds));
   const regions = useRegions().data ?? [];
