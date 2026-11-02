@@ -24,7 +24,7 @@ export default function RootLayout() {
 
   if (!ready || !boot.ready) return null;
   return (
-    <AppProviders locale={boot.locale} themeMode={boot.themeMode}>
+    <AppProviders locale={boot.locale} themeMode={boot.themeMode} textSize={boot.textSize}>
       <OnboardingProvider initial={boot.onboarded}>
         <RootStack />
       </OnboardingProvider>
@@ -49,6 +49,8 @@ function RootStack() {
           <Stack.Screen name="new-report" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
           <Stack.Screen name="auth/sign-in" />
           <Stack.Screen name="auth/sign-up" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="notifications" />
         </Stack.Protected>
       </Stack>
     </>

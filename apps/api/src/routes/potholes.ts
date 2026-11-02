@@ -631,7 +631,8 @@ potholes.get('/mine/list', attachAuth, async (c) => {
   if (!authCtx) return c.json({ error: 'Authentication required', error_ar: 'يجب تسجيل الدخول' }, 401)
 
   const rows = await c.env.DB.prepare(
-    `SELECT p.*, r.name_ar as region_name_ar, r.name_en as region_name_en
+    `SELECT p.*, r.name_ar as region_name_ar, r.name_en as region_name_en,
+       (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL ORDER BY ph.created_at ASC LIMIT 1) as cover_thumb_key
      FROM potholes p JOIN regions r ON r.id = p.region_id
      WHERE p.reporter_id = ? AND p.deleted_at IS NULL
      ORDER BY p.created_at DESC`

@@ -11,6 +11,8 @@ export interface SessionUser {
   id: number;
   email: string;
   display_name: string | null;
+  /** Public short code (shown instead of a name when there is none). */
+  code?: string;
 }
 
 type AuthState = { status: 'loading' } | { status: 'signedOut' } | { status: 'signedIn'; user: SessionUser };
@@ -19,7 +21,7 @@ interface AuthValue {
   state: AuthState;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: { email: string; password: string; displayName?: string; locale: Locale }) => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (options?: { remote?: boolean }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -86,9 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [api, signIn],
   );
 
-  const signOut = useCallback(async () => {
+  /**
+   * Forget the session on this phone. `remote: false` skips telling the server
+   * (after deleting the account, the server has already ended every session).
+   */
+  const signOut = useCallback(async ({ remote = true }: { remote?: boolean } = {}) => {
     const session = await tokens.get();
-    if (session) {
+    if (session && remote) {
       // Best effort: tell the server to retire the refresh token, then forget locally either way.
       await api
         .request('/api/auth/logout', {
@@ -99,7 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .catch(() => {});
     }
     await tokens.clear();
-    queryClient.removeQueries({ queryKey: ['me'] });
+    // Nothing personal may outlive the session: own reports, inbox, per-person report details.
+    for (const queryKey of [['me'], ['my-reports'], ['notifications'], ['pothole']]) queryClient.removeQueries({ queryKey });
     setState({ status: 'signedOut' });
   }, [api, tokens, queryClient]);
 

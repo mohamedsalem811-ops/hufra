@@ -121,7 +121,7 @@ export const adminPotholeDetailResponseSchema = publicPotholeDetailResponseSchem
 
 /** GET /api/potholes/mine/list: the caller's own reports, including their own contact field. */
 export const myPotholesResponseSchema = z.strictObject({
-  results: z.array(z.strictObject({ ...publicPotholeFields, ...privatePotholeFields })),
+  results: z.array(z.strictObject({ ...publicPotholeFields, ...privatePotholeFields, cover_thumb_key: nullableText })),
 })
 
 export const createPotholeResponseSchema = z.strictObject({
@@ -267,6 +267,7 @@ export type AdminPotholeListItem = z.infer<typeof adminPotholeListItemSchema>
 export type PublicPotholeDetail = z.infer<typeof publicPotholeDetailSchema>
 export type AdminPotholeDetail = z.infer<typeof adminPotholeDetailSchema>
 export type PotholeDetailResponse = z.infer<typeof publicPotholeDetailResponseSchema>
+export type MyPotholesResponse = z.infer<typeof myPotholesResponseSchema>
 export type Photo = z.infer<typeof photoSchema>
 export type StatusHistoryEntry = z.infer<typeof statusHistoryEntrySchema>
 export type CreatePotholeResponse = z.infer<typeof createPotholeResponseSchema>

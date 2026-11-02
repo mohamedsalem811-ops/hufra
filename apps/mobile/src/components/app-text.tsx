@@ -14,7 +14,7 @@ interface AppTextProps extends TextProps {
 
 /** All app text: brand type scale, Readex Pro, theme colour. Alignment follows the language. */
 export function AppText({ variant = 'body', tone = 'primary', style, ...rest }: AppTextProps) {
-  const { colors } = useTheme();
+  const { colors, textScale } = useTheme();
   const scale = typeScale[variant];
   const color =
     tone === 'onBrand' ? colors.brand.onPrimary : tone === 'inverse' ? colors.text.inverse : colors.text[tone];
@@ -24,7 +24,7 @@ export function AppText({ variant = 'body', tone = 'primary', style, ...rest }: 
       style={[
         styles.base,
         fontFor(scale.weight as FontWeight),
-        { fontSize: scale.size, lineHeight: scale.lineHeight, color },
+        { fontSize: scale.size * textScale, lineHeight: Math.round(scale.lineHeight * textScale), color },
         style,
       ]}
     />

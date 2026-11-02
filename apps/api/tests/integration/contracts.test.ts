@@ -166,6 +166,8 @@ describe('citizen endpoints', () => {
     const mine = await expectContract(await get('/api/potholes/mine/list', citizen.token), C.myPotholesResponseSchema)
     // The reporter sees their own contact number; nobody else does.
     expect(mine.results.find((r) => r.id === reportId)?.reporter_contact).toBe('+218 91 000 0000')
+    // Each of my reports carries its first photo's thumbnail for the list.
+    expect(mine.results.find((r) => r.id === reportId)?.cover_thumb_key).toMatch(/\.webp$/)
 
     const notes = await expectContract(await get('/api/notifications', citizen.token), C.notificationListResponseSchema)
     expect(notes.results.some((n) => n.type === 'status_change')).toBe(true)

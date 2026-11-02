@@ -3,7 +3,7 @@ import type { PublicPotholeListItem, RecentFixedResponse } from '@hufra/contract
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { ChevronLeft, ChevronRight, HandHeart, ImageOff, MapPin, Trophy } from 'lucide-react-native';
+import { Bell, ChevronLeft, ChevronRight, HandHeart, ImageOff, MapPin, Trophy } from 'lucide-react-native';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { brandAssets } from '@/theme/brand-assets';
 import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
+import { useNotifications } from '../account/use-account';
 import { useAuth } from '../auth/auth-provider';
 import { daysText } from '../report-detail/model';
 import { mediaUrl, placeName } from '../reports/format';
@@ -35,6 +36,8 @@ export function HomeScreen() {
   const { t, locale, isRTL } = useI18n();
   const { state } = useAuth();
   const home = useHomeData();
+  const inbox = useNotifications();
+  const unread = inbox.data?.unread_count ?? 0;
   const [position, setPosition] = useState<Coordinates | null>(null);
   const [place, setPlace] = useState<Place>('unknown');
   const nearby = useNearby(position);
@@ -78,12 +81,25 @@ export function HomeScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.brand.primary} />}
       >
-        <Image
-          source={scheme === 'dark' ? brandAssets.lockupHorizontalOnDark : brandAssets.lockupHorizontal}
-          style={styles.logo}
-          contentFit="contain"
-          accessibilityLabel={t('app.name')}
-        />
+        <View style={styles.top}>
+          <Image
+            source={scheme === 'dark' ? brandAssets.lockupHorizontalOnDark : brandAssets.lockupHorizontal}
+            style={styles.logo}
+            contentFit="contain"
+            accessibilityLabel={t('app.name')}
+          />
+          {state.status === 'signedIn' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={unread ? `${t('notifications.title')}، ${t('account.unread', { n: unread })}` : t('notifications.title')}
+              onPress={() => router.push('/notifications')}
+              style={[styles.bell, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}
+            >
+              <Bell size={22} color={colors.text.primary} />
+              {unread ? <View style={[styles.bellDot, { backgroundColor: colors.action.primary, borderColor: colors.bg.surface }]} /> : null}
+            </Pressable>
+          ) : null}
+        </View>
         <AppText variant="title2" accessibilityRole="header">
           {name ? t('home.helloName', { name }) : t('home.hello')}
         </AppText>
@@ -377,7 +393,10 @@ function PersonCard({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: space[7], paddingTop: space[5], gap: space[7] },
-  logo: { height: 40, width: 150, alignSelf: 'flex-start' },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  logo: { height: 40, width: 150 },
+  bell: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  bellDot: { position: 'absolute', top: 9, end: 11, width: 12, height: 12, borderRadius: 6, borderWidth: 2 },
   city: { borderRadius: radius.xl, padding: space[7], gap: space[5] },
   numbers: { flexDirection: 'row', gap: space[3] },
   number: { flex: 1, gap: space[1] },

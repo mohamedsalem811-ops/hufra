@@ -98,6 +98,8 @@ function Flow({ nav }: { nav: ReportFlowNav }) {
       }, from);
       setSentId(reportId);
       queryClient.invalidateQueries({ queryKey: ['map-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['my-reports'] });
+      queryClient.invalidateQueries({ queryKey: ['home'] });
     } catch (e) {
       const state = e instanceof SubmitError ? e.state : from;
       if (classifyFailure(e, state) !== 'failed') {
