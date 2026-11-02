@@ -21,6 +21,7 @@ export class ApiError extends Error {
 
 export interface RequestOptions<S extends z.ZodType> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** JSON-serialisable value, or FormData for multipart uploads. */
   body?: unknown;
   /** Response schema from @hufra/contracts; the response is rejected if it does not match. */
   schema: S;
@@ -108,12 +109,15 @@ export function createApiClient({
 
     const attempt = async (): Promise<Response> => {
       const headers: Record<string, string> = { Accept: 'application/json' };
-      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+      // Multipart bodies (photo uploads) set their own boundary header.
+      if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
       if (auth) {
         const session = await tokens.get();
         if (session) headers.Authorization = `Bearer ${session.accessToken}`;
       }
-      return send(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }, signal);
+      const payload = body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body);
+      return send(path, { method, headers, body: payload }, signal);
     };
 
     let res = await attempt();

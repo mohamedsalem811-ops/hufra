@@ -37,3 +37,13 @@ jest.mock('@/api/query-client', () => {
     },
   };
 });
+
+// Camera, image processing and ids: native modules replaced for unit tests.
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+  launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+}));
+jest.mock('expo-image-manipulator', () => ({ ImageManipulator: { manipulate: jest.fn() }, SaveFormat: { JPEG: 'jpeg' } }));
+jest.mock('expo-file-system', () => ({ File: jest.fn(() => ({ size: 0 })) }));
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'test-uuid-0001' }));
