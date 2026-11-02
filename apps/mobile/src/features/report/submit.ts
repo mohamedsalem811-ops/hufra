@@ -1,4 +1,5 @@
 import { createPotholeResponseSchema, photoUploadResponseSchema, type CreatePotholeInput } from '@hufra/contracts';
+import { File } from 'expo-file-system';
 
 import type { ApiClient } from '@/api/client';
 import type { Locale } from '@/i18n/locale';
@@ -23,6 +24,11 @@ export function toCreateInput(d: ReportDraft, locale: Locale, clientUuid: string
     ...(depth ? { depth_cm: depth } : {}),
     client_report_uuid: clientUuid,
   };
+}
+
+/** A compressed photo on the phone, as a multipart file part (JPEG, read by Expo's fetch). */
+export function photoPart(uri: string): Blob {
+  return new File(uri) as unknown as Blob;
 }
 
 export type SubmitProgress = { phase: 'creating' } | { phase: 'uploading'; done: number; total: number };
@@ -67,8 +73,11 @@ export async function submitReport(
       const form = new FormData();
       form.append('stage', 'report');
       form.append('upload_token', state.uploadToken);
-      form.append('full', { uri: prepared.full.uri, name: `photo-${i + 1}.jpg`, type: 'image/jpeg' } as unknown as Blob);
-      form.append('thumb', { uri: prepared.thumb.uri, name: `thumb-${i + 1}.jpg`, type: 'image/jpeg' } as unknown as Blob);
+      // Expo's fetch only sends file parts it can read the bytes of (a Blob or an
+      // expo-file-system File); the old React Native { uri, name, type } object is
+      // rejected with "Unsupported FormDataPart implementation".
+      form.append('full', photoPart(prepared.full.uri));
+      form.append('thumb', photoPart(prepared.thumb.uri));
       await deps.api.request(`/api/photos/${state.reportId}`, { method: 'POST', body: form, schema: photoUploadResponseSchema });
       state.uploaded = i + 1;
     }
