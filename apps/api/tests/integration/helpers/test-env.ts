@@ -29,8 +29,40 @@ export function createTestEnv(): TestEnv {
   return { env, db, kv, photos }
 }
 
-/** Thin fetch helper that always injects the test env bindings. */
+const reporters = new WeakMap<Bindings, Promise<string>>()
+
+/** A signed-in citizen used for report creation in tests that are not about who reports. */
+export function defaultReporterToken(env: Bindings): Promise<string> {
+  let token = reporters.get(env)
+  if (!token) {
+    token = (async () => {
+      const creds = { email: 'reporter@tests.local', password: 'Rep0rter-Tests!', consent: true, display_name: 'Reporter' }
+      const headers = { 'Content-Type': 'application/json' }
+      await app.request('/api/auth/register', { method: 'POST', headers, body: JSON.stringify(creds) }, env)
+      const res = await app.request('/api/auth/login', { method: 'POST', headers, body: JSON.stringify(creds) }, env)
+      return ((await res.json()) as { access_token: string }).access_token
+    })()
+    reporters.set(env, token)
+  }
+  return token
+}
+
+/** Send this header to create a report with no account (to test that it is refused). */
+export const ANONYMOUS = 'X-Test-Anonymous'
+
+/**
+ * Thin fetch helper that always injects the test env bindings.
+ * Reports need an account (POST /api/potholes): when a test sends one without
+ * an Authorization header, it is signed in as the default test reporter,
+ * unless the test sends the ANONYMOUS header.
+ */
 export async function request(env: Bindings, path: string, init?: RequestInit): Promise<Response> {
+  if (path === '/api/potholes' && init?.method === 'POST') {
+    const headers = new Headers(init.headers)
+    if (headers.has(ANONYMOUS)) headers.delete(ANONYMOUS)
+    else if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${await defaultReporterToken(env)}`)
+    init = { ...init, headers }
+  }
   return app.request(path, init, env)
 }
 

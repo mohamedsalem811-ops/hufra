@@ -37,6 +37,11 @@ function clientIp(c: any): string {
 // (who may need to call the reporter) receive them.
 const PRIVATE_REPORT_FIELDS = ['reporter_contact', 'reporter_id', 'client_report_uuid'] as const
 
+/** Reports and confirmations need an account once the old website is gone (plan 9.2). */
+function accountRequired(env: { REPORTS_REQUIRE_ACCOUNT?: string }): boolean {
+  return env.REPORTS_REQUIRE_ACCOUNT === 'true'
+}
+
 function isAdmin(c: any): boolean {
   const role = c.get('auth')?.role
   return role === 'admin' || role === 'super_admin'
@@ -314,6 +319,9 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
 
+  if (!c.get('auth') && accountRequired(c.env)) {
+    return c.json({ error: 'Sign in to confirm this pothole', error_ar: 'سجّل الدخول لتأكيد وجود الحفرة' }, 401)
+  }
   const ip = clientIp(c)
   const rl = await checkRateLimit(c.env, 'upvote_ip', ip, UPVOTE_LIMIT_PER_IP, UPVOTE_LIMIT_WINDOW_SECONDS)
   if (!rl.allowed) {
@@ -344,9 +352,17 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
 })
 
 // ---------------------------------------------------------------------------
-// POST /api/potholes - create a report (guest or authenticated)
+// POST /api/potholes - create a report
 // ---------------------------------------------------------------------------
+// HUFRA becomes app-only for citizens: every report comes from an account, so
+// it can be followed up and, if abused, traced to an account rather than an IP
+// address shared by a whole mobile network. The old website still lets guests
+// report, so this is switched on with REPORTS_REQUIRE_ACCOUNT=true when that
+// site is removed (plan 9.2). The app always signs people in first.
 potholes.post('/', attachAuth, async (c) => {
+  if (!c.get('auth') && accountRequired(c.env)) {
+    return c.json({ error: 'Sign in to report a pothole', error_ar: 'سجّل الدخول لتبلّغ عن حفرة' }, 401)
+  }
   const body = await c.req.json().catch(() => null)
   const parsed = createPotholeSchema.safeParse(body)
   if (!parsed.success) {
