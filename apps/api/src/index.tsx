@@ -12,6 +12,9 @@ import regionRoutes from './routes/regions'
 import adminRoutes from './routes/admin'
 import donorRoutes from './routes/donors'
 import notificationRoutes from './routes/notifications'
+import campaignRoutes from './routes/campaigns'
+import donationRoutes from './routes/donations'
+import adminDonationRoutes from './routes/admin-donations'
 import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
@@ -31,7 +34,7 @@ app.use(
   '/api/*',
   cors({
     origin: (origin, c) => (isAllowedOrigin(origin, c.req.url, c.env) ? origin : null),
-    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
     credentials: true,
     maxAge: 86400,
@@ -99,6 +102,9 @@ app.route('/api/regions', regionRoutes)
 app.route('/api/admin', adminRoutes)
 app.route('/api/donors', donorRoutes)
 app.route('/api/notifications', notificationRoutes)
+app.route('/api/campaigns', campaignRoutes)
+app.route('/api/donations', donationRoutes)
+app.route('/api/admin', adminDonationRoutes)
 
 app.route('/media', mediaRoutes)
 app.route('/tiles', tileRoutes)

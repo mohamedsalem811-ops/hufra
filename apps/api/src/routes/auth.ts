@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings, UserRow } from '../lib/types'
 import { registerSchema, loginSchema, changePasswordSchema } from '../lib/validation'
+import { webHandoffSchema } from '@hufra/contracts'
 import { hashPassword, verifyPassword, isKnownPublicPassword } from '../lib/password'
 import {
   signJwt,
@@ -342,7 +343,78 @@ auth.get('/me/export', requireAuth(), async (c) => {
   const potholes = await c.env.DB.prepare('SELECT * FROM potholes WHERE reporter_id = ? AND deleted_at IS NULL')
     .bind(authCtx.userId)
     .all()
-  return c.json({ user, reports: potholes.results })
+  const donations = await c.env.DB.prepare(
+    `SELECT id, campaign_id, reference_code, method, amount_millimes / 1000.0 AS amount_lyd, status, show_name,
+            reject_reason, created_at, reviewed_at
+     FROM donations WHERE user_id = ? ORDER BY created_at DESC`
+  )
+    .bind(authCtx.userId)
+    .all()
+  return c.json({ user, reports: potholes.results, donations: donations.results })
+})
+
+// ---------------------------------------------------------------------------
+// App -> website handoff (plan 6.9): the app's "Donate" button opens the
+// website already signed in, without a second login.
+//   POST /api/auth/web-handoff {next}  (app, Bearer token) -> {url, expires_in}
+//   GET  /api/auth/handoff?t=...        (browser) -> sets the web session, redirects to next
+// The token is random, stored only as a hash, works once and for 60 seconds.
+// Admin accounts never use it: their web sign-in keeps its own checks (2FA).
+// ---------------------------------------------------------------------------
+const HANDOFF_TTL_SECONDS = 60
+
+auth.post('/web-handoff', requireAuth(), async (c) => {
+  const authCtx = c.get('auth')!
+  if (authCtx.role !== 'user') {
+    return c.json({ error: 'Admins sign in on the website directly', error_ar: 'المسؤولون يسجلون الدخول في الموقع مباشرة' }, 403)
+  }
+  const rl = await checkRateLimit(c.env, 'handoff', String(authCtx.userId), 20, 3600)
+  if (!rl.allowed) return c.json({ error: 'Too many requests', error_ar: 'طلبات كثيرة جداً' }, 429)
+  const parsed = webHandoffSchema.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) return c.json({ error: 'Invalid destination', error_ar: 'وجهة غير صحيحة' }, 400)
+
+  const raw = crypto.getRandomValues(new Uint8Array(32))
+  const token = btoa(String.fromCharCode(...raw)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  await c.env.DB.prepare('INSERT INTO web_handoff_tokens (token_hash, user_id, next_path, expires_at) VALUES (?, ?, ?, ?)')
+    .bind(await hashToken(token), authCtx.userId, parsed.data.next, new Date(Date.now() + HANDOFF_TTL_SECONDS * 1000).toISOString())
+    .run()
+  // Old, used or expired tokens are useless; prune them now and then.
+  await c.env.DB.prepare(`DELETE FROM web_handoff_tokens WHERE expires_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', '-1 day')`).run()
+  const origin = new URL(c.req.url).origin
+  c.header('Cache-Control', 'no-store')
+  return c.json({ url: `${origin}/api/auth/handoff?t=${token}`, expires_in: HANDOFF_TTL_SECONDS })
+})
+
+auth.get('/handoff', async (c) => {
+  c.header('Cache-Control', 'no-store')
+  c.header('Referrer-Policy', 'no-referrer')
+  const token = c.req.query('t') ?? ''
+  const fail = () => c.redirect('/login', 302)
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return fail()
+  const rl = await checkRateLimit(c.env, 'handoff_use', clientIp(c), 30, 3600)
+  if (!rl.allowed) return fail()
+
+  const hash = await hashToken(token)
+  // Claim it atomically: only the first request within the time limit wins.
+  const claimed = await c.env.DB.prepare(
+    `UPDATE web_handoff_tokens SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     WHERE token_hash = ? AND used_at IS NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  )
+    .bind(hash)
+    .run()
+  if (!claimed.meta.changes) return fail()
+  const row = await c.env.DB.prepare(
+    `SELECT t.next_path, u.id, u.role, u.code FROM web_handoff_tokens t JOIN users u ON u.id = t.user_id
+     WHERE t.token_hash = ? AND u.deleted_at IS NULL`
+  )
+    .bind(hash)
+    .first<{ next_path: string; id: number; role: UserRow['role']; code: string }>()
+  if (!row || row.role !== 'user') return fail()
+  const ipHashed = await hashIp(clientIp(c), c.env.JWT_SECRET)
+  await issueSession(c, { id: row.id, role: row.role, code: row.code }, ipHashed)
+  await recordAudit(c.env.DB, { actorId: row.id, action: 'user.web_handoff', entity: 'users', entityId: row.id, ipHash: ipHashed })
+  // next_path was checked to be a path on this site when the link was made.
+  return c.redirect(row.next_path, 302)
 })
 
 // Delete my account (GDPR-style erasure). Personal data is removed, not just
