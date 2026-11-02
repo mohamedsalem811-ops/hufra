@@ -12,6 +12,9 @@ import regionRoutes from './routes/regions'
 import adminRoutes from './routes/admin'
 import donorRoutes from './routes/donors'
 import notificationRoutes from './routes/notifications'
+import campaignRoutes from './routes/campaigns'
+import donationRoutes from './routes/donations'
+import adminDonationRoutes from './routes/admin-donations'
 import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
@@ -23,6 +26,7 @@ import { renderTrustPage } from './pages/trust'
 import { renderLoginPage, renderRegisterPage } from './pages/auth-pages'
 import { renderAccountPage } from './pages/account'
 import { renderAdminPage } from './pages/admin'
+import { renderDonatePage } from './pages/donate'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -31,7 +35,7 @@ app.use(
   '/api/*',
   cors({
     origin: (origin, c) => (isAllowedOrigin(origin, c.req.url, c.env) ? origin : null),
-    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
     credentials: true,
     maxAge: 86400,
@@ -99,6 +103,9 @@ app.route('/api/regions', regionRoutes)
 app.route('/api/admin', adminRoutes)
 app.route('/api/donors', donorRoutes)
 app.route('/api/notifications', notificationRoutes)
+app.route('/api/campaigns', campaignRoutes)
+app.route('/api/donations', donationRoutes)
+app.route('/api/admin', adminDonationRoutes)
 
 app.route('/media', mediaRoutes)
 app.route('/tiles', tileRoutes)
@@ -115,6 +122,18 @@ app.get('/pothole/:id', (c) => {
   const raw = c.req.param('id')
   if (!/^(0|[1-9]\d{0,9})$/.test(raw)) return c.notFound()
   return c.html(renderPotholeDetailPage(Number(raw)))
+})
+
+// Donation pages (plan 6.9): campaign, my donations, one donation.
+const pageId = (raw: string) => (/^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null)
+app.get('/donate/:id', (c) => {
+  const id = pageId(c.req.param('id'))
+  return id ? c.html(renderDonatePage('campaign', id, c.env.ADMIN_WHATSAPP)) : c.notFound()
+})
+app.get('/donations', (c) => c.html(renderDonatePage('mine', null, c.env.ADMIN_WHATSAPP)))
+app.get('/donations/:id', (c) => {
+  const id = pageId(c.req.param('id'))
+  return id ? c.html(renderDonatePage('donation', id, c.env.ADMIN_WHATSAPP)) : c.notFound()
 })
 
 app.get('/login', (c) => c.html(renderLoginPage()))

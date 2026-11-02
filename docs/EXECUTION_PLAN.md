@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16). Current: 6.8 (polish, accessibility, crash reporting).
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17). Current: 6.9 (repair campaigns and donations).
 
 ## 0. What we are building (agreed decisions)
 
@@ -121,7 +121,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **6.8 Polish, accessibility and crash reporting**: Firebase Crashlytics (free); screen reader labels, large text support, contrast, haptics, smooth animations, loading/empty/error states everywhere, image caching for slow networks, dark mode review.
 
-**6.9 Repair campaigns and donations** (backend + app; decisions 8–12 below): the backend first (campaigns, donations, payout-account settings, reference codes, proof upload, fraud checks, tests), then the app: campaign card on the report page (target, confirmed amount, and an "under review, not yet confirmed" amount shown separately), donate sheet with the bank details (IBAN for LYPAY from any bank, plus the account number for an internal transfer from the same bank) and a unique reference code, amount + transfer screenshot (compressed on the phone, no EXIF, private), "under review", and "My donations". Pending donations without a screenshot expire after 48 hours.
+**6.9 Repair campaigns and donations** (decisions 8–18 below): the backend (campaigns, donations, bank-details settings, reference codes, private proof upload, duplicate-screenshot and rate checks, 48-hour expiry, shared pool for leftover money, notifications, tests); the **donation website** (campaign, amount, bank details + code, proof upload compressed in the browser, under review, receipt, my donations; Arabic/English, light/dark); and in the app the campaign card on the report page (confirmed money and an "under review, not yet confirmed" amount shown separately), the Donate button (in-app browser or Safari per the server switch, signed in via a one-time link) and a read-only "My donations".
 - You: add the bank account (holder name, bank, IBAN and account number) in the admin settings when ready (it can change later without an app update), and check whether collecting public donations needs a licence or a registered entity in Libya.
 
 **6.10 App tests**: unit tests for logic (compression, queue, auth refresh) and automated end-to-end tests of the main journeys on an Android emulator in CI (Maestro).
@@ -183,6 +183,9 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 | 13 | Same-bank donors | The account number is shown next to the IBAN so donors at the same bank can make an internal transfer instead of LYPAY. |
 | 14 | Partners | Managed by the owner in the admin panel (add, hide, remove later) and showcased on the website and in the app. |
 | 15 | Contact details and legal text | Contact email, legal name, address and retention periods entered later by the owner in admin settings. Privacy policy and terms follow Libyan law and are reviewed by a Libyan lawyer before publishing. |
+| 16 | Where donating happens | On the **website** (`/donate/<campaign>`), opened from the app in an **in-app browser** (Safari View Controller / Chrome Custom Tabs) and already signed in through a one-time link. Apple guideline 3.2.2(iv) may require Safari instead: a **server switch** in the admin settings moves iPhone (or Android) to the phone's own browser without a new build. It only ever moves towards the stricter option. |
+| 17 | Money units | Donors always see **Libyan dinar (د.ل)**. The server stores whole thousandths of a dinar (exact sums; the unit Moamalat uses). |
+| 18 | Card payments | **Moamalat** later, on the same website page: our server signs each payment (the secret key never goes in the app) and confirms donations automatically from Moamalat's notification. Needs a merchant contract (MID, TID, key) and test credentials first. |
 
 ### What decision 2 changes in the plan
 

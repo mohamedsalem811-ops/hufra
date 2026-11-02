@@ -88,3 +88,36 @@ describe('response schemas', () => {
     expect(adminPotholeListItemSchema.safeParse({ ...row, reporter_id: 5, reporter_contact: '+218', client_report_uuid: null }).success).toBe(true)
   })
 })
+
+describe('donations', () => {
+  it('converts dinar to thousandths without float drift', async () => {
+    const { lydToMillimes, millimesToLyd } = await import('../src/donations')
+    expect(lydToMillimes(25.5)).toBe(25500)
+    expect(lydToMillimes(0.1 + 0.2)).toBe(300)
+    expect(millimesToLyd(25500)).toBe(25.5)
+  })
+
+  it('accepts at most 3 decimals for an amount', async () => {
+    const { createDonationSchema } = await import('../src/donations')
+    expect(createDonationSchema.safeParse({ amount_lyd: 10.125 }).success).toBe(true)
+    expect(createDonationSchema.safeParse({ amount_lyd: 10.1255 }).success).toBe(false)
+    expect(createDonationSchema.safeParse({ amount_lyd: 0.5 }).success).toBe(false)
+    expect(createDonationSchema.parse({ amount_lyd: 50 })).toEqual({ amount_lyd: 50, show_name: false, method: 'bank_transfer' })
+  })
+
+  it('checks Libyan IBANs with mod 97', async () => {
+    const { isValidLibyanIban } = await import('../src/donations')
+    // ISO 13616 example IBAN for Libya.
+    expect(isValidLibyanIban('LY83 0020 4800 0020 1001 2036 1')).toBe(true)
+    expect(isValidLibyanIban('LY84002048000020100120361')).toBe(false)
+    expect(isValidLibyanIban('GB82WEST12345698765432')).toBe(false)
+  })
+
+  it('only lets the website handoff land on our own paths', async () => {
+    const { webHandoffSchema } = await import('../src/donations')
+    expect(webHandoffSchema.safeParse({ next: '/donate/3' }).success).toBe(true)
+    expect(webHandoffSchema.safeParse({ next: '//evil.example' }).success).toBe(false)
+    expect(webHandoffSchema.safeParse({ next: 'https://evil.example' }).success).toBe(false)
+    expect(webHandoffSchema.safeParse({ next: '/\\evil.example' }).success).toBe(false)
+  })
+})

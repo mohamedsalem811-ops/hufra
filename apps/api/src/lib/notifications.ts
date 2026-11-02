@@ -95,6 +95,46 @@ export function buildNotificationCopy(
       url: payload.pothole_id ? `/pothole/${payload.pothole_id}` : '/account',
     }
   }
+  if (type === 'donation_confirmed' || type === 'donation_rejected') {
+    const amount = typeof payload.amount_lyd === 'number' ? payload.amount_lyd.toLocaleString('en-US', { maximumFractionDigits: 3 }) : ''
+    const streetAr = typeof payload.street_ar === 'string' && payload.street_ar ? ` في ${payload.street_ar}` : ''
+    const streetEn = typeof payload.street_en === 'string' && payload.street_en ? ` on ${payload.street_en}` : ''
+    const url = payload.pothole_id ? `/pothole/${payload.pothole_id}` : '/account'
+    if (type === 'donation_confirmed') {
+      return {
+        title_ar: 'تم تأكيد تبرعك، شكراً لك',
+        title_en: 'Your donation is confirmed, thank you',
+        body_ar: `وصل تبرعك بقيمة ${amount} د.ل لإصلاح الحفرة${streetAr}.`,
+        body_en: `Your LYD ${amount} donation to repair the pothole${streetEn} has arrived.`,
+        url,
+      }
+    }
+    return {
+      title_ar: 'لم نتمكن من تأكيد تبرعك',
+      title_en: "We couldn't confirm your donation",
+      body_ar: 'راجع سبب الرفض في تبرعاتي، ويمكنك المحاولة مجدداً.',
+      body_en: 'See the reason in My donations; you can try again.',
+      url,
+    }
+  }
+  if (type === 'donation_review') {
+    return {
+      title_ar: 'تبرع جديد بانتظار المراجعة',
+      title_en: 'New donation to review',
+      body_ar: 'رفع متبرع صورة التحويل. راجعها وأكّد التبرع أو ارفضه.',
+      body_en: 'A donor uploaded a transfer screenshot. Review it and confirm or reject.',
+      url: payload.donation_id ? `/admin?donation=${payload.donation_id}` : '/admin',
+    }
+  }
+  if (type === 'payout_changed') {
+    return {
+      title_ar: 'تغيّرت بيانات الحساب المصرفي للتبرعات',
+      title_en: 'Donation bank details were changed',
+      body_ar: `غيّر ${payload.by ?? 'مسؤول'} بيانات الحساب. تأكد أن التغيير مقصود.`,
+      body_en: `${payload.by ?? 'An admin'} changed the bank details. Make sure this was intended.`,
+      url: '/admin',
+    }
+  }
   if (type === 'new_report') {
     const sev = String(payload.severity || 'medium')
     return {

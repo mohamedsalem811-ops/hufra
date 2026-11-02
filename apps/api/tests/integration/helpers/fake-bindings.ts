@@ -103,6 +103,11 @@ export class FakeR2Bucket {
     return {
       body: entry.body,
       httpMetadata: entry.httpMetadata,
+      httpEtag: `"${key.length}-${entry.body.byteLength}"`,
+      // Like R2: copy the stored HTTP metadata onto response headers.
+      writeHttpMetadata: (headers: Headers) => {
+        if (entry.httpMetadata?.contentType) headers.set('content-type', entry.httpMetadata.contentType)
+      },
       arrayBuffer: async () => entry.body,
     }
   }

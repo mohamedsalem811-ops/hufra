@@ -30,7 +30,9 @@
     "capacitor:sync:before": "npm run build:app",
     "typecheck": "tsc --noEmit",
     "dev:worker": "wrangler dev -c wrangler.worker.jsonc --port 3000",
-    "deploy:worker": "wrangler deploy -c wrangler.worker.jsonc --define \"__BUILD_ID__:\\\"$(git rev-parse --short=8 HEAD)\\\"\""
+    "deploy:worker": "wrangler deploy -c wrangler.worker.jsonc --define \"__BUILD_ID__:\\\"$(git rev-parse --short=8 HEAD)\\\"\"",
+    "brand:sync": "node scripts/sync-brand-assets.mjs",
+    "brand:check": "node scripts/sync-brand-assets.mjs --check"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",
