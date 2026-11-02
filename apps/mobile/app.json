@@ -1,13 +1,16 @@
 {
   "expo": {
-    "name": "حفرة",
+    "name": "HUFRA",
     "slug": "hufra",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "../../packages/brand/assets/app/icon.png",
     "scheme": "hufra",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "bundleIdentifier": "ly.tripoli.hufra",
       "supportsTablet": false,
@@ -26,6 +29,16 @@
     "plugins": [
       "expo-router",
       [
+        "expo-localization",
+        {
+          "supportedLocales": [
+            "ar",
+            "en"
+          ],
+          "supportsRTL": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0B4A6F",
@@ -36,7 +49,14 @@
             "image": "../../packages/brand/assets/app/splash-icon.png"
           }
         }
-      ]
+      ],
+      [
+        "./plugins/with-display-name",
+        {
+          "displayName": "حفرة"
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
