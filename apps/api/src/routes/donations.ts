@@ -127,10 +127,11 @@ donations.post('/:id/proof', requireAuth(), async (c) => {
   await c.env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: info.type, cacheControl: 'private, no-store' } })
   const res = await c.env.DB.prepare(
     `UPDATE donations SET proof_key = ?, proof_sha256 = ?, proof_uploaded_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+       pledged_millimes = CASE WHEN ? != amount_millimes THEN COALESCE(pledged_millimes, amount_millimes) ELSE pledged_millimes END,
        amount_millimes = ?, status = 'under_review', expires_at = NULL
      WHERE id = ? AND status IN ('awaiting_transfer', 'under_review')`
   )
-    .bind(key, hash, amount, id)
+    .bind(key, hash, amount, amount, id)
     .run()
   if (!res.meta.changes) {
     await c.env.PHOTOS.delete(key)

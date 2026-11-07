@@ -347,9 +347,15 @@ function CampaignCard({ data }: { data: AdminReport }) {
       ) : (
         <p className="m-0 text-secondary">{t('report.noCampaign')}</p>
       )}
-      <Link to="/campaigns" className="font-semibold">
-        {t('report.manageCampaigns')}
-      </Link>
+      {c && (c.status === 'active' || c.status === 'funded' || c.status === 'completed') ? (
+        <Link to="/campaigns/$id" params={{ id: String(c.id) }} className="font-semibold">
+          {t('report.openCampaign')}
+        </Link>
+      ) : data.pothole.status !== 'fixed' ? (
+        <Link to="/campaigns/new" search={{ report: data.pothole.id }} className="font-semibold">
+          {t('report.startCampaign')}
+        </Link>
+      ) : null}
     </Card>
   )
 }
