@@ -186,3 +186,21 @@ describe('donation review queue', () => {
     expect(after.results[0]!.warnings).not.toContain('same_amount_pending')
   })
 })
+
+describe('what the public sees', () => {
+  it('shows where the money goes, the final cost and receipt, never the contractor', async () => {
+    const items = [{ label: 'مواد', amount_lyd: 200 }, { label: 'عمال', amount_lyd: 100 }]
+    const created = await json(await send('POST', '/api/admin/campaigns', { pothole_id: potholeId, target_lyd: 300, cost_items: items, contractor: 'شركة الطرق' }, admin.token))
+    const id = created.campaign.id as number
+
+    const open = await parse(await get(`/api/campaigns/${id}`), C.campaignDetailResponseSchema)
+    expect(open.campaign).toMatchObject({ cost_items: items, final_cost_lyd: null, receipt_key: null })
+    expect(JSON.stringify(open)).not.toContain('شركة الطرق')
+
+    await send('PATCH', `/api/admin/campaigns/${id}`, { status: 'completed', final_cost_lyd: 280 }, admin.token)
+    await request(t.env, `/api/admin/campaigns/${id}/receipt`, { method: 'POST', headers: { Authorization: `Bearer ${admin.token}` }, body: receiptForm() })
+    const done = await parse(await get(`/api/campaigns/by-pothole/${potholeId}`), C.potholeCampaignResponseSchema)
+    expect(done.campaign).toMatchObject({ status: 'completed', final_cost_lyd: 280, receipt_key: expect.stringMatching(/^photos\/receipts\//) })
+    expect(JSON.stringify(done)).not.toContain('contractor')
+  })
+})
