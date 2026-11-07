@@ -37,7 +37,7 @@ export const ENDPOINTS: Endpoint[] = [
 
   // Accounts
   { method: 'post', path: '/api/auth/register', tag: 'Accounts', summary: 'Create an account', access: 'public', body: c.registerSchema, response: c.registerResponseSchema, status: 201 },
-  { method: 'post', path: '/api/auth/login', tag: 'Accounts', summary: 'Sign in (TOTP code for admins with 2-step sign-in)', access: 'public', body: c.loginSchema, response: c.loginResponseSchema },
+  { method: 'post', path: '/api/auth/login', tag: 'Accounts', summary: 'Sign in (cookies for the website and admin panel, tokens for the app)', access: 'public', body: c.loginSchema, response: c.loginResponseSchema },
   { method: 'post', path: '/api/auth/refresh', tag: 'Accounts', summary: 'Swap a refresh token for new tokens (the old one stops working)', access: 'public', body: refreshBody, response: c.refreshResponseSchema },
   { method: 'post', path: '/api/auth/logout', tag: 'Accounts', summary: 'Sign out this device', access: 'public', body: refreshBody, response: c.okResponseSchema },
   { method: 'post', path: '/api/auth/change-password', tag: 'Accounts', summary: 'Change the password', access: 'user', body: c.changePasswordSchema, response: c.okResponseSchema },
