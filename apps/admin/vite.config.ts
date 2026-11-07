@@ -24,6 +24,8 @@ export default defineConfig({
         // the same. Cookies ignore ports, so they work on localhost.
         configure: (proxy) => proxy.on('proxyReq', (req) => req.getHeader('origin') && req.setHeader('origin', api)),
       },
+      // Report photos are served by the same Worker.
+      '/media': { target: api, changeOrigin: true },
     },
   },
   build: { outDir: 'dist', sourcemap: true, assetsInlineLimit: 0 },

@@ -126,6 +126,8 @@ export const ENDPOINTS: Endpoint[] = [
   { method: 'get', path: '/api/admin/admins', tag: 'Admin', summary: 'Admin accounts', access: 'super_admin' },
   { method: 'post', path: '/api/admin/admins/promote', tag: 'Admin', summary: 'Make a person an admin', access: 'super_admin', body: c.promoteAdminSchema },
   { method: 'post', path: '/api/admin/admins/demote', tag: 'Admin', summary: 'Remove admin rights', access: 'super_admin', body: c.demoteAdminSchema },
+  { method: 'get', path: '/api/admin/queue', tag: 'Admin', summary: 'Report queue: search, filters, sort, pages with a total', access: 'admin', query: c.reportQueueQuerySchema, response: c.reportQueueResponseSchema },
+  { method: 'get', path: '/api/admin/reports/:id', tag: 'Admin', summary: 'Report page: details, reporter, photos, history with who changed it, duplicates, campaign', access: 'admin', response: c.adminReportResponseSchema },
   { method: 'get', path: '/api/admin/campaigns', tag: 'Admin', summary: 'All campaigns', access: 'admin' },
   { method: 'post', path: '/api/admin/campaigns', tag: 'Admin', summary: 'Open a campaign for a report', access: 'admin', body: c.createCampaignSchema, status: 201 },
   { method: 'patch', path: '/api/admin/campaigns/:id', tag: 'Admin', summary: 'Edit, pause or close a campaign', access: 'admin', body: c.updateCampaignSchema },

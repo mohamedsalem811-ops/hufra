@@ -16,6 +16,7 @@ import campaignRoutes from './routes/campaigns'
 import appInfoRoutes from './routes/app-info'
 import donationRoutes from './routes/donations'
 import adminDonationRoutes from './routes/admin-donations'
+import adminReportRoutes from './routes/admin-reports'
 import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
@@ -133,6 +134,7 @@ app.route('/api/campaigns', campaignRoutes)
 app.route('/api/app', appInfoRoutes)
 app.route('/api/donations', donationRoutes)
 app.route('/api/admin', adminDonationRoutes)
+app.route('/api/admin', adminReportRoutes)
 
 app.route('/media', mediaRoutes)
 app.route('/tiles', tileRoutes)

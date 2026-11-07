@@ -614,7 +614,7 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
   const existing = await c.env.DB.prepare('SELECT * FROM potholes WHERE id = ? AND deleted_at IS NULL').bind(id).first<PotholeRow>()
   if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
 
-  const { status, note } = parsed.data
+  const { status, note, notify } = parsed.data
   const plan = planStatusChange(existing.status, status, note)
   if (!plan.ok) return c.json({ error: plan.error, error_ar: plan.error_ar, current_status: existing.status }, plan.status)
 
@@ -657,7 +657,7 @@ potholes.patch('/:id/status', attachAuth, requireRole('admin', 'super_admin'), a
     after: { status, note: note ?? undefined },
   })
 
-  if (existing.reporter_id) {
+  if (existing.reporter_id && notify) {
     await notifyUser(c.env.DB, existing.reporter_id, 'status_change', { pothole_id: id, status }, c.env, deferFrom(c))
   }
 
