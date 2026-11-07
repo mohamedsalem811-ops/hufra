@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). Current: 6.10 (app tests).
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). Current: 7.1 (API additions).
 
 ## 0. What we are building (agreed decisions)
 
@@ -128,7 +128,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 ## Phase 7 — Backend changes for an app-only service
 
-**7.1 API additions the app needs**: a public "shared report" payload, cursor pagination for long lists, notification preferences, an app-version check (to require updates later), and the OpenAPI description of every endpoint generated from the shared schemas (`@hono/zod-openapi`) so the typed client is always correct.
+**7.1 API additions the app needs**: a public "shared report" payload, cursor pagination for long lists, notification preferences, an app-version check (to require updates later), and the OpenAPI description of every endpoint generated from the shared schemas (`@hono/zod-openapi`) so the typed client is always correct. Built: `GET /api/openapi.json` from a list of every endpoint (`apps/api/src/lib/openapi.ts`) whose schemas are the shared contracts, turned into JSON Schema by zod; a test fails if any served route is missing from it. This gives the same result as `@hono/zod-openapi` without rewriting every route.
 **7.2 Review limits for the app**: rate limits, upload limits and caching tuned for app traffic. Existing tests extended.
 
 ## Phase 8 — New admin panel and new website
@@ -149,7 +149,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **9.1 One Worker, three surfaces**: routing for API, admin and website; security headers per surface (strict script policy everywhere); one CI pipeline that tests and deploys all of it.
 
-**9.2 Remove the old citizen website and Capacitor app**: old pages, scripts and styles, service worker/PWA, the Capacitor shell and its workflow, and their tests. The old Pages project is deleted.
+**9.2 Remove the old citizen website and Capacitor app**: old pages, scripts and styles, service worker/PWA, the Capacitor shell and its workflow, and their tests. The old Pages project is deleted. Then set `REPORTS_REQUIRE_ACCOUNT=true` in `apps/api/wrangler.worker.jsonc` (vars): reports and "I saw it too" then need an account on the server too (built and tested in 7.1).
 - You: confirm the switch-over date.
 
 **9.3 Full test pass on your devices**: a written checklist covering every journey, on Android and on iPhone via Sideloadly, in Arabic and English, online and offline.

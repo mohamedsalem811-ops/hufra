@@ -32,8 +32,8 @@ function rolesFor(role: string): string[] {
 export async function listNotificationsFor(
   db: Bindings['DB'],
   user: { userId: number; role: string },
-  limit = 50
-): Promise<{ results: unknown[]; unread_count: number }> {
+  page: { limit: number; cursor?: string } = { limit: 50 }
+): Promise<{ results: unknown[]; unread_count: number; next_cursor: string | null }> {
   const roles = rolesFor(user.role)
   const roleClause = roles.length ? ` OR n.target_role IN (${roles.map(() => '?').join(',')})` : ''
   const scope = `(n.target_user_id = ?${roleClause})`
@@ -41,19 +41,22 @@ export async function listNotificationsFor(
   const readAt = 'CASE WHEN n.target_user_id IS NOT NULL THEN n.read_at ELSE r.read_at END'
   const join = 'LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?'
   const binds = [user.userId, user.userId, ...roles]
+  const older = page.cursor ? ' AND n.id < ?' : ''
 
   const rows = await db
     .prepare(
       `SELECT n.id, n.target_role, n.target_user_id, n.type, n.payload_json, n.created_at, ${readAt} AS read_at
-       FROM notifications n ${join} WHERE ${scope} ORDER BY n.created_at DESC, n.id DESC LIMIT ?`
+       FROM notifications n ${join} WHERE ${scope}${older} ORDER BY n.id DESC LIMIT ?`
     )
-    .bind(...binds, limit)
-    .all()
+    .bind(...binds, ...(page.cursor ? [Number(page.cursor)] : []), page.limit + 1)
+    .all<{ id: number }>()
   const unread = await db
     .prepare(`SELECT COUNT(*) AS n FROM notifications n ${join} WHERE ${scope} AND ${readAt} IS NULL`)
     .bind(...binds)
     .first<{ n: number }>()
-  return { results: rows.results, unread_count: unread?.n ?? 0 }
+  const results = rows.results.slice(0, page.limit)
+  const next_cursor = rows.results.length > page.limit && results.length ? String(results[results.length - 1].id) : null
+  return { results, unread_count: unread?.n ?? 0, next_cursor }
 }
 
 export async function markAllNotificationsRead(db: Bindings['DB'], user: { userId: number; role: string }): Promise<void> {
@@ -213,6 +216,13 @@ export async function notifyAdmins(
   }, defer)
 }
 
+/** Which preference (users column) controls push for each kind of personal notification. */
+const PUSH_PREFERENCE: Record<string, 'push_report_updates' | 'push_donation_updates'> = {
+  status_change: 'push_report_updates',
+  donation_confirmed: 'push_donation_updates',
+  donation_rejected: 'push_donation_updates',
+}
+
 export async function notifyUser(
   db: Bindings['DB'],
   userId: number,
@@ -229,6 +239,12 @@ export async function notifyUser(
     .run()
 
   if (!pushConfigured(env)) return
+  // The inbox always has it; the phone is alerted only if the person wants this kind.
+  const pref = PUSH_PREFERENCE[type]
+  if (pref) {
+    const row = await db.prepare(`SELECT ${pref} AS on_ FROM users WHERE id = ?`).bind(userId).first<{ on_: number }>()
+    if (row && row.on_ === 0) return
+  }
   await runPush(async () => {
     const tokens = await db
       .prepare(`SELECT * FROM device_push_tokens WHERE user_id = ? AND active = 1`)

@@ -121,3 +121,20 @@ describe('donations', () => {
     expect(webHandoffSchema.safeParse({ next: '/\\evil.example' }).success).toBe(false)
   })
 })
+
+describe('app additions', () => {
+  it('compares versions by number', async () => {
+    const { compareVersions } = await import('../src/app')
+    expect(compareVersions('1.10.0', '1.2.9')).toBe(1)
+    expect(compareVersions('1.2.0', '1.2.0')).toBe(0)
+    expect(compareVersions('0.9.9', '1.0.0')).toBe(-1)
+  })
+
+  it('reads paging parameters safely', async () => {
+    const { pageQuerySchema } = await import('../src/app')
+    expect(pageQuerySchema.parse({})).toEqual({ limit: 50 })
+    expect(pageQuerySchema.parse({ limit: '10', cursor: '42' })).toEqual({ limit: 10, cursor: '42' })
+    expect(pageQuerySchema.safeParse({ cursor: "1' OR 1=1" }).success).toBe(false)
+    expect(pageQuerySchema.safeParse({ limit: '1000' }).success).toBe(false)
+  })
+})

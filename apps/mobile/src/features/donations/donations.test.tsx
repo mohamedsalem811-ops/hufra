@@ -67,10 +67,10 @@ beforeEach(async () => {
   await SecureStore.setItemAsync('hufra.accessToken', 'access');
   await SecureStore.setItemAsync('hufra.refreshToken', 'refresh');
   globalThis.fetch = jest.fn(async (url: string) => {
-    const u = String(url);
+    const u = String(url).split('?')[0];
     if (u.endsWith('/api/auth/me')) return json(me);
     if (u.endsWith('/api/donations/config')) return json(config);
-    if (u.endsWith('/api/donations/mine')) return json({ results: mine });
+    if (u.endsWith('/api/donations/mine')) return json({ results: mine, next_cursor: null });
     if (u.endsWith('/api/auth/web-handoff')) return handoffOk ? json({ url: 'https://hufra.test/api/auth/handoff?t=abc', expires_in: 60 }) : json({ error: 'x' }, 500);
     return json({ error: 'x' }, 404);
   }) as unknown as typeof fetch;

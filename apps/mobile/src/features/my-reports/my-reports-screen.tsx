@@ -14,7 +14,7 @@ import { Segmented } from '@/components/segmented';
 import { useI18n } from '@/i18n/i18n-provider';
 import { useTheme } from '@/theme/theme-provider';
 
-import { useMyReports } from '../account/use-account';
+import { useMyReportPages } from '../account/use-account';
 import { useAuth } from '../auth/auth-provider';
 import { OutboxList } from '../outbox/outbox-list';
 import { useOutbox } from '../outbox/outbox-provider';
@@ -37,10 +37,10 @@ export function MyReportsScreen() {
   const { t } = useI18n();
   const { state } = useAuth();
   const outbox = useOutbox();
-  const reports = useMyReports();
+  const reports = useMyReportPages();
   const [filter, setFilter] = useState<Filter>('all');
   const [refreshing, setRefreshing] = useState(false);
-  const list = reports.data?.results ?? [];
+  const list = reports.items;
   const shown = filterMine(list, filter);
   const hasAny = list.length > 0 || outbox.items.length > 0;
 
@@ -112,6 +112,14 @@ export function MyReportsScreen() {
                 ))}
               </View>
             )}
+            {reports.hasNextPage ? (
+              <Button
+                variant="secondary"
+                label={t('list.more')}
+                disabled={reports.isFetchingNextPage}
+                onPress={() => void reports.loadMore()}
+              />
+            ) : null}
           </>
         ) : null}
       </ScrollView>

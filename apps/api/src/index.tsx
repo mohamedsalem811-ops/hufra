@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin'
 import donorRoutes from './routes/donors'
 import notificationRoutes from './routes/notifications'
 import campaignRoutes from './routes/campaigns'
+import appInfoRoutes from './routes/app-info'
 import donationRoutes from './routes/donations'
 import adminDonationRoutes from './routes/admin-donations'
 import tileRoutes from './routes/tiles'
@@ -27,6 +28,7 @@ import { renderLoginPage, renderRegisterPage } from './pages/auth-pages'
 import { renderAccountPage } from './pages/account'
 import { renderAdminPage } from './pages/admin'
 import { renderDonatePage } from './pages/donate'
+import { buildOpenApi } from './lib/openapi'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -96,6 +98,11 @@ app.use(
 // Static files (public/) are served by the platform before this code runs:
 // Cloudflare Pages today, Workers Static Assets on the Worker (wrangler.worker.jsonc).
 
+// OpenAPI description of every endpoint, from the shared schemas (plan 7.1).
+app.get('/api/openapi.json', (c) => {
+  c.header('Cache-Control', 'public, max-age=3600')
+  return c.json(buildOpenApi(new URL(c.req.url).origin))
+})
 app.route('/api/auth', authRoutes)
 app.route('/api/potholes', potholeRoutes)
 app.route('/api/photos', photoRoutes)
@@ -104,6 +111,7 @@ app.route('/api/admin', adminRoutes)
 app.route('/api/donors', donorRoutes)
 app.route('/api/notifications', notificationRoutes)
 app.route('/api/campaigns', campaignRoutes)
+app.route('/api/app', appInfoRoutes)
 app.route('/api/donations', donationRoutes)
 app.route('/api/admin', adminDonationRoutes)
 

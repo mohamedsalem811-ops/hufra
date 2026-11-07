@@ -23,6 +23,7 @@ import { attachAuth, requireRole } from '../middleware/auth'
 import { invalidatePublicCaches, cachedJson } from '../lib/cache'
 import { createUploadToken } from '../lib/upload-token'
 import { purgeReportPhotos } from '../lib/storage'
+import { beforeCursor, readPage, toPage } from '../lib/paging'
 
 const potholes = new Hono<{ Bindings: Bindings }>()
 
@@ -36,6 +37,11 @@ function clientIp(c: any): string {
 // client_report_uuid is the reporting device's offline-sync id. Only admins
 // (who may need to call the reporter) receive them.
 const PRIVATE_REPORT_FIELDS = ['reporter_contact', 'reporter_id', 'client_report_uuid'] as const
+
+/** Reports and confirmations need an account once the old website is gone (plan 9.2). */
+function accountRequired(env: { REPORTS_REQUIRE_ACCOUNT?: string }): boolean {
+  return env.REPORTS_REQUIRE_ACCOUNT === 'true'
+}
 
 function isAdmin(c: any): boolean {
   const role = c.get('auth')?.role
@@ -257,6 +263,60 @@ potholes.get('/top-reporter', async (c) => {
 })
 
 // ---------------------------------------------------------------------------
+// GET /api/potholes/:id/share - what a shared link shows (public, cacheable)
+// ---------------------------------------------------------------------------
+// A small, public summary for link previews and the shared-report landing
+// page: place, status, the before (and after) photo, confirmations and the
+// repair campaign. It never names the reporter.
+potholes.get('/:id/share', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
+  const p = await c.env.DB.prepare(
+    `SELECT p.id, p.status, p.severity, p.street_ar, p.street_en, p.created_at, p.fixed_at, p.upvotes_count,
+            r.name_ar AS region_name_ar, r.name_en AS region_name_en
+     FROM potholes p JOIN regions r ON r.id = p.region_id WHERE p.id = ? AND p.deleted_at IS NULL`
+  )
+    .bind(id)
+    .first<any>()
+  if (!p) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
+  const photos = await c.env.DB.prepare(
+    `SELECT stage, thumb_key, r2_key FROM pothole_photos WHERE pothole_id = ? AND deleted_at IS NULL ORDER BY created_at ASC`
+  )
+    .bind(id)
+    .all<{ stage: string; thumb_key: string; r2_key: string }>()
+  const pick = (row?: { thumb_key: string; r2_key: string }) => (row ? { thumb_key: row.thumb_key, r2_key: row.r2_key } : null)
+  const before = photos.results.find((ph) => ph.stage === 'before') ?? photos.results.find((ph) => ph.stage === 'report')
+  const after = [...photos.results].reverse().find((ph) => ph.stage === 'after')
+  const campaign = await c.env.DB.prepare(
+    `SELECT c.id, c.status, c.target_millimes,
+       COALESCE((SELECT SUM(d.amount_millimes) FROM donations d WHERE d.campaign_id = c.id AND d.status = 'confirmed'), 0)
+       + COALESCE((SELECT SUM(a.amount_millimes) FROM campaign_allocations a WHERE a.to_campaign_id = c.id), 0) AS raised
+     FROM campaigns c WHERE c.pothole_id = ? AND c.status != 'cancelled' ORDER BY c.id DESC LIMIT 1`
+  )
+    .bind(id)
+    .first<{ id: number; status: string; target_millimes: number; raised: number }>()
+  c.header('Cache-Control', 'public, max-age=300')
+  return c.json({
+    id: p.id,
+    url: `${new URL(c.req.url).origin}/pothole/${p.id}`,
+    status: p.status,
+    severity: p.severity,
+    street_ar: p.street_ar,
+    street_en: p.street_en,
+    region_name_ar: p.region_name_ar,
+    region_name_en: p.region_name_en,
+    created_at: p.created_at,
+    fixed_at: p.fixed_at,
+    upvotes_count: p.upvotes_count,
+    photo_before: pick(before),
+    photo_after: pick(after),
+    campaign: campaign
+      ? { id: campaign.id, status: campaign.status, target_lyd: campaign.target_millimes / 1000, confirmed_lyd: campaign.raised / 1000 }
+      : null,
+  })
+})
+
+// ---------------------------------------------------------------------------
 // GET /api/potholes/:id - detail (public)
 // ---------------------------------------------------------------------------
 potholes.get('/:id', attachAuth, async (c) => {
@@ -314,6 +374,9 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
 
+  if (!c.get('auth') && accountRequired(c.env)) {
+    return c.json({ error: 'Sign in to confirm this pothole', error_ar: 'سجّل الدخول لتأكيد وجود الحفرة' }, 401)
+  }
   const ip = clientIp(c)
   const rl = await checkRateLimit(c.env, 'upvote_ip', ip, UPVOTE_LIMIT_PER_IP, UPVOTE_LIMIT_WINDOW_SECONDS)
   if (!rl.allowed) {
@@ -344,9 +407,17 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
 })
 
 // ---------------------------------------------------------------------------
-// POST /api/potholes - create a report (guest or authenticated)
+// POST /api/potholes - create a report
 // ---------------------------------------------------------------------------
+// HUFRA becomes app-only for citizens: every report comes from an account, so
+// it can be followed up and, if abused, traced to an account rather than an IP
+// address shared by a whole mobile network. The old website still lets guests
+// report, so this is switched on with REPORTS_REQUIRE_ACCOUNT=true when that
+// site is removed (plan 9.2). The app always signs people in first.
 potholes.post('/', attachAuth, async (c) => {
+  if (!c.get('auth') && accountRequired(c.env)) {
+    return c.json({ error: 'Sign in to report a pothole', error_ar: 'سجّل الدخول لتبلّغ عن حفرة' }, 401)
+  }
   const body = await c.req.json().catch(() => null)
   const parsed = createPotholeSchema.safeParse(body)
   if (!parsed.success) {
@@ -629,18 +700,22 @@ potholes.delete('/:id', attachAuth, requireRole('admin', 'super_admin'), async (
 potholes.get('/mine/list', attachAuth, async (c) => {
   const authCtx = c.get('auth')
   if (!authCtx) return c.json({ error: 'Authentication required', error_ar: 'يجب تسجيل الدخول' }, 401)
+  const page = readPage(c.req.query())
+  if (!page) return c.json({ error: 'Invalid query', error_ar: 'معايير بحث غير صحيحة' }, 400)
+  const after = beforeCursor('p.id', page)
 
   const rows = await c.env.DB.prepare(
     `SELECT p.*, r.name_ar as region_name_ar, r.name_en as region_name_en,
        (SELECT thumb_key FROM pothole_photos ph WHERE ph.pothole_id = p.id AND ph.deleted_at IS NULL ORDER BY ph.created_at ASC LIMIT 1) as cover_thumb_key
      FROM potholes p JOIN regions r ON r.id = p.region_id
-     WHERE p.reporter_id = ? AND p.deleted_at IS NULL
-     ORDER BY p.created_at DESC`
+     WHERE p.reporter_id = ? AND p.deleted_at IS NULL${after.sql}
+     ORDER BY p.id DESC LIMIT ?`
   )
-    .bind(authCtx.userId)
-    .all()
+    .bind(authCtx.userId, ...after.binds, page.limit + 1)
+    .all<{ id: number }>()
 
-  return c.json({ results: rows.results })
+  c.header('Cache-Control', 'private, no-store')
+  return c.json(toPage(rows.results, page))
 })
 
 export default potholes

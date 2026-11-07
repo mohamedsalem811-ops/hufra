@@ -178,9 +178,7 @@ describe('PATCH/DELETE /api/donors/:id (admin only)', () => {
 })
 
 describe('GET /api/potholes/top-reporter (public)', () => {
-  it('returns null when no registered user has any report', async () => {
-    // Guest/anonymous reports only - can't be attributed to anyone.
-    await createReport(t.env)
+  it('returns null before anyone has reported', async () => {
     const body = await json(await request(t.env, '/api/potholes/top-reporter'))
     expect(body.reporter).toBeNull()
   })

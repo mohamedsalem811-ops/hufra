@@ -1,5 +1,5 @@
 import { myPotholesResponseSchema, notificationListResponseSchema, type NotificationListResponse } from '@hufra/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { z } from 'zod';
@@ -14,15 +14,52 @@ function useUserId(): number | null {
   return state.status === 'signedIn' ? state.user.id : null;
 }
 
-/** The person's sent reports (newest first), with their first photo. */
+/** First page of the person's reports (up to 100, newest first): enough for the Account numbers. */
 export function useMyReports() {
   const { api } = useApi();
   const userId = useUserId();
   return useQuery({
     queryKey: ['my-reports', userId],
     enabled: userId !== null,
-    queryFn: ({ signal }) => api.request('/api/potholes/mine/list', { schema: myPotholesResponseSchema, signal }),
+    queryFn: ({ signal }) => api.request('/api/potholes/mine/list?limit=100', { schema: myPotholesResponseSchema, signal }),
   });
+}
+
+/**
+ * A long list loaded page by page (plan 7.1 cursor paging): `items` holds every
+ * page loaded so far; `loadMore` fetches the next one while there is more.
+ */
+function usePaged<S extends z.ZodType<{ results: unknown[]; next_cursor: string | null }>>(
+  key: readonly unknown[],
+  path: string,
+  schema: S,
+  enabled: boolean,
+) {
+  const { api } = useApi();
+  const query = useInfiniteQuery({
+    queryKey: key,
+    enabled,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam, signal }) =>
+      api.request(`${path}?limit=30${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`, { schema, signal }),
+    getNextPageParam: (last) => (last as { next_cursor: string | null }).next_cursor,
+  });
+  const items = (query.data?.pages ?? []).flatMap((p) => (p as { results: unknown[] }).results);
+  return { ...query, items, loadMore: () => (query.hasNextPage && !query.isFetchingNextPage ? query.fetchNextPage() : undefined) };
+}
+
+/** Every report of the person, page by page (My reports screen). */
+export function useMyReportPages() {
+  const userId = useUserId();
+  const paged = usePaged(['my-reports', userId, 'pages'], '/api/potholes/mine/list', myPotholesResponseSchema, userId !== null);
+  return { ...paged, items: paged.items as z.infer<typeof myPotholesResponseSchema>['results'] };
+}
+
+/** The whole inbox, page by page (Notifications screen). */
+export function useNotificationPages() {
+  const userId = useUserId();
+  const paged = usePaged(['notifications', userId, 'pages'], '/api/notifications', notificationListResponseSchema, userId !== null);
+  return { ...paged, items: paged.items as NotificationListResponse['results'] };
 }
 
 /** Inbox, newest first, with the unread count for the badge. */
@@ -45,8 +82,9 @@ export function useMarkAllRead() {
     onSuccess: () => {
       const now = new Date().toISOString();
       queryClient.setQueryData<NotificationListResponse>(['notifications', userId], (old) =>
-        old ? { unread_count: 0, results: old.results.map((n) => ({ ...n, read_at: n.read_at ?? now })) } : old,
+        old ? { ...old, unread_count: 0, results: old.results.map((n) => ({ ...n, read_at: n.read_at ?? now })) } : old,
       );
+      void queryClient.invalidateQueries({ queryKey: ['notifications', userId, 'pages'] });
     },
   });
 }

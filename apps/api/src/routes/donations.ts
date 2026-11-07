@@ -13,6 +13,7 @@ import {
   type DonationRow,
 } from '../lib/donations'
 import { inspectImage } from '../lib/image-check'
+import { beforeCursor, readPage, toPage } from '../lib/paging'
 import { deferFrom, notifyAdmins } from '../lib/notifications'
 import { checkRateLimit } from '../lib/rate-limit'
 import type { Bindings } from '../lib/types'
@@ -42,12 +43,16 @@ donations.get('/config', async (c) => {
 
 // GET /api/donations/mine - the signed-in person's donations, newest first.
 donations.get('/mine', requireAuth(), async (c) => {
+  const page = readPage(c.req.query())
+  if (!page) return bad(c, 400, 'Invalid query', 'معايير بحث غير صحيحة')
   await expireStalePledges(c.env.DB)
-  const rows = await c.env.DB.prepare(`${DONATION_SQL} WHERE d.user_id = ? ORDER BY d.created_at DESC LIMIT 100`)
-    .bind(c.get('auth')!.userId)
+  const after = beforeCursor('d.id', page)
+  const rows = await c.env.DB.prepare(`${DONATION_SQL} WHERE d.user_id = ?${after.sql} ORDER BY d.id DESC LIMIT ?`)
+    .bind(c.get('auth')!.userId, ...after.binds, page.limit + 1)
     .all<DonationRow>()
   c.header('Cache-Control', 'private, no-store')
-  return c.json({ results: rows.results.map(toDonation) })
+  const out = toPage(rows.results, page)
+  return c.json({ results: out.results.map(toDonation), next_cursor: out.next_cursor })
 })
 
 async function ownDonation(c: any, id: number): Promise<DonationRow | null> {

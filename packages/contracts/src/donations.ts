@@ -189,7 +189,7 @@ export const donationSchema = z.strictObject({
 
 export const createDonationResponseSchema = z.strictObject({ donation: donationSchema, bank: bankDetailsSchema })
 export const donationDetailResponseSchema = z.strictObject({ donation: donationSchema, bank: bankDetailsSchema.nullable() })
-export const myDonationsResponseSchema = z.strictObject({ results: z.array(donationSchema) })
+export const myDonationsResponseSchema = z.strictObject({ results: z.array(donationSchema), next_cursor: nullableText })
 
 export const donationConfigResponseSchema = z.strictObject({
   enabled: z.boolean(),

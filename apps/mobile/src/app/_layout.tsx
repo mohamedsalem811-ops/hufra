@@ -9,6 +9,7 @@ import { OnboardingProvider, useOnboarding } from '@/app-shell/onboarding';
 import { AppProviders } from '@/app-shell/providers';
 import { ErrorView } from '@/components/error-view';
 import { breadcrumb, reportError } from '@/crash/crash';
+import { UpdateGate } from '@/features/app-version/update-gate';
 import { PushHandler } from '@/features/push/push-handler';
 import { fontAssets } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
@@ -27,9 +28,11 @@ export default function RootLayout() {
   if (!ready || !boot.ready) return null;
   return (
     <AppProviders locale={boot.locale} themeMode={boot.themeMode} textSize={boot.textSize}>
-      <OnboardingProvider initial={boot.onboarded}>
-        <RootStack />
-      </OnboardingProvider>
+      <UpdateGate>
+        <OnboardingProvider initial={boot.onboarded}>
+          <RootStack />
+        </OnboardingProvider>
+      </UpdateGate>
     </AppProviders>
   );
 }
