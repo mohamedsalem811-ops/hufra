@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+@import '../../../packages/brand/dist/tokens.css';
+
+/* Readex Pro (Arabic + Latin), from packages/brand. */
+@font-face { font-family: 'Readex Pro'; font-weight: 400; font-display: swap; src: url('../../../packages/brand/assets/fonts/ReadexPro-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Readex Pro'; font-weight: 500; font-display: swap; src: url('../../../packages/brand/assets/fonts/ReadexPro-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Readex Pro'; font-weight: 600; font-display: swap; src: url('../../../packages/brand/assets/fonts/ReadexPro-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Readex Pro'; font-weight: 700; font-display: swap; src: url('../../../packages/brand/assets/fonts/ReadexPro-Bold.ttf') format('truetype'); }
+
+/* Brand tokens as Tailwind colours: bg-surface, text-secondary, border-default...
+   Font (--font-sans) and radii (--radius-*) already share Tailwind's names, and
+   the tokens (unlayered) win over Tailwind's defaults. */
+@theme inline {
+  --color-canvas: var(--color-bg-canvas);
+  --color-surface: var(--color-bg-surface);
+  --color-subtle: var(--color-bg-subtle);
+  --color-brand-tint: var(--color-bg-brand-tint);
+  --color-default: var(--color-border-default);
+  --color-strong: var(--color-border-strong);
+  --color-focus: var(--color-border-focus);
+  --color-primary: var(--color-text-primary);
+  --color-secondary: var(--color-text-secondary);
+  --color-tertiary: var(--color-text-tertiary);
+  --color-inverse: var(--color-text-inverse);
+  --color-link: var(--color-text-link);
+  --color-brand: var(--color-brand-primary);
+  --color-on-brand: var(--color-brand-on-primary);
+  --color-action: var(--color-action-primary);
+  --color-action-pressed: var(--color-action-primary-pressed);
+  --color-on-action: var(--color-action-on-primary);
+  --color-success: var(--color-feedback-success-fg);
+  --color-success-bg: var(--color-feedback-success-bg);
+  --color-warning: var(--color-feedback-warning-fg);
+  --color-warning-bg: var(--color-feedback-warning-bg);
+  --color-danger: var(--color-feedback-danger-fg);
+  --color-danger-bg: var(--color-feedback-danger-bg);
+  --color-reported: var(--color-status-reported-fg);
+  --color-reported-bg: var(--color-status-reported-bg);
+  --color-verified: var(--color-status-verified-fg);
+  --color-verified-bg: var(--color-status-verified-bg);
+  --color-under-repair: var(--color-status-under-repair-fg);
+  --color-under-repair-bg: var(--color-status-under-repair-bg);
+  --color-fixed: var(--color-status-fixed-fg);
+  --color-fixed-bg: var(--color-status-fixed-bg);
+}
+
+/* The sidebar keeps the light-theme brand blue in dark mode too (as designed),
+   with its own text colours checked against it. */
+@theme {
+  --color-brand-solid: #0B4A6F;
+  --color-nav: #E8F1F7;
+  --color-nav-muted: #CFE2EE;
+}
+
+@layer base {
+  html { font-family: var(--font-sans); background: var(--color-bg-canvas); color: var(--color-text-primary); }
+  body { margin: 0; min-height: 100vh; }
+  a { color: var(--color-text-link); }
+  /* One visible focus ring everywhere (keyboard users). */
+  :focus-visible { outline: 3px solid var(--color-border-focus); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}

@@ -109,6 +109,35 @@ jobs:
       - name: Bundle for Android and iOS (proves the JavaScript compiles and assets resolve)
         run: npx expo export --platform android --platform ios --output-dir "$RUNNER_TEMP/expo-export"
 
+  admin-panel:
+    name: "Admin panel: typecheck, test, build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (workspace root)
+        working-directory: .
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests with coverage floors (vite.config.ts)
+        run: npm run test:coverage
+
+      - name: Build
+        run: npx vite build
+
   deploy:
     name: Deploy to Cloudflare Pages
     needs: build-and-test

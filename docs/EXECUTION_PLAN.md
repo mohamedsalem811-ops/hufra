@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). 7.1 (#20). Current: 7.2 (limits for the app).
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). 7.1 (#20). 7.2 (#21). Current: 8.1 (admin foundation).
 
 ## 0. What we are building (agreed decisions)
 
