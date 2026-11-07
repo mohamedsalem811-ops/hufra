@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, V
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
+import { Button } from '@/components/button';
 import { ErrorView } from '@/components/error-view';
 import { ScreenHeader } from '@/components/screen-header';
 import { useI18n } from '@/i18n/i18n-provider';
@@ -14,13 +15,14 @@ import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
 import { GROUP_LABEL, groupInbox, inboxTime } from './inbox';
-import { readNotification, useMarkAllRead, useNotifications } from './use-account';
+import { readNotification, useMarkAllRead, useNotificationPages, useNotifications } from './use-account';
 
 /** Inbox (design board 4, screen 4): newest first, grouped by day, unread marked. */
 export function NotificationsScreen() {
   const { colors } = useTheme();
   const { t } = useI18n();
   const inbox = useNotifications();
+  const pages = useNotificationPages();
   const markAll = useMarkAllRead();
   const [refreshing, setRefreshing] = useState(false);
   const unread = inbox.data?.unread_count ?? 0;
@@ -36,9 +38,9 @@ export function NotificationsScreen() {
   return (
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.bg.canvas }]}>
       <ScreenHeader title={t('notifications.title')} action={action} />
-      {inbox.isError && !inbox.data ? (
-        <ErrorView error={inbox.error} onRetry={() => inbox.refetch()} />
-      ) : !inbox.data ? (
+      {pages.isError && !pages.data ? (
+        <ErrorView error={pages.error} onRetry={() => pages.refetch()} />
+      ) : !pages.data ? (
         <ActivityIndicator style={styles.loading} color={colors.brand.primary} />
       ) : (
         <ScrollView
@@ -49,13 +51,13 @@ export function NotificationsScreen() {
               tintColor={colors.brand.primary}
               onRefresh={async () => {
                 setRefreshing(true);
-                await inbox.refetch();
+                await Promise.allSettled([inbox.refetch(), pages.refetch()]);
                 setRefreshing(false);
               }}
             />
           }
         >
-          {inbox.data.results.length === 0 ? (
+          {pages.items.length === 0 ? (
             <View style={styles.empty}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.bg.brandTint }]}>
                 <BellRing size={32} color={colors.brand.primary} />
@@ -65,7 +67,7 @@ export function NotificationsScreen() {
               </AppText>
             </View>
           ) : (
-            groupInbox(inbox.data.results).map(({ group, items }) => (
+            groupInbox(pages.items).map(({ group, items }) => (
               <View key={group} style={styles.group}>
                 <AppText variant="small" tone="secondary" accessibilityRole="header">
                   {t(GROUP_LABEL[group])}
@@ -76,6 +78,9 @@ export function NotificationsScreen() {
               </View>
             ))
           )}
+          {pages.hasNextPage ? (
+            <Button variant="secondary" label={t('list.more')} disabled={pages.isFetchingNextPage} onPress={() => void pages.loadMore()} />
+          ) : null}
         </ScrollView>
       )}
     </SafeAreaView>

@@ -66,13 +66,25 @@ const me = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 let myList: Mine[] = [];
+let olderList: Mine[] = [];
 let inbox: Notification[] = [];
+let prefs = { report_updates: true, donation_updates: true };
 function mockFetch() {
   globalThis.fetch = jest.fn(async (url: string, init?: RequestInit) => {
-    const u = String(url);
+    const full = String(url);
+    const u = full.split('?')[0];
     if (u.endsWith('/api/auth/me')) return json(me);
-    if (u.endsWith('/api/potholes/mine/list')) return json({ results: myList });
-    if (u.endsWith('/api/notifications')) return json({ results: inbox, unread_count: inbox.filter((n) => !n.read_at).length });
+    if (u.endsWith('/api/potholes/mine/list')) {
+      // The paged list returns myList first, then olderList after the cursor.
+      if (full.includes('cursor=')) return json({ results: olderList, next_cursor: null });
+      return json({ results: myList, next_cursor: full.includes('limit=30') && olderList.length ? '1' : null });
+    }
+    if (u.endsWith('/api/notifications/preferences') && init?.method === 'PUT') {
+      prefs = { ...prefs, ...JSON.parse(String(init.body)) };
+      return json(prefs);
+    }
+    if (u.endsWith('/api/notifications')) return json({ results: inbox, unread_count: inbox.filter((n) => !n.read_at).length, next_cursor: null });
+    if (u.endsWith('/api/notifications/preferences')) return json(prefs);
     if (u.endsWith('/api/notifications/read-all')) return json({ ok: true });
     if (u.endsWith('/api/auth/me/export')) return json({ user: me.user, reports: [] });
     if (u.endsWith('/api/auth/me/delete') && init?.method === 'POST') return json({ ok: true });
@@ -92,7 +104,9 @@ beforeEach(async () => {
   await SecureStore.deleteItemAsync('hufra.accessToken');
   await SecureStore.deleteItemAsync('hufra.refreshToken');
   myList = [];
+  olderList = [];
   inbox = [];
+  prefs = { report_updates: true, donation_updates: true };
   mockFetch();
 });
 
@@ -210,6 +224,19 @@ describe('MyReportsScreen', () => {
     await fireEvent.press(screen.getByText('شارع الجمهورية'));
     expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/pothole/[id]', params: { id: '2' } });
   });
+
+  it('loads older reports a page at a time', async () => {
+    await signIn();
+    myList = [mine({ id: 9, status: 'verified', street_ar: 'شارع الجمهورية' })];
+    olderList = [mine({ id: 1, status: 'verified', street_ar: 'طريق المطار' })];
+    await show(<MyReportsScreen />);
+    expect(await screen.findByText('شارع الجمهورية')).toBeTruthy();
+    expect(screen.queryByText('طريق المطار')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'عرض المزيد' }));
+    expect(await screen.findByText('طريق المطار')).toBeTruthy();
+    expect(calls().some((u) => u.includes('cursor=1'))).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'عرض المزيد' })).toBeNull());
+  });
 });
 
 describe('NotificationsScreen', () => {
@@ -241,5 +268,18 @@ describe('SettingsScreen', () => {
     await fireEvent.press(screen.getByRole('radio', { name: 'أكبر' }));
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith('hufra.textSize', 'larger');
     expect(screen.getByRole('radio', { name: 'أكبر' }).props.accessibilityState).toMatchObject({ checked: true });
+    // Signed out: no push choices to make.
+    expect(screen.queryByLabelText('تحديثات بلاغاتي')).toBeNull();
+  });
+
+  it('lets a signed-in person turn off donation alerts', async () => {
+    await signIn();
+    await show(<SettingsScreen />);
+    const donations = await screen.findByLabelText('تحديثات تبرعاتي');
+    expect(donations.props.value).toBe(true);
+    await fireEvent(donations, 'valueChange', false);
+    await waitFor(() => expect(prefs.donation_updates).toBe(false));
+    expect(prefs.report_updates).toBe(true);
+    await waitFor(() => expect(screen.getByLabelText('تحديثات تبرعاتي').props.value).toBe(false));
   });
 });

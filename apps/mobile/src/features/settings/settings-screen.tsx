@@ -2,7 +2,7 @@ import { radius, space } from '@hufra/brand';
 import { useFocusEffect } from 'expo-router';
 import { Bell, Camera, MapPin } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
@@ -15,6 +15,9 @@ import type { MessageKey } from '@/i18n/messages';
 import { permissionStates, type PermissionResult } from '@/permissions/permissions';
 import type { TextSize, ThemeMode } from '@/theme/theme';
 import { useTheme } from '@/theme/theme-provider';
+
+import { useAuth } from '../auth/auth-provider';
+import { useNotificationPreferences } from './use-preferences';
 
 const THEMES: { mode: ThemeMode; label: MessageKey }[] = [
   { mode: 'system', label: 'account.theme.system' },
@@ -80,6 +83,8 @@ export function SettingsScreen() {
           onSelect={(key) => void setTextSize(key as TextSize)}
         />
 
+        <NotificationSwitches />
+
         <View style={styles.group}>
           <AppText variant="small" tone="secondary" accessibilityRole="header">
             {t('settings.permissions')}
@@ -106,10 +111,50 @@ export function SettingsScreen() {
   );
 }
 
+/** Signed-in people choose which notifications also alert the phone. */
+function NotificationSwitches() {
+  const { colors } = useTheme();
+  const { t } = useI18n();
+  const { state } = useAuth();
+  const { query, update } = useNotificationPreferences();
+  if (state.status !== 'signedIn' || !query.data) return null;
+  const rows = [
+    { key: 'report_updates', label: 'settings.push.reports', hint: 'settings.push.reportsHint' },
+    { key: 'donation_updates', label: 'settings.push.donations', hint: 'settings.push.donationsHint' },
+  ] as const;
+  return (
+    <View style={styles.group}>
+      <AppText variant="small" tone="secondary" accessibilityRole="header">
+        {t('settings.notifications')}
+      </AppText>
+      <View style={[styles.card, { backgroundColor: colors.bg.surface, borderColor: colors.border.default }]}>
+        {rows.map(({ key, label, hint }, i) => (
+          <View key={key} style={[styles.switchRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default }]}>
+            <View style={styles.flex}>
+              <AppText>{t(label)}</AppText>
+              <AppText variant="small" tone="secondary">
+                {t(hint)}
+              </AppText>
+            </View>
+            <Switch
+              accessibilityLabel={t(label)}
+              value={query.data[key]}
+              onValueChange={(on) => update.mutate({ [key]: on })}
+              trackColor={{ true: colors.brand.primary, false: colors.border.strong }}
+              thumbColor={colors.bg.surface}
+            />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: space[7], gap: space[7] },
   group: { gap: space[3] },
   card: { borderWidth: 1, borderRadius: radius.lg + 2, overflow: 'hidden' },
   row: { minHeight: 56, paddingHorizontal: space[5], flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  switchRow: { minHeight: 64, paddingHorizontal: space[5], paddingVertical: space[3], flexDirection: 'row', alignItems: 'center', gap: space[4] },
 });
