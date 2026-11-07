@@ -61,12 +61,14 @@ export function createApiClient(doFetch: Fetch = (...a) => fetch(...a), onSigned
 
   return {
     async request(path, { method = 'GET', body, schema, signal }) {
+      // FormData (uploads) goes as is: the browser sets the multipart boundary.
+      const isForm = typeof FormData !== 'undefined' && body instanceof FormData
       const init: RequestInit = {
         method,
         signal,
         credentials: 'same-origin',
-        headers: body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: body === undefined || isForm ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       }
       let res = await send(path, init)
       if (res.status === 401 && !path.startsWith('/api/auth/')) {

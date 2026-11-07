@@ -61,6 +61,8 @@ export const createPotholeSchema = z.object({
 export const updateStatusSchema = z.object({
   status: potholeStatusSchema,
   note: z.string().trim().max(TEXT_LIMITS.statusNote).optional(),
+  /** Tell the reporter (inbox and push). Default true. */
+  notify: z.boolean().default(true),
 })
 
 export const listPotholesQuerySchema = z.object({

@@ -7,6 +7,9 @@ import type { MessageKey } from '@/i18n/messages'
 import { Shell } from '@/layout/shell'
 import { DashboardPage } from '@/routes/dashboard'
 import { LoginPage } from '@/routes/login'
+import { QueuePage } from '@/reports/queue-page'
+import { ReportPage } from '@/reports/report-page'
+import type { QueueFilters } from '@/reports/use-reports'
 import { ComingSoon, NotFound } from '@/routes/placeholders'
 
 /** Every page needs a staff session; without one the sign-in form shows in place. */
@@ -32,6 +35,27 @@ function Root() {
   )
 }
 
+const oneOf = <T extends string>(v: unknown, options: readonly T[]): T | undefined => (options.includes(v as T) ? (v as T) : undefined)
+const positive = (v: unknown) => {
+  const n = Number(v)
+  return Number.isInteger(n) && n > 0 ? n : undefined
+}
+
+/** The queue's filters live in the address, so a filtered list can be shared or reloaded. */
+export function parseQueueSearch(s: Record<string, unknown>): QueueFilters {
+  const q = typeof s.q === 'string' && s.q.trim() ? s.q.trim().slice(0, 100) : typeof s.q === 'number' ? String(s.q) : undefined
+  const page = positive(s.page)
+  return {
+    q,
+    status: oneOf(s.status, ['reported', 'verified', 'under_repair', 'fixed'] as const),
+    severity: oneOf(s.severity, ['minor', 'medium', 'severe'] as const),
+    region_id: positive(s.region_id),
+    duplicates: s.duplicates === '1' || s.duplicates === 1 ? '1' : undefined,
+    sort: oneOf(s.sort, ['oldest', 'most_confirmed'] as const),
+    page: page && page > 1 ? page : undefined,
+  }
+}
+
 const root = createRootRoute({ component: Root, notFoundComponent: NotFound })
 
 const soon = (path: string, title: MessageKey) =>
@@ -39,7 +63,8 @@ const soon = (path: string, title: MessageKey) =>
 
 const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/', component: DashboardPage }),
-  soon('/reports', 'nav.reports'),
+  createRoute({ getParentRoute: () => root, path: '/reports', component: QueuePage, validateSearch: parseQueueSearch }),
+  createRoute({ getParentRoute: () => root, path: '/reports/$id', component: ReportPage }),
   soon('/map', 'nav.map'),
   soon('/duplicates', 'nav.duplicates'),
   soon('/campaigns', 'nav.campaigns'),
