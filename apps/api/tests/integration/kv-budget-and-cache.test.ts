@@ -64,11 +64,11 @@ describe('KV write budget', () => {
     expect(kvWrites).toBe(0)
   })
 
-  it('the report rate limit still applies (10 per IP per hour)', async () => {
+  it('the report rate limit still applies (15 per account per hour)', async () => {
     const statuses = []
-    for (let i = 0; i < 11; i++) statuses.push((await report(32.80 + i * 0.002)).status)
-    expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true)
-    expect(statuses[10]).toBe(429)
+    for (let i = 0; i < 16; i++) statuses.push((await report(32.80 + i * 0.002)).status)
+    expect(statuses.slice(0, 15).every((s) => s === 201)).toBe(true)
+    expect(statuses[15]).toBe(429)
   })
 })
 

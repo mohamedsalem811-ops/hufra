@@ -14,7 +14,15 @@ import {
 } from '../lib/storage'
 import { inspectImage, type ImageInfo } from '../lib/image-check'
 import { verifyUploadToken } from '../lib/upload-token'
-import { checkRateLimit, UPLOAD_LIMIT_PER_IP, UPLOAD_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
+import {
+  actorLimits,
+  checkLimits,
+  tooMany,
+  UPLOAD_LIMIT_PER_IP,
+  UPLOAD_LIMIT_PER_SHARED_IP,
+  UPLOAD_LIMIT_PER_USER,
+  UPLOAD_LIMIT_WINDOW_SECONDS,
+} from '../lib/rate-limit'
 import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
 
@@ -66,10 +74,11 @@ async function checkImage(
 // ---------------------------------------------------------------------------
 photos.post('/:potholeId', attachAuth, async (c) => {
   const ip = clientIp(c)
-  const rl = await checkRateLimit(c.env, 'upload_ip', ip, UPLOAD_LIMIT_PER_IP, UPLOAD_LIMIT_WINDOW_SECONDS)
-  if (!rl.allowed) {
-    return c.json({ error: 'Too many uploads, please try again later', error_ar: 'رفع كثير جداً، حاول لاحقاً' }, 429)
-  }
+  const rl = await checkLimits(
+    c.env,
+    actorLimits('upload', ip, c.get('auth')?.userId, UPLOAD_LIMIT_PER_USER, UPLOAD_LIMIT_PER_SHARED_IP, UPLOAD_LIMIT_PER_IP, UPLOAD_LIMIT_WINDOW_SECONDS)
+  )
+  if (!rl.allowed) return tooMany(c, rl, 'Too many uploads, please try again later', 'رفع كثير جداً، حاول لاحقاً')
 
   const potholeId = Number(c.req.param('potholeId'))
   if (!Number.isInteger(potholeId) || potholeId <= 0) return c.json({ error: 'Invalid pothole id' }, 400)

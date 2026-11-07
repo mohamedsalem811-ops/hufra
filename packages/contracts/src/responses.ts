@@ -16,6 +16,8 @@ const flag = z.union([z.literal(0), z.literal(1)])
 export const errorResponseSchema = z.looseObject({
   error: z.string(),
   error_ar: z.string().optional(),
+  /** Seconds to wait, on 429. */
+  retry_after: z.number().int().positive().optional(),
 })
 
 // ---------------------------------------------------------------- regions

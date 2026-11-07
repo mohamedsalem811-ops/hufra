@@ -10,7 +10,16 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_TTL_SECONDS,
 } from '../lib/jwt'
-import { checkRateLimit, LOGIN_LIMIT_PER_IP, LOGIN_LIMIT_WINDOW_SECONDS } from '../lib/rate-limit'
+import {
+  checkLimits,
+  checkRateLimit,
+  LOGIN_LIMIT_PER_EMAIL,
+  LOGIN_LIMIT_PER_IP,
+  LOGIN_LIMIT_WINDOW_SECONDS,
+  REGISTER_LIMIT_PER_IP,
+  REGISTER_LIMIT_WINDOW_SECONDS,
+  tooMany,
+} from '../lib/rate-limit'
 import { hashIp, recordAudit } from '../lib/audit'
 import { COOKIE_NAME, attachAuth, requireAuth } from '../middleware/auth'
 import { tokensInBody } from '../lib/origins'
@@ -120,6 +129,8 @@ function refreshDenied(c: any, error: string, error_ar: string) {
 }
 
 auth.post('/register', async (c) => {
+  const regRl = await checkRateLimit(c.env, 'register_ip', clientIp(c), REGISTER_LIMIT_PER_IP, REGISTER_LIMIT_WINDOW_SECONDS)
+  if (!regRl.allowed) return tooMany(c, regRl, 'Too many new accounts from this network, please try again later', 'حسابات جديدة كثيرة من هذا الاتصال، حاول لاحقاً')
   const body = await c.req.json().catch(() => null)
   const parsed = registerSchema.safeParse(body)
   if (!parsed.success) {
@@ -154,13 +165,16 @@ auth.post('/register', async (c) => {
 
 auth.post('/login', async (c) => {
   const ip = clientIp(c)
-  const rl = await checkRateLimit(c.env, 'login', ip, LOGIN_LIMIT_PER_IP, LOGIN_LIMIT_WINDOW_SECONDS)
-  if (!rl.allowed) {
-    return c.json({ error: 'Too many login attempts, please try again later', error_ar: 'محاولات كثيرة جداً، حاول لاحقاً' }, 429)
-  }
-
   const body = await c.req.json().catch(() => null)
   const parsed = loginSchema.safeParse(body)
+  // Counted before the input check, so malformed attempts are limited too.
+  const rl = await checkLimits(c.env, [
+    { scope: 'login', key: ip, limit: LOGIN_LIMIT_PER_IP, windowSeconds: LOGIN_LIMIT_WINDOW_SECONDS },
+    ...(parsed.success
+      ? [{ scope: 'login_email', key: parsed.data.email, limit: LOGIN_LIMIT_PER_EMAIL, windowSeconds: LOGIN_LIMIT_WINDOW_SECONDS }]
+      : []),
+  ])
+  if (!rl.allowed) return tooMany(c, rl, 'Too many login attempts, please try again later', 'محاولات كثيرة جداً، حاول لاحقاً')
   if (!parsed.success) {
     return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
   }
@@ -289,9 +303,7 @@ auth.post('/change-password', requireAuth(), async (c) => {
   const authCtx = c.get('auth')!
   const ip = clientIp(c)
   const rl = await checkRateLimit(c.env, 'chpw', String(authCtx.userId), 5, 15 * 60)
-  if (!rl.allowed) {
-    return c.json({ error: 'Too many attempts, please try again later', error_ar: 'محاولات كثيرة جداً، حاول لاحقاً' }, 429)
-  }
+  if (!rl.allowed) return tooMany(c, rl, 'Too many attempts, please try again later', 'محاولات كثيرة جداً، حاول لاحقاً')
   const body = await c.req.json().catch(() => null)
   const parsed = changePasswordSchema.safeParse(body)
   if (!parsed.success) {
@@ -369,7 +381,7 @@ auth.post('/web-handoff', requireAuth(), async (c) => {
     return c.json({ error: 'Admins sign in on the website directly', error_ar: 'المسؤولون يسجلون الدخول في الموقع مباشرة' }, 403)
   }
   const rl = await checkRateLimit(c.env, 'handoff', String(authCtx.userId), 20, 3600)
-  if (!rl.allowed) return c.json({ error: 'Too many requests', error_ar: 'طلبات كثيرة جداً' }, 429)
+  if (!rl.allowed) return tooMany(c, rl, 'Too many requests', 'طلبات كثيرة جداً')
   const parsed = webHandoffSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) return c.json({ error: 'Invalid destination', error_ar: 'وجهة غير صحيحة' }, 400)
 
@@ -391,7 +403,7 @@ auth.get('/handoff', async (c) => {
   const token = c.req.query('t') ?? ''
   const fail = () => c.redirect('/login', 302)
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return fail()
-  const rl = await checkRateLimit(c.env, 'handoff_use', clientIp(c), 30, 3600)
+  const rl = await checkRateLimit(c.env, 'handoff_use', clientIp(c), 600, 3600) // shared carrier addresses; tokens are unguessable
   if (!rl.allowed) return fail()
 
   const hash = await hashToken(token)

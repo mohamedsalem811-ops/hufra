@@ -28,7 +28,10 @@ import { renderLoginPage, renderRegisterPage } from './pages/auth-pages'
 import { renderAccountPage } from './pages/account'
 import { renderAdminPage } from './pages/admin'
 import { renderDonatePage } from './pages/donate'
+import { bodyLimit } from 'hono/body-limit'
 import { buildOpenApi } from './lib/openapi'
+
+const API_BODY_LIMIT_BYTES = 64 * 1024
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -97,6 +100,22 @@ app.use(
 
 // Static files (public/) are served by the platform before this code runs:
 // Cloudflare Pages today, Workers Static Assets on the Worker (wrangler.worker.jsonc).
+
+// Plan 7.2: plain API bodies are small (the largest is a report with its
+// note). Uploads have their own, larger limits in their routes.
+const UPLOAD_PATHS = /^\/api\/(photos\/\d+|donations\/\d+\/proof)$/
+const jsonBodyLimit = bodyLimit({
+  maxSize: API_BODY_LIMIT_BYTES,
+  onError: (c) => c.json({ error: 'Request too large', error_ar: 'الطلب كبير جداً' }, 413),
+})
+app.use('/api/*', (c, next) => (UPLOAD_PATHS.test(c.req.path) ? next() : jsonBodyLimit(c, next)))
+
+// Answers that differ by who is signed in must never be shared between people
+// by a cache on the way (an office proxy, a carrier cache).
+app.use('/api/*', async (c, next) => {
+  await next()
+  c.res.headers.append('Vary', 'Authorization, Cookie')
+})
 
 // OpenAPI description of every endpoint, from the shared schemas (plan 7.1).
 app.get('/api/openapi.json', (c) => {

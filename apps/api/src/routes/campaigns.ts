@@ -16,7 +16,7 @@ import {
   toDonation,
   type DonationRow,
 } from '../lib/donations'
-import { checkRateLimit } from '../lib/rate-limit'
+import { checkRateLimit, tooMany } from '../lib/rate-limit'
 import type { Bindings } from '../lib/types'
 import { attachAuth, requireAuth } from '../middleware/auth'
 
@@ -89,7 +89,7 @@ campaigns.post('/:id/donations', requireAuth(), async (c) => {
   }
   // Counted after validation: only real attempts use up the hourly allowance.
   const rl = await checkRateLimit(c.env, 'donate', String(auth.userId), DONATION_LIMIT_PER_HOUR, 3600)
-  if (!rl.allowed) return bad(c, 429, 'Too many donations started, try again later', 'محاولات تبرع كثيرة، حاول لاحقاً')
+  if (!rl.allowed) return tooMany(c, rl, 'Too many donations started, try again later', 'محاولات تبرع كثيرة، حاول لاحقاً')
   if (parsed.data.method !== 'bank_transfer') {
     return bad(c, 409, 'Card payments are not available yet', 'الدفع بالبطاقة غير متاح بعد')
   }
