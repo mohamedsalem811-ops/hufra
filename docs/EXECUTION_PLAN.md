@@ -128,7 +128,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 ## Phase 7 — Backend changes for an app-only service
 
-**7.1 API additions the app needs**: a public "shared report" payload, cursor pagination for long lists, notification preferences, an app-version check (to require updates later), and the OpenAPI description of every endpoint generated from the shared schemas (`@hono/zod-openapi`) so the typed client is always correct.
+**7.1 API additions the app needs**: a public "shared report" payload, cursor pagination for long lists, notification preferences, an app-version check (to require updates later), and the OpenAPI description of every endpoint generated from the shared schemas (`@hono/zod-openapi`) so the typed client is always correct. Built: `GET /api/openapi.json` from a list of every endpoint (`apps/api/src/lib/openapi.ts`) whose schemas are the shared contracts, turned into JSON Schema by zod; a test fails if any served route is missing from it. This gives the same result as `@hono/zod-openapi` without rewriting every route.
 **7.2 Review limits for the app**: rate limits, upload limits and caching tuned for app traffic. Existing tests extended.
 
 ## Phase 8 — New admin panel and new website
