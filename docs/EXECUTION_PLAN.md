@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). Current: 7.1 (API additions).
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). 7.1 (#20). Current: 7.2 (limits for the app).
 
 ## 0. What we are building (agreed decisions)
 
@@ -129,7 +129,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 ## Phase 7 — Backend changes for an app-only service
 
 **7.1 API additions the app needs**: a public "shared report" payload, cursor pagination for long lists, notification preferences, an app-version check (to require updates later), and the OpenAPI description of every endpoint generated from the shared schemas (`@hono/zod-openapi`) so the typed client is always correct. Built: `GET /api/openapi.json` from a list of every endpoint (`apps/api/src/lib/openapi.ts`) whose schemas are the shared contracts, turned into JSON Schema by zod; a test fails if any served route is missing from it. This gives the same result as `@hono/zod-openapi` without rewriting every route.
-**7.2 Review limits for the app**: rate limits, upload limits and caching tuned for app traffic. Existing tests extended.
+**7.2 Review limits for the app**: rate limits, upload limits and caching tuned for app traffic. Existing tests extended. Built: signed-in people are limited per account (Libyan carriers share a few addresses between many phones) with a high per-address backstop; signed-out requests keep the strict per-address limits. Sign-in is limited per account (10 per 15 min) and per address (60); new accounts 30 per address per hour. Every 429 says when to try again (`Retry-After`, `retry_after`). API bodies are capped at 64 KB (uploads have their own limits, and the proof upload is refused by size before reading). API answers carry `Vary: Authorization, Cookie`.
 
 ## Phase 8 — New admin panel and new website
 

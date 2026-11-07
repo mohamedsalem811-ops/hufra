@@ -10,12 +10,17 @@ import {
   DUPLICATE_RADIUS_METERS,
 } from '../lib/geo'
 import {
-  checkRateLimit,
   REPORT_LIMIT_PER_IP,
+  REPORT_LIMIT_PER_SHARED_IP,
   REPORT_LIMIT_PER_USER,
   REPORT_LIMIT_WINDOW_SECONDS,
   UPVOTE_LIMIT_PER_IP,
+  UPVOTE_LIMIT_PER_SHARED_IP,
+  UPVOTE_LIMIT_PER_USER,
   UPVOTE_LIMIT_WINDOW_SECONDS,
+  actorLimits,
+  checkLimits,
+  tooMany,
 } from '../lib/rate-limit'
 import { recordAudit, hashIp } from '../lib/audit'
 import { notifyAdmins, notifyUser, deferFrom } from '../lib/notifications'
@@ -378,10 +383,11 @@ potholes.post('/:id/upvote', attachAuth, async (c) => {
     return c.json({ error: 'Sign in to confirm this pothole', error_ar: 'سجّل الدخول لتأكيد وجود الحفرة' }, 401)
   }
   const ip = clientIp(c)
-  const rl = await checkRateLimit(c.env, 'upvote_ip', ip, UPVOTE_LIMIT_PER_IP, UPVOTE_LIMIT_WINDOW_SECONDS)
-  if (!rl.allowed) {
-    return c.json({ error: 'Too many confirmations, please try again later', error_ar: 'تأكيدات كثيرة جداً، حاول لاحقاً' }, 429)
-  }
+  const rl = await checkLimits(
+    c.env,
+    actorLimits('upvote', ip, c.get('auth')?.userId, UPVOTE_LIMIT_PER_USER, UPVOTE_LIMIT_PER_SHARED_IP, UPVOTE_LIMIT_PER_IP, UPVOTE_LIMIT_WINDOW_SECONDS)
+  )
+  if (!rl.allowed) return tooMany(c, rl, 'Too many confirmations, please try again later', 'تأكيدات كثيرة جداً، حاول لاحقاً')
 
   const existing = await c.env.DB.prepare('SELECT id FROM potholes WHERE id = ? AND deleted_at IS NULL').bind(id).first()
   if (!existing) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
@@ -447,17 +453,15 @@ potholes.post('/', attachAuth, async (c) => {
   }
 
   const ip = clientIp(c)
-  const ipRl = await checkRateLimit(c.env, 'report_ip', ip, REPORT_LIMIT_PER_IP, REPORT_LIMIT_WINDOW_SECONDS)
-  if (!ipRl.allowed) {
-    return c.json({ error: 'Too many reports from this network, please try again later', error_ar: 'عدد بلاغات كبير من هذا الاتصال، حاول لاحقاً' }, 429)
-  }
-
   const authCtx = c.get('auth')
-  if (authCtx) {
-    const userRl = await checkRateLimit(c.env, 'report_user', String(authCtx.userId), REPORT_LIMIT_PER_USER, REPORT_LIMIT_WINDOW_SECONDS)
-    if (!userRl.allowed) {
-      return c.json({ error: 'Too many reports from this account, please try again later', error_ar: 'عدد بلاغات كبير من هذا الحساب، حاول لاحقاً' }, 429)
-    }
+  const rl = await checkLimits(
+    c.env,
+    actorLimits('report', ip, authCtx?.userId, REPORT_LIMIT_PER_USER, REPORT_LIMIT_PER_SHARED_IP, REPORT_LIMIT_PER_IP, REPORT_LIMIT_WINDOW_SECONDS)
+  )
+  if (!rl.allowed) {
+    return authCtx
+      ? tooMany(c, rl, 'Too many reports from this account, please try again later', 'عدد بلاغات كبير من هذا الحساب، حاول لاحقاً')
+      : tooMany(c, rl, 'Too many reports from this network, please try again later', 'عدد بلاغات كبير من هذا الاتصال، حاول لاحقاً')
   }
 
   if (!isPlausibleLibyaCoordinate({ lat: data.lat, lng: data.lng })) {

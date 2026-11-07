@@ -15,7 +15,7 @@ import {
 import { inspectImage } from '../lib/image-check'
 import { beforeCursor, readPage, toPage } from '../lib/paging'
 import { deferFrom, notifyAdmins } from '../lib/notifications'
-import { checkRateLimit } from '../lib/rate-limit'
+import { checkRateLimit, tooMany } from '../lib/rate-limit'
 import type { Bindings } from '../lib/types'
 import { attachAuth, requireAuth } from '../middleware/auth'
 
@@ -81,7 +81,11 @@ donations.post('/:id/proof', requireAuth(), async (c) => {
   if (!id) return bad(c, 400, 'Invalid id', 'رقم غير صحيح')
 
   const rl = await checkRateLimit(c.env, 'donation_proof', String(auth.userId), 20, 3600)
-  if (!rl.allowed) return bad(c, 429, 'Too many uploads, try again later', 'رفع كثير، حاول لاحقاً')
+  if (!rl.allowed) return tooMany(c, rl, 'Too many uploads, try again later', 'رفع كثير، حاول لاحقاً')
+  // Refuse a far-too-big body before reading it.
+  if (Number(c.req.header('Content-Length') || 0) > DONATION_LIMITS.proof.maxBytes + 64 * 1024) {
+    return bad(c, 413, 'Screenshot too large: it must be compressed before upload', 'الصورة كبيرة جداً، يجب ضغطها قبل الرفع')
+  }
 
   await expireStalePledges(c.env.DB)
   const row = await ownDonation(c, id)
