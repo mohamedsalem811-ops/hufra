@@ -176,6 +176,12 @@ export const campaignSummarySchema = z.strictObject({
   created_at: timestamp,
   funded_at: nullableTimestamp,
   closed_at: nullableTimestamp,
+  /** Where the money goes: the repair cost line by line (empty when not given). */
+  cost_items: z.array(z.strictObject({ label: z.string(), amount_lyd: money })),
+  /** What the repair really cost, published when the campaign is completed. */
+  final_cost_lyd: money.nullable(),
+  /** Photo of the repair receipt (/media/<key>), once published. */
+  receipt_key: nullableText,
 })
 
 export const donorWallEntrySchema = z.strictObject({
@@ -223,11 +229,8 @@ export const donationSchema = z.strictObject({
 export const adminCampaignSchema = campaignSummarySchema.extend({
   close_reason: nullableText,
   raised_millimes: z.number().int(),
-  cost_items: z.array(z.strictObject({ label: z.string(), amount_lyd: money })),
+  /** Not public: who carries out the repair. */
   contractor: nullableText,
-  final_cost_lyd: money.nullable(),
-  /** Public photo of the repair receipt (/media/<key>), once published. */
-  receipt_key: nullableText,
 })
 export const adminCampaignListResponseSchema = z.strictObject({
   results: z.array(adminCampaignSchema),

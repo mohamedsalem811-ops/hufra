@@ -144,6 +144,19 @@ export function toCampaignSummary(c: CampaignRow) {
     created_at: c.created_at,
     funded_at: c.funded_at,
     closed_at: c.closed_at,
+    cost_items: parseCostItems(c.cost_items_json),
+    final_cost_lyd: c.final_cost_millimes == null ? null : millimesToLyd(c.final_cost_millimes),
+    receipt_key: c.receipt_key ?? null,
+  }
+}
+
+export function parseCostItems(json: string | null | undefined): { label: string; amount_lyd: number }[] {
+  if (!json) return []
+  try {
+    const items = JSON.parse(json)
+    return Array.isArray(items) ? items.map((i) => ({ label: String(i.label), amount_lyd: Number(i.amount_lyd) })) : []
+  } catch {
+    return []
   }
 }
 

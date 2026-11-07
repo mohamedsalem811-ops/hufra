@@ -245,7 +245,7 @@ describe('report page', () => {
   })
 
   it('shows the campaign progress', async () => {
-    report = { ...detail(), campaign: { id: 3, pothole_id: 1042, status: 'active', target_lyd: 1200, confirmed_lyd: 300, under_review_lyd: 0, donors_count: 4, note_ar: null, note_en: null, street_ar: null, street_en: null, region_name_ar: 'x', region_name_en: 'x', created_at: '2026-11-01T00:00:00Z', funded_at: null, closed_at: null } }
+    report = { ...detail(), campaign: { id: 3, pothole_id: 1042, status: 'active', target_lyd: 1200, confirmed_lyd: 300, under_review_lyd: 0, donors_count: 4, note_ar: null, note_en: null, street_ar: null, street_en: null, region_name_ar: 'x', region_name_en: 'x', created_at: '2026-11-01T00:00:00Z', funded_at: null, closed_at: null, cost_items: [], final_cost_lyd: null, receipt_key: null } }
     show('/admin/reports/1042')
     expect(await screen.findByText('300 من 1,200 د.ل · 4 متبرع')).toBeInTheDocument()
   })

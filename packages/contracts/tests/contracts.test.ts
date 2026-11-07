@@ -138,3 +138,30 @@ describe('app additions', () => {
     expect(pageQuerySchema.safeParse({ limit: '1000' }).success).toBe(false)
   })
 })
+
+describe('lenient (how the app reads answers)', async () => {
+  const { lenient, campaignDetailResponseSchema, publicPotholeDetailResponseSchema } = await import('../src')
+  const { z } = await import('zod')
+
+  it('drops unknown fields at every depth instead of failing', () => {
+    const s = z.strictObject({ a: z.array(z.strictObject({ b: z.number() })).nullable(), c: z.union([z.strictObject({ x: z.literal(1) }), z.string()]) })
+    const input = { a: [{ b: 1, extra: true }], c: { x: 1, more: 2 }, top: 'new' }
+    expect(s.safeParse(input).success).toBe(false)
+    expect(lenient(s).parse(input)).toEqual({ a: [{ b: 1 }], c: { x: 1 } })
+    expect(lenient(s).parse({ a: null, c: 'text' })).toEqual({ a: null, c: 'text' })
+  })
+
+  it('still refuses a missing or wrong field', () => {
+    const s = z.strictObject({ n: z.number(), when: z.string().optional() })
+    expect(lenient(s).safeParse({}).success).toBe(false)
+    expect(lenient(s).safeParse({ n: 'x' }).success).toBe(false)
+    expect(lenient(s).parse({ n: 1 })).toEqual({ n: 1 })
+  })
+
+  it('keeps defaults and is cached', () => {
+    const s = z.object({ k: z.string().default('ar') })
+    expect(lenient(s).parse({})).toEqual({ k: 'ar' })
+    expect(lenient(publicPotholeDetailResponseSchema)).toBe(lenient(publicPotholeDetailResponseSchema))
+    expect(lenient(campaignDetailResponseSchema)).toBeDefined()
+  })
+})

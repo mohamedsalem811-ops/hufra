@@ -1,4 +1,4 @@
-import { errorResponseSchema, refreshResponseSchema } from '@hufra/contracts';
+import { errorResponseSchema, lenient, refreshResponseSchema } from '@hufra/contracts';
 import type { z } from 'zod';
 
 import type { TokenStore } from './token-store';
@@ -23,7 +23,7 @@ export interface RequestOptions<S extends z.ZodType> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** JSON-serialisable value, or FormData for multipart uploads. */
   body?: unknown;
-  /** Response schema from @hufra/contracts; the response is rejected if it does not match. */
+  /** Response schema from @hufra/contracts. Missing or wrong fields reject the answer; extra fields are ignored. */
   schema: S;
   /** Send the access token and refresh it on 401 (default true). */
   auth?: boolean;
@@ -85,7 +85,7 @@ export function createApiClient({
       throw new ApiError('network', 'Could not refresh the session (offline)');
     }
     if (!res.ok) return false;
-    const parsed = refreshResponseSchema.safeParse(await res.json().catch(() => null));
+    const parsed = lenient(refreshResponseSchema).safeParse(await res.json().catch(() => null));
     if (!parsed.success || !('access_token' in parsed.data)) return false;
     await tokens.set({ accessToken: parsed.data.access_token, refreshToken: parsed.data.refresh_token });
     return true;
@@ -133,7 +133,9 @@ export function createApiClient({
       const serverMessage = err.success ? { en: err.data.error, ar: err.data.error_ar } : undefined;
       throw new ApiError(res.status === 401 ? 'unauthorized' : 'http', `HTTP ${res.status}`, res.status, serverMessage);
     }
-    const parsed = schema.safeParse(json);
+    // Lenient: fields this version of the app does not know are ignored, so the
+    // server can add information without breaking copies already installed.
+    const parsed = lenient(schema).safeParse(json);
     if (!parsed.success) {
       throw new ApiError('invalid_response', `Unexpected response from ${method} ${path}`, res.status);
     }

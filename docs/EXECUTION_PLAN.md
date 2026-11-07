@@ -1,6 +1,6 @@
 # HUFRA — Execution plan: native app, new website, new admin
 
-Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). 7.1 (#20). 7.2 (#21). 8.1 (#22). 8.2a report queue and report page (#23). Current: 8.2b (repair campaigns and donation review).
+Status: **in progress.** Done: 1.1 (#3, admin password via #4), 1.2 (domain: later), 2.1 (#5), 2.2 (#6), 2.3 (#7), 3.1 (#8, Worker live at https://hufra.mohamedsalem811.workers.dev). 4.1 (#9, brand kit approved). 4.2 (app screen designs incl. donations, approved). 4.3 (admin panel and website designs, approved). 5.1 (#10), 5.2 + 5.3 (#11), 5.4 (#12), 6.1 (#13), 6.2 (#14), 6.3 (#15), 6.4–6.7 (#16), 6.8 (#17), 6.9 (#18; donation admin screens deferred to 8.2 by the owner). 6.10 (#19). 7.1 (#20). 7.2 (#21). 8.1 (#22). 8.2a report queue and report page (#23), 8.2b campaigns and donation review (#24). Current: 8.2c (settings, legal, contact, partners).
 
 ## 0. What we are building (agreed decisions)
 
@@ -139,7 +139,7 @@ One Cloudflare Worker serves everything on one domain: `/api/*` (API), `/admin/*
 
 **8.3 Admin tests**: component tests and browser end-to-end tests (Playwright) in CI.
 
-Note from 8.2b: the cost breakdown, final cost and receipt photo are stored and shown in the admin panel; the public pages show them from 8.4 (website) and the next app release, so that installed apps, which check answers strictly, keep working.
+Note from 8.2b: the app now reads server answers leniently (`lenient()` in `@hufra/contracts`: unknown fields are ignored; the server's tests stay strict, so a leaked private field is still caught). New information can then be added to answers without breaking copies already installed. Campaigns publish their cost breakdown, final cost and receipt photo (never the contractor), shown on the app's campaign card and, from 8.4, on the website.
 
 **8.4 Website** (`apps/web`): Astro, Arabic/English, right-to-left. Pages: home (what HUFRA is), how it works, regions covered, public transparency numbers (read-only), about / partners / donors, contact, download (app store badges once live), privacy policy, terms and donation rules (written against Libyan Law No. 6 of 2022 on electronic transactions and Law No. 5 of 2022 on cybercrime; reviewed by a Libyan lawyer before publishing; it must list the services that receive data: Cloudflare (hosting, storage), Google Firebase (Android push tokens, crash reports without names, emails or locations), OpenStreetMap tiles via our proxy), support/FAQ, partner showcase, account deletion information (required by Google Play).
 

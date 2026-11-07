@@ -34,6 +34,9 @@ const campaign: CampaignSummary = {
   created_at: '2026-11-01T08:00:00.000Z',
   funded_at: null,
   closed_at: null,
+  cost_items: [],
+  final_cost_lyd: null,
+  receipt_key: null,
 };
 const donation = (over: Partial<Donation> & { id: number }): Donation => ({
   campaign_id: 3,
@@ -138,6 +141,22 @@ describe('CampaignCardView', () => {
     await show(<CampaignCardView campaign={{ ...campaign, status: 'funded', confirmed_lyd: 1200, under_review_lyd: 0 }} />);
     expect(screen.getByText('اكتمل تمويل هذا الإصلاح، شكراً لكل المتبرعين.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'تبرّع لإصلاحها' })).toBeNull();
+  });
+
+  it('shows where the money goes', async () => {
+    const items = [{ label: 'مواد', amount_lyd: 700 }, { label: 'أجرة العمال', amount_lyd: 500 }];
+    await show(<CampaignCardView campaign={{ ...campaign, cost_items: items }} />);
+    expect(screen.getByRole('header', { name: 'أين تذهب التبرعات' })).toBeTruthy();
+    expect(screen.getByText('أجرة العمال')).toBeTruthy();
+    expect(screen.queryByText(/التكلفة النهائية/)).toBeNull();
+  });
+
+  it('shows the final cost and the receipt after the repair', async () => {
+    const items = [{ label: 'مواد', amount_lyd: 700 }];
+    await show(<CampaignCardView campaign={{ ...campaign, status: 'completed', cost_items: items, final_cost_lyd: 1150, receipt_key: 'photos/receipts/3/r.jpg' }} />);
+    expect(screen.getByText(/التكلفة النهائية للإصلاح:/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('imagebutton', { name: 'فتح إيصال الإصلاح' }));
+    expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(expect.stringMatching(/\/media\/photos\/receipts\/3\/r\.jpg$/));
   });
 
   it('says when donations are not open yet', async () => {

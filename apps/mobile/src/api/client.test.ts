@@ -36,8 +36,15 @@ describe('API client', () => {
 
   it('rejects a response that does not match the schema', async () => {
     const { api, fetchFn } = await setup();
-    fetchFn.mockResolvedValueOnce(json(200, { ok: true, extra: 'field' }));
+    fetchFn.mockResolvedValueOnce(json(200, { ok: 'yes' }));
     await expect(api.request('/api/thing', { schema: okSchema })).rejects.toMatchObject({ kind: 'invalid_response' });
+  });
+
+  it('ignores fields a newer server adds, at any depth', async () => {
+    const { api, fetchFn } = await setup();
+    const schema = z.strictObject({ ok: z.literal(true), items: z.array(z.strictObject({ id: z.number() })) });
+    fetchFn.mockResolvedValueOnce(json(200, { ok: true, added_later: 1, items: [{ id: 1, also_new: 'x' }] }));
+    await expect(api.request('/api/thing', { schema })).resolves.toEqual({ ok: true, items: [{ id: 1 }] });
   });
 
   it('keeps the server wording for errors', async () => {

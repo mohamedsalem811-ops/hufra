@@ -43,25 +43,12 @@ const idParam = (raw: string | undefined) => {
 }
 const noStore = (c: any) => c.header('Cache-Control', 'private, no-store')
 
-function costItems(json: string | null | undefined): { label: string; amount_lyd: number }[] {
-  if (!json) return []
-  try {
-    const items = JSON.parse(json)
-    return Array.isArray(items) ? items : []
-  } catch {
-    return []
-  }
-}
-
 function adminCampaign(row: Awaited<ReturnType<typeof getCampaignRow>> & {}) {
   return {
     ...toCampaignSummary(row),
     close_reason: row.close_reason,
     raised_millimes: raisedMillimes(row),
-    cost_items: costItems(row.cost_items_json),
     contractor: row.contractor ?? null,
-    final_cost_lyd: row.final_cost_millimes == null ? null : millimesToLyd(row.final_cost_millimes),
-    receipt_key: row.receipt_key ?? null,
   }
 }
 

@@ -1,5 +1,7 @@
 import { radius, space } from '@hufra/brand';
 import type { CampaignSummary } from '@hufra/contracts';
+import { Image } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
 import { HandHeart } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
@@ -7,6 +9,8 @@ import { AppText } from '@/components/app-text';
 import { useI18n } from '@/i18n/i18n-provider';
 import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
+
+import { mediaUrl } from '../reports/format';
 
 import { barParts, formatLyd } from './money';
 import { useDonationConfig, useOpenDonationPage, usePotholeCampaign } from './use-donations';
@@ -67,6 +71,7 @@ export function CampaignCardView({ campaign: c }: { campaign: CampaignSummary })
       <AppText variant="small" tone="secondary">
         {note}
       </AppText>
+      <CostDetails campaign={c} />
       {closed ? (
         <View style={[styles.notice, { backgroundColor: colors.status.fixed.bg }]}>
           <AppText variant="small" style={{ color: colors.status.fixed.fg }}>
@@ -95,6 +100,41 @@ export function CampaignCardView({ campaign: c }: { campaign: CampaignSummary })
   );
 }
 
+/** Plan 8.2: the repair cost line by line, then the final cost and receipt once repaired. */
+function CostDetails({ campaign: c }: { campaign: CampaignSummary }) {
+  const { colors } = useTheme();
+  const { t, locale } = useI18n();
+  const receipt = mediaUrl(c.receipt_key);
+  if (!c.cost_items.length && c.final_cost_lyd === null && !receipt) return null;
+  return (
+    <View style={[styles.costs, { borderColor: colors.border.default }]}>
+      {c.cost_items.length ? (
+        <>
+          <AppText variant="bodyStrong" accessibilityRole="header">
+            {t('campaign.costs')}
+          </AppText>
+          {c.cost_items.map((item, i) => (
+            <View key={i} style={styles.costRow}>
+              <AppText variant="small" style={styles.flex}>
+                {item.label}
+              </AppText>
+              <AppText variant="small" style={fontFor(600)}>
+                {formatLyd(item.amount_lyd, locale)}
+              </AppText>
+            </View>
+          ))}
+        </>
+      ) : null}
+      {c.final_cost_lyd !== null ? <AppText variant="bodyStrong">{t('campaign.finalCost', { a: formatLyd(c.final_cost_lyd, locale) })}</AppText> : null}
+      {receipt ? (
+        <Pressable accessibilityRole="imagebutton" accessibilityLabel={t('campaign.receiptOpen')} onPress={() => void WebBrowser.openBrowserAsync(receipt)}>
+          <Image source={receipt} style={[styles.receipt, { backgroundColor: colors.bg.subtle }]} contentFit="cover" accessible={false} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function Legend({ color, text }: { color: string; text: string }) {
   return (
     <View style={styles.legendRow}>
@@ -115,5 +155,8 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 3 },
   flex: { flex: 1 },
   notice: { borderRadius: radius.lg, padding: space[4] },
+  costs: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space[4], gap: space[2] },
+  costRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  receipt: { width: 120, height: 90, borderRadius: radius.md },
   donate: { minHeight: 56, borderRadius: radius.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[3] },
 });
