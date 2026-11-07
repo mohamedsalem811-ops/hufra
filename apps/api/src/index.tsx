@@ -104,7 +104,7 @@ app.use(
 
 // Plan 7.2: plain API bodies are small (the largest is a report with its
 // note). Uploads have their own, larger limits in their routes.
-const UPLOAD_PATHS = /^\/api\/(photos\/\d+|donations\/\d+\/proof)$/
+const UPLOAD_PATHS = /^\/api\/(photos\/\d+|donations\/\d+\/proof|admin\/campaigns\/\d+\/receipt)$/
 const jsonBodyLimit = bodyLimit({
   maxSize: API_BODY_LIMIT_BYTES,
   onError: (c) => c.json({ error: 'Request too large', error_ar: 'الطلب كبير جداً' }, 413),

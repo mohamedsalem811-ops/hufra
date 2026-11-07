@@ -22,6 +22,12 @@ export const DONATION_LIMITS = {
   proof: { maxBytes: 600 * 1024, maxLongEdgePx: 1600, types: ['image/webp', 'image/jpeg'] as const },
   rejectReasonMax: 300,
   noteMax: 600,
+  /** Lines in a campaign's cost breakdown. */
+  maxCostItems: 12,
+  /** Donations at or above this get a "large amount" warning in review, dinar. */
+  largeLyd: 500,
+  /** Repair receipts: one photo, compressed in the admin panel before upload. */
+  receipt: { maxBytes: 600 * 1024, maxLongEdgePx: 1600 },
 } as const
 
 /** Dinar (up to 3 decimals) -> integer thousandths. */
@@ -54,22 +60,46 @@ export const createDonationSchema = z.object({
   method: donationMethodSchema.default('bank_transfer'),
 })
 
-export const createCampaignSchema = z.object({
-  pothole_id: id,
-  target_lyd: lydAmountSchema.min(1).max(DONATION_LIMITS.maxTargetLyd),
-  note_ar: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
-  note_en: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
+/** One line of a repair's cost breakdown (materials, labour...). */
+export const costItemSchema = z.object({
+  label: z.string().trim().min(1).max(120),
+  amount_lyd: lydAmountSchema.min(0).max(DONATION_LIMITS.maxTargetLyd),
 })
+const costItems = z.array(costItemSchema).max(DONATION_LIMITS.maxCostItems)
+const sumLyd = (items: { amount_lyd: number }[]) => Math.round(items.reduce((t, i) => t + i.amount_lyd * 1000, 0)) / 1000
+
+export const createCampaignSchema = z
+  .object({
+    pothole_id: id,
+    target_lyd: lydAmountSchema.min(1).max(DONATION_LIMITS.maxTargetLyd),
+    /** When given, the items must add up to the target. */
+    cost_items: costItems.optional(),
+    contractor: z.string().trim().max(120).optional(),
+    note_ar: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
+    note_en: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
+  })
+  .refine((v) => !v.cost_items?.length || sumLyd(v.cost_items) === v.target_lyd, {
+    message: 'The cost items must add up to the target',
+    path: ['cost_items'],
+  })
 
 export const updateCampaignSchema = z
   .object({
     target_lyd: lydAmountSchema.min(1).max(DONATION_LIMITS.maxTargetLyd).optional(),
+    cost_items: costItems.optional(),
+    contractor: z.string().trim().max(120).optional(),
     status: z.enum(['completed', 'cancelled']).optional(),
     reason: z.string().trim().max(DONATION_LIMITS.rejectReasonMax).optional(),
+    /** What the repair really cost, published when the campaign is completed. */
+    final_cost_lyd: lydAmountSchema.min(0).max(DONATION_LIMITS.maxTargetLyd).optional(),
     note_ar: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
     note_en: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, 'Nothing to change')
+  .refine((v) => !(v.cost_items?.length && v.target_lyd !== undefined) || sumLyd(v.cost_items) === v.target_lyd, {
+    message: 'The cost items must add up to the target',
+    path: ['cost_items'],
+  })
 
 export const allocateSchema = z.object({
   amount_lyd: lydAmountSchema.positive().max(DONATION_LIMITS.maxTargetLyd),
@@ -186,6 +216,50 @@ export const donationSchema = z.strictObject({
   street_ar: nullableText,
   street_en: nullableText,
 })
+
+// ------------------------------------------------------------ admin (8.2)
+
+/** A campaign as the admin panel sees it: the public summary plus the cost details. */
+export const adminCampaignSchema = campaignSummarySchema.extend({
+  close_reason: nullableText,
+  raised_millimes: z.number().int(),
+  cost_items: z.array(z.strictObject({ label: z.string(), amount_lyd: money })),
+  contractor: nullableText,
+  final_cost_lyd: money.nullable(),
+  /** Public photo of the repair receipt (/media/<key>), once published. */
+  receipt_key: nullableText,
+})
+export const adminCampaignListResponseSchema = z.strictObject({
+  results: z.array(adminCampaignSchema),
+  /** Money left over from closed campaigns, ready to move to an open one. */
+  pool_lyd: money,
+})
+export const adminCampaignResponseSchema = z.strictObject({ campaign: adminCampaignSchema, pool_lyd: money.optional() })
+
+export const donationWarningSchema = z.enum([
+  /** At or above DONATION_LIMITS.largeLyd: check the statement twice. */
+  'large_amount',
+  /** The same donor has another donation of the same amount waiting for review. */
+  'same_amount_pending',
+  /** The same donor had donations rejected before. */
+  'earlier_rejections',
+  /** The donor typed a different amount when sending the screenshot than when pledging. */
+  'amount_changed',
+])
+
+export const adminDonationSchema = donationSchema.extend({
+  donor: z.strictObject({ email: z.string(), name: nullableText, code: z.string() }),
+  /** Same-origin URL of the private screenshot (staff and the donor only). */
+  proof_url: nullableText,
+  proof_uploaded_at: nullableTimestamp,
+  warnings: z.array(donationWarningSchema),
+})
+export const adminDonationListResponseSchema = z.strictObject({
+  results: z.array(adminDonationSchema),
+  /** How many donations are in each review tab. */
+  counts: z.strictObject({ under_review: z.number().int(), awaiting_transfer: z.number().int(), confirmed: z.number().int(), rejected: z.number().int() }),
+})
+export const adminDonationReviewResponseSchema = z.strictObject({ donation: donationSchema, campaign_funded: z.boolean() })
 
 export const createDonationResponseSchema = z.strictObject({ donation: donationSchema, bank: bankDetailsSchema })
 export const donationDetailResponseSchema = z.strictObject({ donation: donationSchema, bank: bankDetailsSchema.nullable() })

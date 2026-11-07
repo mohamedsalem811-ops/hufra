@@ -46,6 +46,11 @@ async function encode(img: Awaited<ReturnType<Canvas2D['load']>>, longEdge: numb
   throw new Error('too-large')
 }
 
+/** One image under a size limit (a receipt): JPEG, no EXIF. */
+export async function prepareSingle(file: Blob, longEdge: number, maxBytes: number, canvas: Canvas2D = browserCanvas): Promise<Blob> {
+  return encode(await canvas.load(file), longEdge, maxBytes)
+}
+
 export async function preparePhoto(file: Blob, canvas: Canvas2D = browserCanvas): Promise<Encoded> {
   const img = await canvas.load(file)
   return {

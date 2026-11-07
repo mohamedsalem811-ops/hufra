@@ -108,6 +108,10 @@ export interface CampaignRow {
   allocated_in: number
   under_review: number
   donors_count: number
+  cost_items_json?: string | null
+  contractor?: string | null
+  final_cost_millimes?: number | null
+  receipt_key?: string | null
 }
 
 export async function getCampaignRow(db: DB, id: number): Promise<CampaignRow | null> {

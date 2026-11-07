@@ -7,6 +7,11 @@ import type { MessageKey } from '@/i18n/messages'
 import { Shell } from '@/layout/shell'
 import { DashboardPage } from '@/routes/dashboard'
 import { LoginPage } from '@/routes/login'
+import { CampaignPage } from '@/campaigns/campaign-page'
+import { CampaignsPage } from '@/campaigns/campaigns-page'
+import { NewCampaignPage } from '@/campaigns/new-campaign-page'
+import { ReviewPage } from '@/donations/review-page'
+import { REVIEW_TABS } from '@/donations/use-donations'
 import { QueuePage } from '@/reports/queue-page'
 import { ReportPage } from '@/reports/report-page'
 import type { QueueFilters } from '@/reports/use-reports'
@@ -67,8 +72,15 @@ const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/reports/$id', component: ReportPage }),
   soon('/map', 'nav.map'),
   soon('/duplicates', 'nav.duplicates'),
-  soon('/campaigns', 'nav.campaigns'),
-  soon('/donations', 'nav.donations'),
+  createRoute({ getParentRoute: () => root, path: '/campaigns', component: CampaignsPage }),
+  createRoute({ getParentRoute: () => root, path: '/campaigns/new', component: NewCampaignPage, validateSearch: (s: Record<string, unknown>) => ({ report: positive(s.report) }) }),
+  createRoute({ getParentRoute: () => root, path: '/campaigns/$id', component: CampaignPage }),
+  createRoute({
+    getParentRoute: () => root,
+    path: '/donations',
+    component: ReviewPage,
+    validateSearch: (s: Record<string, unknown>) => ({ tab: oneOf(s.tab, REVIEW_TABS.filter((k) => k !== 'under_review')), id: positive(s.id) }),
+  }),
   soon('/regions', 'nav.regions'),
   soon('/people', 'nav.people'),
   soon('/partners', 'nav.partners'),
