@@ -100,3 +100,31 @@ export type GeneralRules = z.infer<typeof generalRulesSchema>
 export type ContactSettings = z.infer<typeof contactSettingsSchema>
 export type LegalInfo = z.infer<typeof legalInfoSchema>
 export type AuditLogEntry = z.infer<typeof auditLogEntrySchema>
+
+// ---------------------------------------------------------------- public numbers (8.4)
+
+const count = z.number().int().nonnegative()
+
+/** GET /api/site/numbers: the website's public figures (home and transparency). */
+export const siteNumbersResponseSchema = z.strictObject({
+  reports: count,
+  fixed: count,
+  open: count,
+  /** Days from report to repair, over every repair. */
+  avg_fix_days: z.number().nullable(),
+  /** Every confirmed donation. */
+  confirmed_lyd: z.number(),
+  /** Final repair costs published on completed campaigns. */
+  spent_lyd: z.number(),
+  /** Confirmed money in campaigns still open. */
+  in_open_campaigns_lyd: z.number(),
+  /** Leftovers moved from closed campaigns to later ones. */
+  moved_lyd: z.number(),
+  /** Repairs per calendar month, oldest first; the last is the current month. */
+  monthly_fixed: z.array(z.strictObject({ month: z.string().regex(/^\d{4}-\d{2}$/), count })),
+  by_region: z.array(
+    z.strictObject({ id: z.number().int().positive(), name_ar: z.string(), name_en: z.string(), reports: count, fixed: count, avg_fix_days: z.number().nullable() })
+  ),
+  updated_at: z.string().min(10),
+})
+export type SiteNumbers = z.infer<typeof siteNumbersResponseSchema>

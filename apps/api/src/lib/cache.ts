@@ -11,7 +11,7 @@
 export const PUBLIC_CACHE_TTL_SECONDS = 60
 
 /** Every cache key that backs a public (anonymous) read. Cleared whenever data changes. */
-export const PUBLIC_CACHE_KEYS = ['counters:v1', 'top_reporter:v1', 'recent_fixed:v1', 'showcase:v1'] as const
+export const PUBLIC_CACHE_KEYS = ['counters:v1', 'top_reporter:v1', 'recent_fixed:v1', 'showcase:v1', 'site_numbers:v1'] as const
 export type PublicCacheKey = (typeof PUBLIC_CACHE_KEYS)[number]
 
 const CACHE_ORIGIN = 'https://public-cache.hufra.internal/'

@@ -1,0 +1,21 @@
+---
+import { href, t } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+// One 404 page for both languages: Arabic first, English below it.
+---
+
+<Base locale="ar" title={t('ar', 'notFound.title')} noindex>
+  <div class="mx-auto flex max-w-[760px] flex-col gap-10 px-4 py-20 sm:px-6">
+    <section class="flex flex-col items-start gap-3">
+      <h1 class="m-0 text-[36px] font-bold">{t('ar', 'notFound.h1')}</h1>
+      <p class="m-0 text-lg text-secondary">{t('ar', 'notFound.text')}</p>
+      <a href={href('ar', '/')} class="flex min-h-11 items-center font-semibold">{t('ar', 'notFound.home')}</a>
+    </section>
+    <section lang="en" dir="ltr" class="flex flex-col items-start gap-3 border-t border-default pt-8">
+      <h2 class="m-0 text-2xl font-bold">{t('en', 'notFound.h1')}</h2>
+      <p class="m-0 text-secondary">{t('en', 'notFound.text')}</p>
+      <a href={href('en', '/')} class="flex min-h-11 items-center font-semibold">{t('en', 'notFound.home')}</a>
+    </section>
+  </div>
+</Base>

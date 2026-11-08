@@ -166,6 +166,7 @@ export const ENDPOINTS: Endpoint[] = [
   },
   { method: 'get', path: '/api/site/contact', tag: 'Site', summary: 'Public contact details', access: 'public', response: c.contactResponseSchema },
   { method: 'get', path: '/api/site/legal', tag: 'Site', summary: 'The legal information, its version and the version users must have accepted', access: 'public', response: c.legalResponseSchema },
+  { method: 'get', path: '/api/site/numbers', tag: 'Site', summary: 'Public figures for the website (cached for a minute)', access: 'public', response: c.siteNumbersResponseSchema },
   { method: 'post', path: '/api/auth/me/accept-legal', tag: 'Accounts', summary: 'Accept a version of the legal pages', access: 'user', body: c.acceptLegalSchema, response: z.object({ ok: z.literal(true), version: z.number().int() }) },
 ]
 
