@@ -2,6 +2,7 @@
 import { Hono } from 'hono'
 
 import { cachedJson } from '../lib/cache'
+import { csvCell, csvResponse } from '../lib/csv'
 import { deferFrom } from '../lib/notifications'
 import { loadContact, loadLegal } from '../lib/site-settings'
 import type { Bindings } from '../lib/types'
@@ -90,6 +91,27 @@ site.get('/numbers', async (c) => {
   )
   c.header('Cache-Control', 'public, max-age=60')
   return c.json(payload)
+})
+
+const OPEN_DATA_COLUMNS = [
+  'id', 'created_at', 'status', 'severity', 'region_ar', 'region_en', 'street_ar', 'street_en', 'lat', 'lng',
+  'confirmations', 'verified_at', 'under_repair_at', 'fixed_at', 'days_to_fix',
+] as const
+
+// Open data: every public report as CSV, the same fields the public map shows.
+// Never who reported it. Cached for five minutes.
+site.get('/open-data.csv', async (c) => {
+  const rows = await c.env.DB.prepare(
+    `SELECT p.id, p.created_at, p.status, p.severity, r.name_ar AS region_ar, r.name_en AS region_en, p.street_ar, p.street_en,
+       p.lat, p.lng, p.upvotes_count AS confirmations, p.verified_at, p.under_repair_at, p.fixed_at,
+       CASE WHEN p.fixed_at IS NOT NULL THEN ROUND(${FIX_DAYS}, 1) END AS days_to_fix
+     FROM potholes p JOIN regions r ON r.id = p.region_id
+     WHERE p.deleted_at IS NULL
+     ORDER BY p.id ASC
+     LIMIT 50000`
+  ).all<Record<string, unknown>>()
+  const lines = [OPEN_DATA_COLUMNS.join(','), ...rows.results.map((r) => OPEN_DATA_COLUMNS.map((k) => csvCell(r[k])).join(','))]
+  return csvResponse(lines, 'hufra-open-data', 'public, max-age=300')
 })
 
 export default site

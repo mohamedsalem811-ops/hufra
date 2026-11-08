@@ -1,7 +1,7 @@
 ---
 import { markUrl } from '../brand'
 import StoreBadges from '../components/StoreBadges.astro'
-import { clientMessages, href, t, type Locale } from '../i18n/i18n'
+import { HOME_KEYS, href, pickMessages, t, type Locale } from '../i18n/i18n'
 import Base from '../layouts/Base.astro'
 
 interface Props {
@@ -100,7 +100,7 @@ const tiles = [
           <h2 id="partners" class="m-0 text-[28px] font-bold sm:text-[34px]">{t(locale, 'home.partners')}</h2>
           <span class="text-secondary">{t(locale, 'home.partnersLead')}</span>
         </div>
-        <a data-contact-email hidden class="flex min-h-11 items-center font-semibold">{t(locale, 'home.becomePartner')}</a>
+        <a href={href(locale, '/contact')} class="flex min-h-11 items-center font-semibold">{t(locale, 'home.becomePartner')}</a>
       </div>
       <div data-partners-featured></div>
       <div class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3" data-partners-list></div>
@@ -117,7 +117,7 @@ const tiles = [
     </div>
   </section>
 
-  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify({ locale, m: clientMessages(locale) })} />
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify({ locale, m: pickMessages(locale, HOME_KEYS) })} />
 </Base>
 
 <script>

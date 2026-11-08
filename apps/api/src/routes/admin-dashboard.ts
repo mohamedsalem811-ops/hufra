@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { recordAudit } from '../lib/audit'
 import type { Bindings } from '../lib/types'
 import { attachAuth, requireRole } from '../middleware/auth'
+import { csvCell, csvResponse } from '../lib/csv'
 import { queueWhere } from './admin-reports'
 
 const dashboard = new Hono<{ Bindings: Bindings }>()
@@ -131,17 +132,6 @@ const COLUMNS = [
 ] as const
 const MAX_ROWS = 10000
 
-/**
- * One CSV cell. Quoted when needed, and text that a spreadsheet would run as a
- * formula (=, +, -, @, tab, return) is prefixed with an apostrophe.
- */
-export function csvCell(v: unknown): string {
-  if (v === null || v === undefined) return ''
-  let s = String(v)
-  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-
 // Reports as a spreadsheet, with the queue's filters. Never who reported them.
 dashboard.get('/export/reports.csv', async (c) => {
   const parsed = exportQuerySchema.safeParse(c.req.query())
@@ -171,15 +161,7 @@ dashboard.get('/export/reports.csv', async (c) => {
     entityId: null,
     after: { rows: rows.results.length, filters: Object.fromEntries(Object.entries(c.req.query()).filter(([k]) => k !== 'page' && k !== 'page_size')) },
   })
-  const date = new Date().toISOString().slice(0, 10)
-  // The byte-order mark makes Excel read the Arabic text as UTF-8.
-  return new Response(`﻿${lines.join('\r\n')}\r\n`, {
-    headers: {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="hufra-reports-${date}.csv"`,
-      'Cache-Control': 'private, no-store',
-    },
-  })
+  return csvResponse(lines, 'hufra-reports', 'private, no-store')
 })
 
 export default dashboard

@@ -23,13 +23,23 @@ export function otherPath(locale: Locale, pathname: string): string {
   return href(locale === 'ar' ? 'en' : 'ar', bare)
 }
 
-/** Every string the browser scripts need, for one language (kept small). */
-export function clientMessages(locale: Locale) {
-  const keys = [
-    'money.lyd', 'unit.days', 'home.numbersUnavailable', 'home.before', 'home.after', 'home.beforeAlt', 'home.afterAlt', 'home.fixedIn',
-    'home.fixedSameDay', 'home.raised', 'home.raisedAlt', 'home.donors', 'home.featured', 'home.partnerFixed', 'home.partnerLyd',
-    'home.partnerFixedN', 'home.visit', 'home.newWindow', 'home.logoAlt', 'home.noStreet', 'kind.repair_sponsor', 'kind.government', 'kind.tech', 'kind.media',
-  ] as const satisfies readonly MessageKey[]
-  return Object.fromEntries(keys.map((k) => [k, dict[locale][k]])) as Record<(typeof keys)[number], string>
+/** The strings a page's browser script needs, for one language (sent as JSON, kept small). */
+export function pickMessages<K extends MessageKey>(locale: Locale, keys: readonly K[]): Record<K, string> {
+  return Object.fromEntries(keys.map((k) => [k, dict[locale][k]])) as Record<K, string>
 }
-export type ClientMessages = ReturnType<typeof clientMessages>
+
+export const HOME_KEYS = [
+  'money.lyd', 'unit.days', 'home.numbersUnavailable', 'home.before', 'home.after', 'home.beforeAlt', 'home.afterAlt', 'home.fixedIn',
+  'home.fixedSameDay', 'home.raised', 'home.raisedAlt', 'home.donors', 'home.featured', 'home.partnerFixed', 'home.partnerLyd',
+  'home.partnerFixedN', 'home.visit', 'home.newWindow', 'home.logoAlt', 'home.noStreet', 'kind.repair_sponsor', 'kind.government', 'kind.tech', 'kind.media',
+] as const satisfies readonly MessageKey[]
+export type ClientMessages = Record<(typeof HOME_KEYS)[number], string>
+
+export const TRANSPARENCY_KEYS = [
+  'money.lyd', 'tr.updated', 'tr.fixedPct', 'tr.monthlyAlt', 'tr.asTable', 'tr.asChart', 'tr.month', 'tr.fixedCol', 'tr.noReports',
+  'tr.receiptView', 'tr.receiptAlt', 'tr.diffMoved', 'tr.diffOver', 'tr.noCompleted', 'tr.unavailable', 'unit.days', 'home.noStreet', 'home.newWindow',
+] as const satisfies readonly MessageKey[]
+export type TransparencyMessages = Record<(typeof TRANSPARENCY_KEYS)[number], string>
+
+export const CONTACT_KEYS = ['contact.none', 'contact.unavailable', 'home.newWindow'] as const satisfies readonly MessageKey[]
+export type ContactMessages = Record<(typeof CONTACT_KEYS)[number], string>

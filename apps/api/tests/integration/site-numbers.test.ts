@@ -67,3 +67,37 @@ describe('GET /api/site/numbers', () => {
     expect(lastMonths(new Date('2027-02-10T00:00:00Z'))).toEqual(['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02'])
   })
 })
+
+describe('transparency data', () => {
+  it('lists completed campaigns with their final cost, newest first; open stays the default', async () => {
+    await report({ createdDaysAgo: 30, status: 'fixed', fixedAfterDays: 5 })
+    await report({ createdDaysAgo: 20, status: 'fixed', fixedAfterDays: 5 })
+    await report({ createdDaysAgo: 10 })
+    await t.db.prepare(`INSERT INTO campaigns (pothole_id, target_millimes, status, final_cost_millimes, closed_at) VALUES (1, 800000, 'completed', 750000, '2026-01-01T00:00:00.000Z')`).run()
+    await t.db.prepare(`INSERT INTO campaigns (pothole_id, target_millimes, status, final_cost_millimes, closed_at) VALUES (2, 500000, 'completed', 500000, '2026-03-01T00:00:00.000Z')`).run()
+    await t.db.prepare(`INSERT INTO campaigns (pothole_id, target_millimes) VALUES (3, 400000)`).run()
+
+    const done = await json(await request(t.env, '/api/campaigns?status=completed'))
+    expect(done.results.map((c: { pothole_id: number; final_cost_lyd: number }) => [c.pothole_id, c.final_cost_lyd])).toEqual([[2, 500], [1, 750]])
+    const open = await json(await request(t.env, '/api/campaigns'))
+    expect(open.results.map((c: { pothole_id: number }) => c.pothole_id)).toEqual([3])
+    expect((await request(t.env, '/api/campaigns?status=bogus')).status).toBe(400)
+  })
+
+  it('offers every public report as open data, without who reported it', async () => {
+    const id = await report({ createdDaysAgo: 3, status: 'fixed', fixedAfterDays: 2 })
+    await t.db.prepare(`UPDATE potholes SET street_ar = '=cmd()', reporter_contact = '0912345678' WHERE id = ?`).bind(id).run()
+    await report({ createdDaysAgo: 1, deleted: true })
+    const res = await request(t.env, '/api/site/open-data.csv')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=300')
+    expect(res.headers.get('Content-Disposition')).toMatch(/hufra-open-data-\d{4}-\d{2}-\d{2}\.csv/)
+    const text = new TextDecoder().decode(await res.arrayBuffer())
+    const lines = text.trim().split('\r\n')
+    expect(lines[0]).toBe('id,created_at,status,severity,region_ar,region_en,street_ar,street_en,lat,lng,confirmations,verified_at,under_repair_at,fixed_at,days_to_fix')
+    expect(lines).toHaveLength(2)
+    expect(lines[1]).toContain(`,fixed,`)
+    expect(lines[1]).toContain(`'=cmd()`)
+    expect(text).not.toMatch(/0912345678|reporter/)
+  })
+})
