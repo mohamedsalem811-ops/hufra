@@ -53,3 +53,6 @@
 
 /* A blank of the legal pages not filled yet (plan 8.4c). */
 [data-missing] { background: var(--color-feedback-warning-bg); color: var(--color-text-primary); border-radius: 4px; padding-inline: 4px; }
+
+/* Headings the donation pages move focus to (for screen readers) are not controls: no focus ring. */
+h1[tabindex='-1']:focus { outline: none; }

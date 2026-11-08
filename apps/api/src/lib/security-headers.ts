@@ -78,7 +78,8 @@ export function headersFor(surface: Surface): Record<string, string> {
 }
 
 // The old citizen pages and their files (removed in plan 9.2).
-const LEGACY = /^\/(map|report|pothole\/|donate\/|donations(\/|$)|login|register|account|trust|static\/|sw\.js|manifest\.webmanifest|favicon\.svg)/
+// The donation pages moved to the website in plan 9.2 and are under the site policy.
+const LEGACY = /^\/(map|report|pothole\/|login|register|account|trust|static\/|sw\.js|manifest\.webmanifest|favicon\.svg)/
 
 /** Which surface a path belongs to. */
 export function surfaceFor(path: string): Surface {

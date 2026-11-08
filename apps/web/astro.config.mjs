@@ -6,14 +6,15 @@ import { defineConfig } from 'astro/config'
 
 const api = process.env.HUFRA_API ?? 'http://localhost:8788'
 
-// Shared report links /r/<id> use one page, /r/ (plan 8.5). The Worker serves it
-// in production; this does the same in development.
+// Shared report links /r/<id> (plan 8.5), campaigns /donate/<id> and one
+// donation /donations/<id> (plan 9.2) each use one page for every id. The
+// Worker serves them in production; this does the same in development.
 const sharedLinks = {
   name: 'hufra-shared-links',
   configureServer(server) {
     server.middlewares.use((req, _res, next) => {
-      const m = /^(\/en)?\/r\/[1-9]\d{0,9}\/?(\?.*)?$/.exec(req.url ?? '')
-      if (m) req.url = `${m[1] ?? ''}/r/`
+      const m = /^(\/en)?\/(r|donate|donations)\/[1-9]\d{0,9}\/?(\?.*)?$/.exec(req.url ?? '')
+      if (m) req.url = `${m[1] ?? ''}/${m[2]}/${m[3] ?? ''}`
       next()
     })
   },

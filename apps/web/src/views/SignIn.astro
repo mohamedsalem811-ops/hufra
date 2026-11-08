@@ -1,0 +1,79 @@
+---
+// Website sign-in and sign-up (plan 9.2): the same accounts as the app. Used
+// when someone opens a donation link outside the app (inside the app the
+// Donate button signs the website in by itself). ?next= is where to go after.
+import { PASSWORD_LIMITS, TEXT_LIMITS } from '@hufra/contracts'
+
+import { ui } from '../components/ui'
+import { href, pickPrefix, t, type Locale } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+  mode: 'in' | 'up'
+}
+const { locale, mode } = Astro.props
+const up = mode === 'up'
+const data = { locale, mode, m: pickPrefix(locale, 'auth.'), min: PASSWORD_LIMITS.minLength }
+const legal = (path: string, key: 'auth.terms' | 'auth.privacy') => ({ to: href(locale, path), text: t(locale, key) })
+const terms = legal('/terms', 'auth.terms')
+const privacy = legal('/privacy', 'auth.privacy')
+---
+
+<Base locale={locale} title={t(locale, up ? 'auth.signUp' : 'auth.signIn')} noindex>
+  <div class="mx-auto flex w-full max-w-[480px] flex-col gap-5 px-4 pt-12 pb-[72px] sm:px-6">
+    <form data-auth-form method="post" novalidate class={ui.card}>
+      <h1 class={ui.h1}>{t(locale, up ? 'auth.signUp' : 'auth.signIn')}</h1>
+      <p class={ui.muted}>{t(locale, up ? 'auth.signUpLead' : 'auth.signInLead')}</p>
+      <div class="flex flex-col gap-1.5">
+        <label for="email" class={ui.label}>{t(locale, 'auth.email')}</label>
+        <input id="email" name="email" type="email" required autocomplete={up ? 'email' : 'username'} dir="ltr" maxlength="254" class={ui.input} />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label for="password" class={ui.label}>{t(locale, 'auth.password')}</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          required
+          autocomplete={up ? 'new-password' : 'current-password'}
+          minlength={up ? PASSWORD_LIMITS.minLength : undefined}
+          maxlength={PASSWORD_LIMITS.maxLength}
+          dir="ltr"
+          aria-describedby={up ? 'password-hint' : undefined}
+          class={ui.input}
+        />
+        {up && <span id="password-hint" class={ui.hint}>{t(locale, 'auth.passwordHint', { n: PASSWORD_LIMITS.minLength })}</span>}
+      </div>
+      {
+        up && (
+          <>
+            <div class="flex flex-col gap-1.5">
+              <label for="name" class={ui.label}>{t(locale, 'auth.name')}</label>
+              <input id="name" name="display_name" type="text" autocomplete="name" maxlength={TEXT_LIMITS.displayName} aria-describedby="name-hint" class={ui.input} />
+              <span id="name-hint" class={ui.hint}>{t(locale, 'auth.nameHint')}</span>
+            </div>
+            <label class="flex min-h-11 items-start gap-3 text-[15px] leading-[1.7]">
+              <input type="checkbox" name="consent" required class="mt-1 size-5 shrink-0 accent-[var(--color-action-primary)]" />
+              <span>
+                {t(locale, 'auth.consentBefore')}<a href={terms.to} target="_blank" rel="noopener">{terms.text}</a>{t(locale, 'auth.and')}<a href={privacy.to} target="_blank" rel="noopener">{privacy.text}</a>
+              </span>
+            </label>
+          </>
+        )
+      }
+      <p data-error role="alert" hidden class={ui.error}></p>
+      <button type="submit" class={ui.primary}>{t(locale, up ? 'auth.submitUp' : 'auth.submitIn')}</button>
+    </form>
+    <p class="m-0 text-center text-[15px] text-secondary">
+      {t(locale, up ? 'auth.haveAccount' : 'auth.noAccount')}
+      <a data-other href={href(locale, up ? '/sign-in' : '/sign-up')} class="font-semibold">{t(locale, up ? 'auth.signIn' : 'auth.signUp')}</a>
+    </p>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify(data)} />
+</Base>
+
+<script>
+  import { startAuth } from '../scripts/sign-in'
+  startAuth()
+</script>

@@ -1,0 +1,187 @@
+---
+// "My donations" (/donations) and one donation (/donations/<id>): the transfer
+// step with the bank details and code, the screenshot upload, then under
+// review, the receipt, or why it closed (plan 9.2, design board 9). The Worker
+// serves this page for every /donations/<id>; the browser fills it.
+import { DONATION_LIMITS } from '@hufra/contracts'
+
+import { ui } from '../components/ui'
+import { href, pickPrefix, t, type Locale } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+const QUICK = [10, 25, 50, 100]
+const data = {
+  locale,
+  m: pickPrefix(locale, 'don.'),
+  signOut: t(locale, 'auth.signOut'),
+  limits: { min: DONATION_LIMITS.minLyd, max: DONATION_LIMITS.maxLyd, proof: { maxBytes: DONATION_LIMITS.proof.maxBytes, maxLongEdgePx: DONATION_LIMITS.proof.maxLongEdgePx } },
+}
+const row = 'flex items-center justify-between gap-3 border-b border-subtle py-3 last:border-b-0'
+const bankRow = 'flex flex-col gap-1 border-b border-subtle py-3 last:border-b-0'
+const bank: [string, string, { copy?: boolean; ltr?: boolean; what?: string }][] = [
+  ['account_holder', t(locale, 'don.holder'), { copy: true }],
+  ['bank_name', t(locale, 'don.bankName'), {}],
+  ['account_number', t(locale, 'don.account'), { copy: true, ltr: true, what: t(locale, 'don.f.account') }],
+  ['iban', t(locale, 'don.iban'), { copy: true, ltr: true, what: 'IBAN' }],
+  ['amount', t(locale, 'don.sum'), { copy: true }],
+]
+const copy = 'inline-flex min-h-11 shrink-0 items-center rounded-lg border border-strong bg-surface px-3.5 text-sm font-semibold text-primary hover:bg-subtle'
+const summary = [
+  ['amount', 'don.f.amount'],
+  ['campaign', 'don.f.campaign'],
+  ['code', 'don.f.code'],
+  ['status', 'don.f.status'],
+  ['date', 'don.f.date'],
+] as const
+---
+
+<Base locale={locale} title={t(locale, 'don.mine')} noindex>
+  <div class={ui.page}>
+    <div data-status class="flex flex-col items-start gap-3">
+      <p class="m-0 text-secondary" role="status" data-status-text>{t(locale, 'don.loading')}</p>
+      <button type="button" data-retry hidden class={ui.secondary}>{t(locale, 'don.retry')}</button>
+    </div>
+
+    <!-- My donations -->
+    <section data-view="mine" hidden class="flex flex-col gap-4" aria-labelledby="mine-title">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <h1 id="mine-title" tabindex="-1" class={ui.h1}>{t(locale, 'don.mine')}</h1>
+        <p data-who class="m-0 text-sm text-secondary"></p>
+      </div>
+      <div class={ui.card}>
+        <p class="m-0 text-sm text-secondary">{t(locale, 'don.mineTotal')}</p>
+        <p data-total class="m-0 text-2xl font-bold"></p>
+      </div>
+      <ul data-list class="m-0 flex list-none flex-col gap-3 p-0"></ul>
+      <div data-empty hidden class={ui.card}>
+        <p class={ui.muted}>{t(locale, 'don.mineEmpty')}</p>
+        <a href={`${href(locale, '/')}#download`} class={ui.secondary}>{t(locale, 'don.getApp')}</a>
+      </div>
+      <button type="button" data-sign-out class={ui.text}>{t(locale, 'auth.signOut')}</button>
+    </section>
+
+    <!-- Signed out -->
+    <section data-view="signin" hidden class={ui.card} aria-labelledby="signin-title">
+      <h1 id="signin-title" tabindex="-1" class={ui.h1}>{t(locale, 'don.mine')}</h1>
+      <p class={ui.muted}>{t(locale, 'don.mineSignin')}</p>
+      <a data-signin class={ui.primary}>{t(locale, 'auth.signIn')}</a>
+    </section>
+
+    <!-- Step 1: the transfer -->
+    <section data-view="transfer" hidden class="flex flex-col gap-4" aria-labelledby="transfer-title">
+      <div class="flex flex-col gap-1">
+        <h1 id="transfer-title" tabindex="-1" class={ui.h1}>{t(locale, 'don.transfer')}</h1>
+        <p class="m-0 text-sm text-secondary">{t(locale, 'don.stepOf', { a: 1 })}</p>
+      </div>
+      <ol class="m-0 flex flex-col gap-2 ps-[22px] text-[15px] leading-[1.7]">
+        <li>{t(locale, 'don.s1')}</li>
+        <li>{t(locale, 'don.s2')}</li>
+        <li>{t(locale, 'don.s3')}</li>
+      </ol>
+      <dl class={`${ui.card} gap-0 py-2`}>
+        {
+          bank.map(([key, label, opts]) => (
+            <div class={bankRow} data-bank={key}>
+              <dt class="text-sm text-secondary">{label}</dt>
+              <dd class="m-0 flex items-center justify-between gap-3">
+                <span class:list={['min-w-0 font-semibold', opts.ltr && 'break-all']} dir={opts.ltr ? 'ltr' : undefined} data-value></span>
+                {opts.copy && <button type="button" class={copy} data-copy aria-label={t(locale, 'don.copyLabel', { what: opts.what ?? label })}>{t(locale, 'don.copy')}</button>}
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+      <dl class="m-0 rounded-[18px] border-2 border-action bg-brand-tint p-5">
+        <div class="flex flex-col gap-1" data-bank="code">
+          <dt class="text-sm">{t(locale, 'don.code')}</dt>
+          <dd class="m-0 flex items-center justify-between gap-3">
+            <span class="text-2xl font-bold tracking-wider" dir="ltr" data-value data-code></span>
+            <button type="button" class={copy} data-copy aria-label={t(locale, 'don.copyLabel', { what: t(locale, 'don.f.code') })}>{t(locale, 'don.copy')}</button>
+          </dd>
+        </div>
+      </dl>
+      <p data-until hidden class="m-0 text-sm text-secondary"></p>
+      <p class="sr-only" aria-live="polite" data-copied></p>
+      <button type="button" data-to-proof class={ui.primary}>{t(locale, 'don.done')}</button>
+      <a href={href(locale, '/donations')} class={ui.secondary}>{t(locale, 'don.later')}</a>
+      <div class="flex flex-col gap-3">
+        <button type="button" data-cancel class={ui.text}>{t(locale, 'don.cancel')}</button>
+        <div data-cancel-ask hidden class={`${ui.card} border-strong`}>
+          <p class="m-0 font-semibold" data-cancel-text tabindex="-1">{t(locale, 'don.cancelAsk')}</p>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" data-cancel-yes class={ui.secondary}>{t(locale, 'don.cancelYes')}</button>
+            <button type="button" data-cancel-no class={ui.text}>{t(locale, 'don.cancelNo')}</button>
+          </div>
+          <p data-cancel-error role="alert" hidden class={ui.error}></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: the screenshot -->
+    <section data-view="proof" hidden class="flex flex-col gap-4" aria-labelledby="proof-title">
+      <form data-proof-form novalidate class={ui.card}>
+        <div class="flex flex-col gap-1">
+          <h1 id="proof-title" tabindex="-1" class={ui.h1}>{t(locale, 'don.proof')}</h1>
+          <p class="m-0 text-sm text-secondary">{t(locale, 'don.stepOf', { a: 2 })}</p>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="sent" class={ui.label}>{t(locale, 'don.sent')}</label>
+          <input id="sent" name="sent" type="number" inputmode="decimal" min={data.limits.min} max={data.limits.max} step="0.001" dir="ltr" class={ui.input} />
+        </div>
+        <div role="group" aria-label={t(locale, 'don.quick')} class="flex flex-wrap gap-2.5" data-quick>
+          {QUICK.map((v) => <button type="button" class={ui.chip} aria-pressed="false" data-value={v}>{v}</button>)}
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class={ui.label} id="shot-label">{t(locale, 'don.shot')}</span>
+          <input id="shot" name="shot" type="file" accept="image/*" class="sr-only" aria-describedby="shot-private" />
+          <label for="shot" data-pick class="flex min-h-24 cursor-pointer items-center justify-center rounded-[14px] border-2 border-dashed border-strong bg-subtle p-4 text-center font-semibold text-link">
+            {t(locale, 'don.pick')}
+          </label>
+          <img data-preview hidden alt={t(locale, 'don.shot')} class="block max-h-80 w-auto self-center rounded-xl border border-default" />
+          <p data-shot-status aria-live="polite" class="m-0 text-sm text-secondary"></p>
+          <p id="shot-private" class={ui.hint}>{t(locale, 'don.private')}</p>
+        </div>
+        <p data-error role="alert" hidden class={ui.error}></p>
+        <button type="submit" class={ui.primary}>{t(locale, 'don.submit')}</button>
+      </form>
+      <button type="button" data-back class={ui.text}>{t(locale, 'don.back')}</button>
+    </section>
+
+    <!-- Under review, receipt, or closed -->
+    <section data-view="result" hidden class="flex flex-col gap-4" aria-labelledby="result-title">
+      <div data-result-box class="flex flex-col gap-2 rounded-[18px] p-5">
+        <h1 id="result-title" tabindex="-1" data-result-title class="m-0 text-[24px] leading-[1.4] font-bold sm:text-[28px]"></h1>
+        <p data-result-body class="m-0 text-[15px] leading-[1.7]"></p>
+        <p data-reason hidden class="m-0 text-[15px] leading-[1.7]"></p>
+      </div>
+      <dl class={`${ui.card} gap-0 py-2`}>
+        {
+          summary.map(([key, label]) => (
+            <div class={row} data-field={key}>
+              <dt class="text-sm text-secondary">{t(locale, label)}</dt>
+              <dd class="m-0 text-end font-semibold" data-value dir={key === 'code' ? 'ltr' : undefined}></dd>
+            </div>
+          ))
+        }
+      </dl>
+      <div class="flex flex-col gap-3">
+        <button type="button" data-replace hidden class={ui.secondary}>{t(locale, 'don.replaceShot')}</button>
+        <button type="button" data-print hidden class={ui.secondary}>{t(locale, 'don.print')}</button>
+        <a data-again hidden class={ui.primary}>{t(locale, 'don.again')}</a>
+        <a data-contact hidden href={href(locale, '/contact')} class={ui.secondary}>{t(locale, 'don.contact')}</a>
+        <a data-to-report class={ui.text}>{t(locale, 'don.toReport')}</a>
+        <a href={href(locale, '/donations')} data-to-mine class={ui.text}>{t(locale, 'don.mine')}</a>
+      </div>
+    </section>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify(data)} />
+</Base>
+
+<script>
+  import { startDonations } from '../scripts/donate'
+  startDonations()
+</script>

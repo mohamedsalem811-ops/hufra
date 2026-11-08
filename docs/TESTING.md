@@ -6,7 +6,7 @@
 | Shared packages: contracts, brand (WCAG contrast), brand assets copied to the website | `packages/*/tests`, `apps/api/scripts/sync-brand-assets.mjs --check` | CI on every PR (`npm run test:packages`) |
 | App unit + component tests (Jest), coverage floors in `apps/mobile/jest.config.js` | `apps/mobile/src/**/*.test.ts(x)` | CI on every PR (`npm test -w @hufra/mobile -- --coverage`) |
 | App end-to-end journeys on an Android 14 emulator (Maestro) | `apps/mobile/.maestro` | `.github/workflows/app-e2e.yml`: PRs touching the app, the API or packages, and on demand |
-| Donation website walk-through in Chromium (Playwright) | `apps/api/tests/e2e/donate-flow.cjs` | by hand (below) |
+| Website browser tests (Playwright): every page in both languages with axe, and the whole donation journey (sign-up, transfer, screenshot, review, receipt, cancelling, the app's sign-in link) | `apps/web/e2e` | CI on every PR (`npm run e2e -w @hufra/web`) |
 
 ## The seeded test API
 
@@ -19,9 +19,10 @@ and serves the website's static files. It creates:
 
 It prints the ids and tokens as JSON on its first line. Nothing touches production.
 
+The website's browser tests start it themselves (`apps/web/playwright.config.ts`). By hand:
+
 ```bash
-npx tsx apps/api/tests/e2e/server.ts 8788 > /tmp/e2e.log &
-node apps/api/tests/e2e/donate-flow.cjs /tmp/e2e.log /tmp/shots
+npx tsx apps/api/tests/e2e/server.ts 8788
 ```
 
 ## The app journeys (Maestro)

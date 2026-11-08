@@ -430,7 +430,8 @@ auth.get('/handoff', async (c) => {
   c.header('Cache-Control', 'no-store')
   c.header('Referrer-Policy', 'no-referrer')
   const token = c.req.query('t') ?? ''
-  const fail = () => c.redirect('/login', 302)
+  // An old or used link: sign in on the website instead (the old page without the built website).
+  const fail = () => c.redirect(c.env.ASSETS ? '/sign-in' : '/login', 302)
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return fail()
   const rl = await checkRateLimit(c.env, 'handoff_use', clientIp(c), 600, 3600) // shared carrier addresses; tokens are unguessable
   if (!rl.allowed) return fail()

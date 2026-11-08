@@ -9,7 +9,9 @@ describe('surfaces', () => {
   it('sorts paths into website/admin, API and the old pages', () => {
     for (const p of ['/', '/en/', '/how', '/r/12', '/en/r/12', '/privacy', '/admin/', '/admin/reports', '/_astro/x.js', '/sitemap.xml']) expect(surfaceFor(p), p).toBe('site')
     for (const p of ['/api/regions', '/media/photos/1/a.webp', '/tiles/3/4/5.png']) expect(surfaceFor(p), p).toBe('api')
-    for (const p of ['/map', '/report', '/pothole/7', '/donate/3', '/donations', '/donations/4', '/login', '/account', '/trust', '/static/js/api.js', '/sw.js']) expect(surfaceFor(p), p).toBe('legacy')
+    for (const p of ['/map', '/report', '/pothole/7', '/login', '/account', '/trust', '/static/js/api.js', '/sw.js']) expect(surfaceFor(p), p).toBe('legacy')
+    // Plan 9.2: the donation pages are the website's.
+    for (const p of ['/donate/3', '/en/donate/3', '/donations', '/donations/4', '/sign-in']) expect(surfaceFor(p), p).toBe('site')
   })
 
   it('the website and admin policy allows only this site, with no inline scripts and no framing', () => {

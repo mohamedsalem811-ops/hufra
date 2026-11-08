@@ -24,6 +24,9 @@ const DEV_ORIGINS = [
   'http://127.0.0.1:5173',
   'http://localhost:8788',
   'http://127.0.0.1:8788',
+  // The website's development server (astro dev) and its browser tests.
+  'http://localhost:4321',
+  'http://localhost:4331',
 ]
 
 const STATIC_ALLOWED = new Set([...NATIVE_APP_ORIGINS, ...DEV_ORIGINS])
