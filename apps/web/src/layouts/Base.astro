@@ -1,0 +1,114 @@
+---
+import '../styles/site.css'
+
+import { appleTouchUrl, favicon32Url, faviconUrl, logoOnDarkUrl, logoUrl } from '../brand'
+import { href, otherPath, t, type Locale } from '../i18n/i18n'
+
+interface Props {
+  locale: Locale
+  title: string
+  description?: string
+  /** The menu item for this page, if any. */
+  current?: 'how'
+  /** Leave the page out of search engines (the 404 page). */
+  noindex?: boolean
+}
+
+const { locale, title, description = t(locale, 'site.description'), current, noindex = false } = Astro.props
+const dir = locale === 'ar' ? 'rtl' : 'ltr'
+const path = Astro.url.pathname
+const bare = path.replace(/^\/en(?=\/|$)/, '') || '/'
+const canonical = new URL(href(locale, bare), Astro.site)
+const alternates = (['ar', 'en'] as const).map((l) => ({ l, url: new URL(href(l, bare), Astro.site) }))
+const other = locale === 'ar' ? 'en' : 'ar'
+const year = new Date().getFullYear()
+const nav = [
+  { key: 'nav.how', to: href(locale, '/how'), id: 'how' },
+  { key: 'nav.about', to: `${href(locale, '/how')}#about` },
+  { key: 'nav.faq', to: `${href(locale, '/how')}#faq` },
+] as const
+---
+
+<!doctype html>
+<html lang={locale} dir={dir}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    {!noindex && alternates.map((a) => <link rel="alternate" hreflang={a.l} href={a.url} />)}
+    {!noindex && <link rel="alternate" hreflang="x-default" href={alternates[0]!.url} />}
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0B4A6F" />
+    <link rel="icon" href={faviconUrl} type="image/svg+xml" />
+    <link rel="icon" href={favicon32Url} type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href={appleTouchUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={t(locale, 'site.name')} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content={locale === 'ar' ? 'ar_LY' : 'en_GB'} />
+    <meta property="og:url" content={canonical} />
+  </head>
+  <body class="bg-canvas text-primary">
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
+      {t(locale, 'skip')}
+    </a>
+    <header class="border-b border-default bg-surface">
+      <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+        <a href={href(locale, '/')} aria-label={t(locale, 'nav.home')} class="flex min-h-11 items-center">
+          <picture>
+            <source srcset={logoOnDarkUrl} media="(prefers-color-scheme: dark)" />
+            <img src={logoUrl} alt="" width="120" height="40" class="block h-10 w-auto" />
+          </picture>
+        </a>
+        <nav aria-label={t(locale, 'nav.label')} class="order-3 flex w-full flex-wrap gap-x-5 text-base sm:order-none sm:w-auto">
+          {
+            nav.map((item) => (
+              <a
+                href={item.to}
+                aria-current={'id' in item && item.id === current ? 'page' : undefined}
+                class:list={[
+                  'flex min-h-11 items-center',
+                  'id' in item && item.id === current ? 'font-bold text-brand underline underline-offset-[6px]' : 'text-primary no-underline hover:underline',
+                ]}
+              >
+                {t(locale, item.key)}
+              </a>
+            ))
+          }
+        </nav>
+        <div class="flex items-center gap-2.5">
+          <a href={otherPath(locale, path)} hreflang={other} class="flex min-h-11 items-center px-2 text-[15px] font-semibold no-underline">
+            <span lang={other}>{t(locale, 'lang.other')}</span>
+            <span class="sr-only"> · {t(locale, 'lang.otherLabel')}</span>
+          </a>
+          <a href={`${href(locale, '/')}#download`} class="flex min-h-11 items-center rounded-xl bg-action px-[18px] text-[15px] font-bold text-on-action no-underline hover:bg-action-pressed">
+            {t(locale, 'nav.download')}
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1" class="flex-1">
+      <slot />
+    </main>
+
+    <footer class="bg-ink text-on-ink">
+      <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 px-4 py-7 text-sm sm:px-6">
+        <img src={logoOnDarkUrl} alt={`${t(locale, 'site.name')} HUFRA`} width="96" height="32" class="h-8 w-auto" />
+        <nav aria-label={t(locale, 'footer.links')} class="flex flex-wrap gap-x-5 gap-y-2">
+          <a href={href(locale, '/how')} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.how')}</a>
+          <a href={`${href(locale, '/how')}#faq`} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.faq')}</a>
+          <a data-contact-email hidden class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'footer.contact')}</a>
+        </nav>
+        <span>{t(locale, 'footer.rights', { year })}</span>
+      </div>
+    </footer>
+    <script>
+      import { fillContact } from '../scripts/contact'
+      fillContact()
+    </script>
+  </body>
+</html>

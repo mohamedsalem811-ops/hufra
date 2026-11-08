@@ -138,6 +138,34 @@ jobs:
       - name: Build
         run: npx vite build
 
+  website:
+    name: "Website (Astro): check and build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      ASTRO_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (workspace root)
+        working-directory: .
+        run: npm ci
+
+      - name: Typecheck (astro check)
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
   admin-e2e:
     name: "Admin panel: browser tests (Playwright)"
     runs-on: ubuntu-latest

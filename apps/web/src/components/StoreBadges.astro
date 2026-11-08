@@ -1,0 +1,27 @@
+---
+import { t, type Locale } from '../i18n/i18n'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+// The apps are not in the stores yet (plan 10): the badges say "coming soon" and lead nowhere.
+const stores = ['App Store', 'Google Play'] as const
+---
+
+<ul class="m-0 flex list-none flex-wrap gap-3 p-0">
+  {
+    stores.map((store) => (
+      <li>
+        <span
+          role="img"
+          aria-label={t(locale, 'store.soonLabel', { store })}
+          class="flex h-14 min-w-[170px] flex-col justify-center rounded-[14px] bg-ink px-5 leading-tight text-white"
+        >
+          <span class="text-xs opacity-80">{t(locale, 'store.soon')}</span>
+          <span lang="en" class="text-lg font-bold">{store}</span>
+        </span>
+      </li>
+    ))
+  }
+</ul>

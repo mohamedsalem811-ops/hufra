@@ -1,0 +1,92 @@
+---
+import { t, type Locale } from '../i18n/i18n'
+import type { MessageKey } from '../i18n/messages'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+const stages = [
+  ['reported', 'bg-reported-bg text-reported'],
+  ['verified', 'bg-verified-bg text-verified'],
+  ['under_repair', 'bg-under-repair-bg text-under-repair'],
+  ['fixed', 'bg-fixed-bg text-fixed'],
+] as const
+const money = [1, 2, 3, 4] as const
+const faq = [1, 2, 3, 4, 5] as const
+---
+
+<Base locale={locale} title={t(locale, 'how.title')} current="how">
+  <section class="mx-auto flex max-w-[1200px] flex-col gap-3.5 px-4 pt-14 pb-6 sm:px-6">
+    <h1 class="m-0 text-[36px] font-bold sm:text-[48px]">{t(locale, 'how.h1')}</h1>
+    <p class="m-0 max-w-[760px] text-lg leading-[1.8] text-secondary sm:text-[19px]">{t(locale, 'how.lead')}</p>
+  </section>
+
+  <section aria-label={t(locale, 'how.stages')} class="mx-auto max-w-[1200px] px-4 pt-4 pb-14 sm:px-6">
+    <ol class="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4 p-0">
+      {
+        stages.map(([s, tone]) => (
+          <li class="flex flex-col gap-2.5 rounded-[20px] border border-default bg-surface p-[22px]">
+            <span class:list={['self-start rounded-full px-3 py-1 text-[13px] font-semibold', tone]}>{t(locale, `status.${s}`)}</span>
+            <span class="leading-[1.7] text-secondary">{t(locale, `how.${s}` as MessageKey)}</span>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section aria-labelledby="money" class="border-y border-default bg-surface">
+    <div class="mx-auto flex max-w-[1200px] flex-wrap gap-10 px-4 py-16 sm:px-6">
+      <div class="flex flex-[1_1_360px] flex-col gap-3.5">
+        <h2 id="money" class="m-0 text-[28px] font-bold sm:text-[34px]">{t(locale, 'how.money')}</h2>
+        <p class="m-0 text-[17px] leading-[1.8] text-secondary">{t(locale, 'how.moneyLead')}</p>
+      </div>
+      <ul class="m-0 flex flex-[1_1_420px] list-none flex-col gap-3 p-0 leading-[1.7]">
+        {
+          money.map((n) => (
+            <li class="flex items-start gap-3">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="mt-[3px] shrink-0 text-success">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              {t(locale, `how.money${n}`)}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section id="about" aria-labelledby="about-title" class="mx-auto flex max-w-[1200px] scroll-mt-4 flex-wrap gap-10 px-4 py-16 sm:px-6">
+    <div class="flex flex-[1_1_420px] flex-col gap-3.5">
+      <h2 id="about-title" class="m-0 text-[28px] font-bold sm:text-[34px]">{t(locale, 'how.about')}</h2>
+      <p class="m-0 text-[17px] leading-[1.8] text-secondary">{t(locale, 'how.about1')}</p>
+      <p class="m-0 text-[17px] leading-[1.8] text-secondary">{t(locale, 'how.about2')}</p>
+    </div>
+    <div class="flex flex-[1_1_360px] flex-col gap-3.5">
+      <h3 class="m-0 text-xl font-semibold">{t(locale, 'how.partners')}</h3>
+      <ul class="m-0 grid list-none grid-cols-3 gap-3 p-0" data-about-partners data-locale={locale}></ul>
+      <p class="m-0 text-secondary" data-about-partners-none>{t(locale, 'how.partnersNone')}</p>
+      <a data-contact-email hidden class="flex min-h-11 items-center self-start font-semibold">{t(locale, 'how.partnerCta')}</a>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="faq-title" class="scroll-mt-4 border-t border-default bg-surface">
+    <div class="mx-auto flex max-w-[860px] flex-col gap-3 px-4 py-16 sm:px-6">
+      <h2 id="faq-title" class="m-0 mb-2 text-[28px] font-bold sm:text-[34px]">{t(locale, 'how.faq')}</h2>
+      {
+        faq.map((n, i) => (
+          <details open={i === 0} class="group rounded-2xl border border-default px-[18px]">
+            <summary class="flex min-h-14 cursor-pointer items-center text-[17px] font-semibold">{t(locale, `faq.q${n}`)}</summary>
+            <p class="m-0 mb-[18px] leading-[1.8] text-secondary">{t(locale, `faq.a${n}`)}</p>
+          </details>
+        ))
+      }
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { aboutPartners } from '../scripts/about'
+  aboutPartners()
+</script>
