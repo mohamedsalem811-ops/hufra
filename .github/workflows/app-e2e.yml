@@ -26,6 +26,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 80
     steps:
+      # The APK build and the emulator image together no longer fit on the
+      # runner's free disk. Remove large preinstalled tools this job never uses.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium \
+            /opt/microsoft /opt/google/chrome /opt/az
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -73,6 +84,9 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=x86_64
+          # Keep the APK, drop the build's intermediate files to leave room for the emulator.
+          rm -rf app/build/intermediates app/build/tmp app/.cxx build ~/.gradle/caches/transforms-* ~/.gradle/caches/build-cache-*
+          df -h /
 
       - name: Install Maestro
         run: |
