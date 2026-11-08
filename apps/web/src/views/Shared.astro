@@ -1,0 +1,69 @@
+---
+import StoreBadges from '../components/StoreBadges.astro'
+import { href, pickMessages, SHARE_KEYS, t, type Locale } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+---
+
+<Base locale={locale} title={t(locale, 'share.title')} shareTemplate>
+  <div class="mx-auto flex w-full max-w-[760px] flex-col gap-8 px-4 pt-10 pb-[72px] sm:px-6">
+    <p class="m-0 text-secondary" role="status" data-share-status>{t(locale, 'share.loading')}</p>
+
+    <article data-report hidden class="flex flex-col gap-4">
+      <div class="overflow-hidden rounded-[20px] bg-subtle">
+        <img data-photo alt="" hidden class="block aspect-[4/3] w-full object-cover" />
+        <p data-no-photo hidden class="m-0 flex aspect-[4/3] items-center justify-center p-6 text-center text-secondary">{t(locale, 'share.noPhoto')}</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <span data-chip class="rounded-full px-3 py-1 text-[13px] font-semibold"></span>
+        <span data-ref class="text-sm text-secondary"></span>
+      </div>
+      <h1 data-title class="m-0 text-[28px] leading-[1.35] font-bold sm:text-[36px]"></h1>
+      <p data-meta class="m-0 text-[15px] leading-[1.7] text-secondary"></p>
+      <p data-confirm hidden class="m-0 text-[15px] text-secondary"></p>
+
+      <section data-campaign hidden aria-labelledby="cp" class="flex flex-col gap-2.5 rounded-[18px] border border-default bg-surface p-5">
+        <h2 id="cp" class="m-0 text-sm font-semibold text-secondary">{t(locale, 'share.campaign')}</h2>
+        <p data-raised class="m-0 text-lg font-bold"></p>
+        <div data-bar role="img" class="flex h-2.5 overflow-hidden rounded-full bg-subtle">
+          <span data-bar-confirmed class="block h-full bg-[var(--color-status-fixed-fg)]"></span>
+          <span data-bar-pending class="block h-full bg-[var(--color-status-under-repair-pin)]"></span>
+        </div>
+        <p data-pending class="m-0 text-sm text-secondary"></p>
+        <p data-done hidden class="m-0 text-sm font-semibold text-success">{t(locale, 'share.campaignDone')}</p>
+      </section>
+
+      <div class="flex flex-col gap-2">
+        <a
+          data-open
+          href="#get-app"
+          class="inline-flex min-h-12 items-center justify-center self-start rounded-xl bg-action px-6 font-bold text-on-action no-underline hover:bg-action-pressed"
+        >
+          {t(locale, 'share.open')}
+        </a>
+        <p class="m-0 text-sm text-secondary">{t(locale, 'share.openHint')}</p>
+      </div>
+    </article>
+
+    <div data-gone hidden class="flex flex-col items-start gap-3 rounded-[18px] bg-subtle p-5">
+      <p data-gone-text class="m-0"></p>
+      <a href={href(locale, '/')} class="inline-flex min-h-11 items-center font-semibold">{t(locale, 'share.home')}</a>
+    </div>
+
+    <section id="get-app" aria-labelledby="noapp" class="flex scroll-mt-4 flex-col gap-3.5 border-t border-default pt-8">
+      <h2 id="noapp" class="m-0 text-[22px] font-bold">{t(locale, 'share.noApp')}</h2>
+      <StoreBadges locale={locale} />
+      <a href={href(locale, '/how')} class="inline-flex min-h-11 items-center self-start font-semibold">{t(locale, 'share.what')}</a>
+    </section>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify({ locale, m: pickMessages(locale, SHARE_KEYS) })} />
+</Base>
+
+<script>
+  import { startShared } from '../scripts/shared'
+  startShared()
+</script>

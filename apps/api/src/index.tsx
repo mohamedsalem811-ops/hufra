@@ -36,6 +36,7 @@ import { renderAdminPage } from './pages/admin'
 import { renderDonatePage } from './pages/donate'
 import { bodyLimit } from 'hono/body-limit'
 import { buildOpenApi } from './lib/openapi'
+import { sharePage } from './routes/share-page'
 
 const API_BODY_LIMIT_BYTES = 64 * 1024
 
@@ -149,6 +150,7 @@ app.route('/api/site', siteRoutes)
 
 app.route('/media', mediaRoutes)
 app.route('/tiles', tileRoutes)
+app.route('/', sharePage)
 
 app.get('/', (c) => c.html(renderHomePage(c.env.ADMIN_WHATSAPP)))
 app.get('/map', (c) => c.html(renderMapPage()))

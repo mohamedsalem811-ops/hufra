@@ -23,6 +23,10 @@ export interface Bindings {
   REPORTS_REQUIRE_ACCOUNT?: string
   /** Extra origins allowed to call the API (comma-separated), e.g. a custom domain. See src/lib/origins.ts. */
   ALLOWED_ORIGINS?: string
+  /** Static files (the website); bound once the Worker serves it (plan 9.1). */
+  ASSETS?: Fetcher
+  /** SHA-256 fingerprints (comma-separated) of the Android signing keys allowed to open /r/ links (plan 8.5). */
+  ANDROID_CERT_SHA256?: string
 }
 
 export interface AuthContext {

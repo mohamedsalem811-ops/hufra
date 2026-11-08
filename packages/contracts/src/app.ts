@@ -61,6 +61,7 @@ export function compareVersions(a: string, b: string): number {
 /** GET /api/potholes/:id/share: what a shared link shows (and what link previews read). Never names the reporter. */
 export const sharedReportResponseSchema = z.strictObject({
   id: z.number().int().positive(),
+  /** The link to share: /r/<id> on the website. */
   url: z.string(),
   status: potholeStatusSchema,
   severity: severitySchema,
@@ -74,6 +75,16 @@ export const sharedReportResponseSchema = z.strictObject({
   /** Thumbnail and full photo keys under /media: the "before" (or report) photo and, once fixed, the "after" photo. */
   photo_before: z.strictObject({ thumb_key: z.string(), r2_key: z.string() }).nullable(),
   photo_after: z.strictObject({ thumb_key: z.string(), r2_key: z.string() }).nullable(),
-  campaign: z.strictObject({ id: z.number().int(), status: z.string(), target_lyd: z.number(), confirmed_lyd: z.number() }).nullable(),
+  campaign: z
+    .strictObject({
+      id: z.number().int(),
+      status: z.string(),
+      target_lyd: z.number(),
+      confirmed_lyd: z.number(),
+      /** Transfers waiting for review: shown apart, never counted as raised. */
+      pending_lyd: z.number().default(0),
+      donors: z.number().int().min(0).default(0),
+    })
+    .nullable(),
 })
 export type SharedReport = z.infer<typeof sharedReportResponseSchema>

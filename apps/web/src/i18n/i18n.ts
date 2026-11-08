@@ -43,3 +43,10 @@ export type TransparencyMessages = Record<(typeof TRANSPARENCY_KEYS)[number], st
 
 export const CONTACT_KEYS = ['contact.none', 'contact.unavailable', 'home.newWindow'] as const satisfies readonly MessageKey[]
 export type ContactMessages = Record<(typeof CONTACT_KEYS)[number], string>
+
+export const SHARE_KEYS = [
+  'share.place', 'share.noStreet', 'share.city', 'share.severity', 'share.sev.minor', 'share.sev.medium', 'share.sev.severe', 'share.reportedOn',
+  'share.fixedOn', 'share.photoAlt', 'share.photoAfterAlt', 'share.confirmations', 'share.raised', 'share.barAlt', 'share.pending',
+  'share.notFound', 'share.failed', 'status.reported', 'status.verified', 'status.under_repair', 'status.fixed', 'site.name',
+] as const satisfies readonly MessageKey[]
+export type ShareMessages = Record<(typeof SHARE_KEYS)[number], string>
