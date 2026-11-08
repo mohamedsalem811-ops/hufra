@@ -93,8 +93,11 @@ function setRegions(db: D1Database, userId: number, ids: number[]) {
   ]
 }
 
-const revokeSessions = (db: D1Database, userId: number) =>
-  db.prepare(`UPDATE refresh_tokens SET revoked_at = ${NOW} WHERE user_id = ? AND revoked_at IS NULL`).bind(userId)
+/** Ends every session of an account: refresh tokens, and access tokens issued until now. */
+const revokeSessions = (db: D1Database, userId: number) => [
+  db.prepare(`UPDATE refresh_tokens SET revoked_at = ${NOW} WHERE user_id = ? AND revoked_at IS NULL`).bind(userId),
+  db.prepare(`UPDATE users SET sessions_revoked_at = ${NOW} WHERE id = ?`).bind(userId),
+]
 
 const regionIdsOf = async (db: D1Database, userId: number) =>
   (await db.prepare('SELECT region_id FROM admin_regions WHERE user_id = ? ORDER BY region_id').bind(userId).all<{ region_id: number }>()).results.map(
@@ -142,7 +145,7 @@ people.post('/admins/demote', async (c) => {
   await db.batch([
     db.prepare(`UPDATE users SET role = 'user', suspended_at = NULL WHERE id = ?`).bind(user.id),
     ...setRegions(db, user.id, []),
-    revokeSessions(db, user.id),
+    ...revokeSessions(db, user.id),
   ])
   await recordAudit(db, { actorId: c.get('auth')!.userId, action: 'user.demote', entity: 'users', entityId: user.id, before: { role: user.role }, after: { role: 'user' } })
   return c.json({ ok: true })
@@ -175,7 +178,7 @@ people.put('/admins/:id', async (c) => {
     db.prepare(`UPDATE users SET role = ?, suspended_at = ${suspended ? `COALESCE(suspended_at, ${NOW})` : 'NULL'} WHERE id = ?`).bind(role, id),
     ...setRegions(db, id, regionIds),
     // A suspended account, or one whose role changed, signs in again.
-    ...(suspending || role !== user.role ? [revokeSessions(db, id)] : []),
+    ...(suspending || role !== user.role ? revokeSessions(db, id) : []),
   ])
   await recordAudit(db, {
     actorId: c.get('auth')!.userId,

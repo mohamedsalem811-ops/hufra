@@ -67,3 +67,18 @@ export function useI18n(): I18n {
   if (!v) throw new Error('useI18n outside I18nProvider')
   return v
 }
+
+/**
+ * The language switch: the visible word ("English" / "العربية") in its own
+ * language, then what the button does for screen readers. The spoken name
+ * starts with the visible word, so voice control users can say what they see.
+ */
+export function LanguageLabel() {
+  const { t, locale } = useI18n()
+  return (
+    <>
+      <span lang={locale === 'ar' ? 'en' : 'ar'}>{t('language')}</span>
+      <span className="sr-only"> · {t('language.label')}</span>
+    </>
+  )
+}

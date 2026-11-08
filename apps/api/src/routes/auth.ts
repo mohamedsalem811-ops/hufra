@@ -96,10 +96,11 @@ async function issueSession(
   user: { id: number; role: UserRow['role']; code: string },
   ipHash: string | null
 ): Promise<{ accessToken: string; refreshToken: string }> {
-  const iat = nowSeconds()
+  const iatMs = Date.now()
+  const iat = Math.floor(iatMs / 1000)
   const expRefresh = iat + REFRESH_TOKEN_TTL_SECONDS
   const accessToken = await signJwt(
-    { sub: user.id, role: user.role, code: user.code, iat, exp: iat + ACCESS_TOKEN_TTL_SECONDS, typ: 'access' },
+    { sub: user.id, role: user.role, code: user.code, iat, iat_ms: iatMs, exp: iat + ACCESS_TOKEN_TTL_SECONDS, typ: 'access' },
     c.env.JWT_SECRET
   )
   const refreshToken = await signJwt(

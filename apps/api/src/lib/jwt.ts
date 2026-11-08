@@ -11,6 +11,8 @@ export interface JwtPayload {
   typ: 'access' | 'refresh'
   /** Random token id. Makes every refresh token unique, even two issued in the same second. */
   jti?: string
+  /** Issue time in milliseconds, so a token can be compared exactly with when sessions were ended. */
+  iat_ms?: number
 }
 
 function base64url(input: ArrayBuffer | string): string {

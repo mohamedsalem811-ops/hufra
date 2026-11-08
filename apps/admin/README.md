@@ -26,4 +26,12 @@ npm run test:coverage -w @hufra/admin
 npm run build -w @hufra/admin
 ```
 
+Browser tests (Playwright, `e2e/`): they start the seeded test API on port 8788 and the panel on 5184 themselves, so stop a local API on 8788 first. The first time, install Chromium with `npx playwright install chromium`.
+
+```bash
+npm run e2e -w @hufra/admin
+```
+
+They sign in, verify a report and export it as CSV, confirm a donation, add and suspend an admin, merge a duplicate, check every page for accessibility problems (axe, WCAG 2.1 AA) in Arabic and English, and check a phone-sized screen. CI runs them on every pull request.
+
 Serving the built panel from the Worker at `/admin` is part of plan step 9.1; until then the old admin page stays at `/admin` in production.
