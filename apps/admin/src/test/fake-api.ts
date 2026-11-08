@@ -1,4 +1,19 @@
+import type { Dashboard } from '@hufra/contracts'
 import { vi } from 'vitest'
+
+/** A dashboard answer with large numbers, to check digit formatting. */
+export const DASHBOARD: Dashboard = {
+  days: 30,
+  tiles: {
+    new_reports: 1240, new_reports_previous: 1200, awaiting_verification: 440, oldest_waiting_at: '2026-10-01T00:00:00.000Z',
+    under_repair: 100, under_repair_regions: 3, fixed: 800, avg_fix_days: 4.5, confirmed_lyd: 12500.5, under_review_lyd: 300,
+  },
+  weekly: Array.from({ length: 12 }, (_, i) => ({ week_start: `2026-08-${String(10 + i).padStart(2, '0')}`, count: i * 3 })),
+  by_status: { reported: 440, verified: 140, under_repair: 100, fixed: 800 },
+  campaigns: { open: 2, missing_lyd: 1500 },
+  todo: { stale_reports: 12, donations_to_review: 0, funded_campaigns: 1, duplicates: 3 },
+  by_region: [{ id: 1, name_ar: 'سوق الجمعة', name_en: 'Souq Al-Jumaa', open: 40, fixed: 12, avg_fix_days: 3.2 }],
+}
 
 /** A tiny stand-in for the HUFRA API with a cookie session. */
 export function fakeApi(opts: { role?: 'user' | 'admin' | 'super_admin'; signedIn?: boolean; password?: string } = {}) {
@@ -32,9 +47,7 @@ export function fakeApi(opts: { role?: 'user' | 'admin' | 'super_admin'; signedI
       state.loggedOut++
       return json({ ok: true })
     }
-    if (path === '/api/potholes/counters') {
-      return json({ totals: { total: 1240, fixed: 800, reported: 200, verified: 140, under_repair: 100 }, by_region: [], avg_response_days: 4 })
-    }
+    if (path.startsWith('/api/admin/dashboard')) return json(DASHBOARD)
     return json({ error: 'Not found' }, 404)
   })
   return { fetch, state }

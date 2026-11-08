@@ -50,13 +50,23 @@ export async function listNotificationsFor(
     )
     .bind(...binds, ...(page.cursor ? [Number(page.cursor)] : []), page.limit + 1)
     .all<{ id: number }>()
-  const unread = await db
-    .prepare(`SELECT COUNT(*) AS n FROM notifications n ${join} WHERE ${scope} AND ${readAt} IS NULL`)
-    .bind(...binds)
-    .first<{ n: number }>()
   const results = rows.results.slice(0, page.limit)
   const next_cursor = rows.results.length > page.limit && results.length ? String(results[results.length - 1].id) : null
-  return { results, unread_count: unread?.n ?? 0, next_cursor }
+  return { results, unread_count: await countUnreadNotifications(db, user), next_cursor }
+}
+
+/** Unread notifications for one person: their own, and their team's they have not read. */
+export async function countUnreadNotifications(db: Bindings['DB'], user: { userId: number; role: string }): Promise<number> {
+  const roles = rolesFor(user.role)
+  const roleClause = roles.length ? ` OR n.target_role IN (${roles.map(() => '?').join(',')})` : ''
+  const unread = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM notifications n LEFT JOIN notification_reads r ON r.notification_id = n.id AND r.user_id = ?
+       WHERE (n.target_user_id = ?${roleClause}) AND (CASE WHEN n.target_user_id IS NOT NULL THEN n.read_at ELSE r.read_at END) IS NULL`
+    )
+    .bind(user.userId, user.userId, ...roles)
+    .first<{ n: number }>()
+  return unread?.n ?? 0
 }
 
 export async function markAllNotificationsRead(db: Bindings['DB'], user: { userId: number; role: string }): Promise<void> {
@@ -86,12 +96,14 @@ export function buildNotificationCopy(
   payload: Record<string, unknown>
 ): { title_ar: string; title_en: string; body_ar: string; body_en: string; url: string } {
   const potholeId = payload.pothole_id ? `#${payload.pothole_id}` : ''
+  // Arabic says "رقم 12": a "#12" inside right-to-left text can show as "12#".
+  const potholeAr = payload.pothole_id ? `رقم ${payload.pothole_id}` : ''
   if (type === 'status_change') {
     const status = String(payload.status || 'verified')
     const statusAr = STATUS_LABELS_AR[status] || status
     const statusEn = STATUS_LABELS_EN[status] || status
     return {
-      title_ar: `تحديث حالة البلاغ ${potholeId}`,
+      title_ar: `تحديث حالة البلاغ ${potholeAr}`,
       title_en: `Report ${potholeId} status updated`,
       body_ar: `أصبحت حالة بلاغك الآن: ${statusAr}`,
       body_en: `Your report status is now: ${statusEn}`,
@@ -149,10 +161,11 @@ export function buildNotificationCopy(
   }
   if (type === 'new_report') {
     const sev = String(payload.severity || 'medium')
+    const sevAr = ({ minor: 'خفيفة', medium: 'متوسطة', severe: 'خطيرة' } as Record<string, string>)[sev] ?? sev
     return {
-      title_ar: `بلاغ حفرة جديد ${potholeId}`,
+      title_ar: `بلاغ حفرة جديد ${potholeAr}`,
       title_en: `New pothole report ${potholeId}`,
-      body_ar: `تم استلام بلاغ جديد بدرجة خطورة (${sev}) بانتظار المراجعة.`,
+      body_ar: `تم استلام بلاغ جديد بدرجة خطورة (${sevAr}) بانتظار المراجعة.`,
       body_en: `A new (${sev}) report is waiting for admin review.`,
       url: payload.pothole_id ? `/admin?report=${payload.pothole_id}` : '/admin',
     }

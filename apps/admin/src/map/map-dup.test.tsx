@@ -67,7 +67,7 @@ beforeEach(() => {
   fetchMock.mockClear()
   calls.length = 0
   mapCount = 2
-  counts = { new_reports: 24, duplicates: 2, donations_to_review: 0 }
+  counts = { new_reports: 24, duplicates: 2, donations_to_review: 0, unread_notifications: 0 }
   pairs = [
     { id: 11, pothole_id: 8, duplicate_of_id: 5, distance_m: 12.4, created_at: '2026-11-02T00:00:00.000Z', newer: side(8), older: side(5, { cover_thumb_key: 'thumbs/5.webp', status: 'verified' }) },
     { id: 12, pothole_id: 9, duplicate_of_id: 6, distance_m: 30, created_at: '2026-11-03T00:00:00.000Z', newer: side(9), older: side(6) },

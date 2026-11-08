@@ -64,7 +64,7 @@ function useRefresh() {
   const qc = useQueryClient()
   return (id?: number) => {
     void qc.invalidateQueries({ queryKey: ['queue'] })
-    void qc.invalidateQueries({ queryKey: ['counters'] })
+    void qc.invalidateQueries({ queryKey: ['dashboard'] })
     void qc.invalidateQueries({ queryKey: ['duplicates'] })
     void qc.invalidateQueries({ queryKey: ['admin-counts'] })
     void qc.invalidateQueries({ queryKey: ['map'] })

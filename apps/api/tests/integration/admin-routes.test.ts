@@ -216,12 +216,12 @@ describe('duplicates side by side, and the menu counts', () => {
     expect(pair!.older.region_name_ar).toBeTruthy()
 
     const counts = adminCountsResponseSchema.parse(await json(await request(t.env, '/api/admin/counts', { headers: { Authorization: `Bearer ${token}` } })))
-    expect(counts).toEqual({ new_reports: 2, duplicates: 1, donations_to_review: 0 })
+    expect(counts).toMatchObject({ new_reports: 2, duplicates: 1, donations_to_review: 0 })
 
     // A pair whose report was deleted no longer counts.
     await t.db.prepare(`UPDATE potholes SET deleted_at = '2026-01-01' WHERE id = ?`).bind(newer).run()
     const after = await json(await request(t.env, '/api/admin/counts', { headers: { Authorization: `Bearer ${token}` } }))
-    expect(after).toEqual({ new_reports: 1, duplicates: 0, donations_to_review: 0 })
+    expect(after).toMatchObject({ new_reports: 1, duplicates: 0, donations_to_review: 0 })
     expect((await request(t.env, '/api/admin/counts')).status).toBe(401)
   })
 })

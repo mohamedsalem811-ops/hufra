@@ -15,12 +15,14 @@ const BADGE: Record<Count, string> = {
   new_reports: 'bg-action text-on-action',
   duplicates: 'bg-white text-brand-solid',
   donations_to_review: 'bg-action text-on-action',
+  unread_notifications: 'bg-white text-brand-solid',
 }
 
 type Count = keyof AdminCounts
 
 export const NAV: { to: string; label: MessageKey; icon: IconName; superOnly?: boolean; count?: Count }[] = [
   { to: '/', label: 'nav.dashboard', icon: 'dashboard' },
+  { to: '/notifications', label: 'nav.notifications', icon: 'bell', count: 'unread_notifications' },
   { to: '/reports', label: 'nav.reports', icon: 'reports', count: 'new_reports' },
   { to: '/map', label: 'nav.map', icon: 'map' },
   { to: '/duplicates', label: 'nav.duplicates', icon: 'duplicates', count: 'duplicates' },
@@ -82,7 +84,7 @@ export function Shell({ user, children }: { user: SessionUser; children: ReactNo
             {item.count && counts.data?.[item.count] ? (
               <span className={`ms-auto flex h-[22px] min-w-6 items-center justify-center rounded-full px-[7px] text-xs font-bold ${BADGE[item.count]}`}>
                 {number(counts.data[item.count])}
-                <span className="sr-only"> {t('nav.waiting')}</span>
+                <span className="sr-only"> {t(item.count === 'unread_notifications' ? 'nav.unread' : 'nav.waiting')}</span>
               </span>
             ) : null}
           </Link>

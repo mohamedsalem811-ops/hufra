@@ -116,7 +116,50 @@ export const adminCountsResponseSchema = z.strictObject({
   new_reports: z.number().int().nonnegative(),
   duplicates: z.number().int().nonnegative(),
   donations_to_review: z.number().int().nonnegative(),
+  /** Unread notifications for the person signed in. */
+  unread_notifications: z.number().int().nonnegative(),
 })
 
 export type DuplicateFlag = z.infer<typeof duplicateFlagSchema>
 export type AdminCounts = z.infer<typeof adminCountsResponseSchema>
+
+// ---------------------------------------------------------------- dashboard (8.2g)
+
+export const DASHBOARD_PERIODS = [7, 30, 90, 365] as const
+export const dashboardQuerySchema = z.object({
+  days: z.coerce
+    .number()
+    .refine((d): d is (typeof DASHBOARD_PERIODS)[number] => (DASHBOARD_PERIODS as readonly number[]).includes(d))
+    .default(30),
+})
+
+const count = z.number().int().nonnegative()
+
+export const dashboardResponseSchema = z.strictObject({
+  days: z.number().int(),
+  tiles: z.strictObject({
+    new_reports: count,
+    /** The same number for the period just before, to compare. */
+    new_reports_previous: count,
+    awaiting_verification: count,
+    oldest_waiting_at: timestamp.nullable(),
+    under_repair: count,
+    under_repair_regions: count,
+    fixed: count,
+    /** Days from report to repair, for repairs in the period. */
+    avg_fix_days: z.number().nullable(),
+    confirmed_lyd: z.number(),
+    under_review_lyd: z.number(),
+  }),
+  /** New reports per week, oldest first; the last entry is the current week. */
+  weekly: z.array(z.strictObject({ week_start: z.string(), count })),
+  by_status: z.strictObject({ reported: count, verified: count, under_repair: count, fixed: count }),
+  campaigns: z.strictObject({ open: count, missing_lyd: z.number() }),
+  todo: z.strictObject({ stale_reports: count, donations_to_review: count, funded_campaigns: count, duplicates: count }),
+  by_region: z.array(
+    z.strictObject({ id, name_ar: z.string(), name_en: z.string(), open: count, fixed: count, avg_fix_days: z.number().nullable() })
+  ),
+})
+
+export type DashboardQuery = z.input<typeof dashboardQuerySchema>
+export type Dashboard = z.infer<typeof dashboardResponseSchema>

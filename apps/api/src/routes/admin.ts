@@ -5,7 +5,7 @@ import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
 import { purgeReportPhotos } from '../lib/storage'
 import { auditLogQuerySchema, duplicateReviewSchema } from '@hufra/contracts'
-import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
+import { countUnreadNotifications, listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
 const admin = new Hono<{ Bindings: Bindings }>()
 
@@ -75,7 +75,7 @@ admin.get('/counts', async (c) => {
        (SELECT COUNT(*) FROM donations WHERE status = 'under_review') AS donations_to_review`
   ).first<{ new_reports: number; duplicates: number; donations_to_review: number }>()
   c.header('Cache-Control', 'private, no-store')
-  return c.json(row)
+  return c.json({ ...row, unread_notifications: await countUnreadNotifications(c.env.DB, c.get('auth')!) })
 })
 
 
