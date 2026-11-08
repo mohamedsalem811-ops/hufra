@@ -1,6 +1,5 @@
-// Reports and "I saw it too" need an account once REPORTS_REQUIRE_ACCOUNT is
-// "true" (switched on when the old website is removed, plan 9.2). Until then
-// the old site's guest reports keep working.
+// Reports and "I saw it too" need an account (plan 7.1). The old website let
+// guests report; since it was removed (plan 9.2) the server always refuses them.
 import { describe, it, expect } from 'vitest'
 import { ANONYMOUS, createTestEnv, defaultReporterToken, json, request } from './helpers/test-env'
 
@@ -11,21 +10,20 @@ const report = (t: ReturnType<typeof createTestEnv>, headers: Record<string, str
     body: JSON.stringify({ lat: 32.8811, lng: 13.3502, severity: 'medium' }),
   })
 
-describe('reports need an account (REPORTS_REQUIRE_ACCOUNT=true)', () => {
+describe('reports need an account', () => {
   it('refuses a report and a confirmation without an account, with a plain message', async () => {
     const t = createTestEnv()
     const created = await json(await report(t, {}))
-    t.env.REPORTS_REQUIRE_ACCOUNT = 'true'
     const res = await report(t, { [ANONYMOUS]: '1' })
     expect(res.status).toBe(401)
     expect(await json(res)).toEqual({ error: 'Sign in to report a pothole', error_ar: 'سجّل الدخول لتبلّغ عن حفرة' })
     const vote = await request(t.env, `/api/potholes/${created.id}/upvote`, { method: 'POST' })
     expect(vote.status).toBe(401)
+    expect(await json(vote)).toEqual({ error: 'Sign in to confirm this pothole', error_ar: 'سجّل الدخول لتأكيد وجود الحفرة' })
   })
 
   it('accepts both from a signed-in person and links the report to them', async () => {
     const t = createTestEnv()
-    t.env.REPORTS_REQUIRE_ACCOUNT = 'true'
     const token = await defaultReporterToken(t.env)
     const res = await report(t, { Authorization: `Bearer ${token}` })
     expect(res.status).toBe(201)
@@ -34,10 +32,5 @@ describe('reports need an account (REPORTS_REQUIRE_ACCOUNT=true)', () => {
     expect(row?.reporter_id).toBeGreaterThan(0)
     const vote = await request(t.env, `/api/potholes/${id}/upvote`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     expect(vote.status).toBe(201)
-  })
-
-  it('still takes guest reports while the switch is off (the old website)', async () => {
-    const t = createTestEnv()
-    expect((await report(t, { [ANONYMOUS]: '1' })).status).toBe(201)
   })
 })

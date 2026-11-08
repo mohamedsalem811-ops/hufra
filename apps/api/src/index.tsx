@@ -24,16 +24,6 @@ import adminPeople from './routes/admin-people'
 import adminDashboard from './routes/admin-dashboard'
 import tileRoutes from './routes/tiles'
 
-import { renderHomePage } from './pages/home'
-import { renderMapPage } from './pages/map'
-import { renderReportPage } from './pages/report'
-import { renderPotholeDetailPage } from './pages/pothole-detail'
-import { renderTransparencyPage } from './pages/transparency'
-import { renderTrustPage } from './pages/trust'
-import { renderLoginPage, renderRegisterPage } from './pages/auth-pages'
-import { renderAccountPage } from './pages/account'
-import { renderAdminPage } from './pages/admin'
-import { renderDonatePage } from './pages/donate'
 import { bodyLimit } from 'hono/body-limit'
 import { buildOpenApi } from './lib/openapi'
 import { sharePage } from './routes/share-page'
@@ -89,8 +79,8 @@ app.use('*', async (c, next) => {
   }
 })
 
-// Static files (public/) are served by the platform before this code runs:
-// Cloudflare Pages today, Workers Static Assets on the Worker (wrangler.worker.jsonc).
+// The website's and the admin panel's files (site/, built by `npm run build:site`)
+// are served by the platform before this code runs (wrangler.jsonc).
 
 // Plan 7.2: plain API bodies are small (the largest is a report with its
 // note). Uploads have their own, larger limits in their routes.
@@ -136,53 +126,41 @@ app.route('/media', mediaRoutes)
 app.route('/tiles', tileRoutes)
 app.route('/', sharePage)
 
-app.get('/', (c) => c.html(renderHomePage(c.env.ADMIN_WHATSAPP)))
-app.get('/map', (c) => c.html(renderMapPage()))
-app.get('/report', (c) => c.html(renderReportPage()))
-app.get('/transparency', (c) => c.html(renderTransparencyPage()))
-// Plan 9.1: once the website is served from here, the old trust page and
-// report links lead to their new pages.
-app.get('/trust', (c) => (c.env.ASSETS ? c.redirect('/privacy', 301) : c.html(renderTrustPage())))
-
-// Report ids are integers (0 is the template the native app build renders, see
-// scripts/build-app.mjs); anything else is a 404 and is never echoed back.
-app.get('/pothole/:id', (c) => {
-  const raw = c.req.param('id')
-  if (!/^(0|[1-9]\d{0,9})$/.test(raw)) return c.notFound()
-  if (c.env.ASSETS && raw !== '0') return c.redirect(`/r/${raw}`, 301)
-  return c.html(renderPotholeDetailPage(Number(raw)))
-})
-
-// Donation pages: a campaign, my donations, one donation. Plan 9.2: the
-// website's pages (one page for every id, filled in the browser); without the
-// built files (tests, local API) the old pages from plan 6.9 stay.
+// Pages the website builds once for every id (plan 8.5, 9.2): a shared report,
+// a campaign, one donation. The browser fills them from the API.
 const pageId = (raw: string) => (/^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null)
 for (const lang of ['', '/en']) {
-  app.get(`${lang}/donate/:id`, (c) => {
-    const id = pageId(c.req.param('id'))
-    if (!id) return c.notFound()
-    if (c.env.ASSETS) return staticPage(c.env, new URL(`${lang}/donate`, c.req.url), 200)
-    return lang ? c.notFound() : c.html(renderDonatePage('campaign', id, c.env.ADMIN_WHATSAPP))
-  })
-  app.get(`${lang}/donations/:id`, (c) => {
-    const id = pageId(c.req.param('id'))
-    if (!id) return c.notFound()
-    if (c.env.ASSETS) return staticPage(c.env, new URL(`${lang}/donations`, c.req.url), 200)
-    return lang ? c.notFound() : c.html(renderDonatePage('donation', id, c.env.ADMIN_WHATSAPP))
-  })
+  for (const base of ['donate', 'donations']) {
+    app.get(`${lang}/${base}/:id`, (c) => {
+      if (!pageId(c.req.param('id')) || !c.env.ASSETS) return c.notFound()
+      return staticPage(c.env, new URL(`${lang}/${base}`, c.req.url), 200)
+    })
+  }
 }
-// With the built files, /donations is the website's own page (served before this code runs).
-app.get('/donations', (c) => (c.env.ASSETS ? staticPage(c.env, new URL('/donations', c.req.url), 200) : c.html(renderDonatePage('mine', null, c.env.ADMIN_WHATSAPP))))
 
-app.get('/login', (c) => c.html(renderLoginPage()))
-app.get('/register', (c) => c.html(renderRegisterPage()))
-app.get('/account', (c) => c.html(renderAccountPage()))
+// Plan 9.2: the old citizen website is gone; its addresses lead to the new pages.
+const OLD_PAGES: Record<string, string> = {
+  '/map': '/',
+  '/report': '/#download',
+  '/trust': '/privacy',
+  '/account': '/donations',
+  '/register': '/sign-up',
+}
+for (const [from, to] of Object.entries(OLD_PAGES)) app.get(from, (c) => c.redirect(to, 301))
+// Old sign-in links kept where to go next (?redirect=/donate/3).
+app.get('/login', (c) => {
+  const next = c.req.query('redirect')
+  return c.redirect(next && /^\/(?![/\\])/.test(next) ? `/sign-in?next=${encodeURIComponent(next)}` : '/sign-in', 301)
+})
+app.get('/pothole/:id', (c) => {
+  const id = pageId(c.req.param('id'))
+  return id ? c.redirect(`/r/${id}`, 301) : c.notFound()
+})
 
 // The admin panel (apps/admin) is a single page under /admin/: its files are
 // served directly; any other /admin/ address (a screen such as /admin/reports)
-// gets its page, which then shows that screen. Without the built files (tests,
-// local API only) the old admin page stays.
-app.get('/admin', (c) => (c.env.ASSETS ? staticPage(c.env, new URL('/admin', c.req.url), 200, true) : c.html(renderAdminPage())))
+// gets its page, which then shows that screen.
+app.get('/admin', (c) => (c.env.ASSETS ? staticPage(c.env, new URL('/admin', c.req.url), 200, true) : c.notFound()))
 app.get('/admin/*', async (c) => {
   if (!c.env.ASSETS) return c.notFound()
   // A missing file (an old script name after a deploy) is a plain 404, not the page.
@@ -206,7 +184,7 @@ async function staticPage(env: Bindings, url: URL, status: number, admin = false
   return new Response(res.body, { status, headers })
 }
 
-// Plan 9.1: the daily clean-up (Cron Trigger in wrangler.worker.jsonc).
+// Plan 9.1: the daily clean-up (Cron Trigger in wrangler.jsonc).
 const worker = Object.assign(app, {
   scheduled(_controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
     ctx.waitUntil(dailyCleanup(env).then((r) => console.log('daily clean-up', JSON.stringify(r))))

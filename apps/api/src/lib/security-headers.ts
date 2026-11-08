@@ -4,8 +4,6 @@
 //           Vite. Only this site's own files may run or load (no inline
 //           scripts, nothing from other sites).
 //   api     JSON, photos and map tiles: nothing in them may run or be framed.
-//   legacy  the old citizen pages still served until plan 9.2 (they look up
-//           addresses on OpenStreetMap's Nominatim and talk to the old app shell).
 //
 // Static files never reach the Worker's code: Cloudflare serves them directly
 // and applies apps/api/site/_headers, written from SITE_HEADERS below by
@@ -13,7 +11,7 @@
 // the admin panel's fallback page, API answers) get the same headers from the
 // middleware in src/index.tsx.
 
-export type Surface = 'site' | 'api' | 'legacy'
+export type Surface = 'site' | 'api'
 
 const csp = (rules: Record<string, string[]>) =>
   Object.entries(rules)
@@ -42,21 +40,6 @@ export const CSP: Record<Surface, string> = {
     'frame-ancestors': ["'none'"],
     'base-uri': ["'none'"],
   }),
-  legacy: csp({
-    'default-src': ["'self'"],
-    'script-src': ["'self'"],
-    'script-src-attr': ["'none'"],
-    'style-src': ["'self'", "'unsafe-inline'"],
-    'font-src': ["'self'", 'data:'],
-    'img-src': ["'self'", 'data:', 'blob:'],
-    'connect-src': ["'self'", 'https://nominatim.openstreetmap.org', 'capacitor://localhost', 'https://localhost', 'http://localhost'],
-    'worker-src': ["'self'"],
-    'manifest-src': ["'self'"],
-    'object-src': ["'none'"],
-    'base-uri': ["'self'"],
-    'form-action': ["'self'"],
-    'frame-ancestors': ["'self'"],
-  }),
 }
 
 /** Headers every response carries, whatever the surface. */
@@ -70,31 +53,24 @@ export function headersFor(surface: Surface): Record<string, string> {
   return {
     ...COMMON_HEADERS,
     'Content-Security-Policy': CSP[surface],
-    'X-Frame-Options': surface === 'legacy' ? 'SAMEORIGIN' : 'DENY',
+    'X-Frame-Options': 'DENY',
     'Cross-Origin-Opener-Policy': 'same-origin',
-    // The old report page uses the camera and location in the browser; nothing else does.
-    'Permissions-Policy': surface === 'legacy' ? 'camera=(self), geolocation=(self), microphone=()' : 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
+    // Nothing on the website uses the camera or location (reporting is in the app).
+    'Permissions-Policy': 'camera=(), geolocation=(), microphone=(), payment=(), usb=()',
   }
 }
 
-// The old citizen pages and their files (removed in plan 9.2).
-// The donation pages moved to the website in plan 9.2 and are under the site policy.
-const LEGACY = /^\/(map|report|pothole\/|login|register|account|trust|static\/|sw\.js|manifest\.webmanifest|favicon\.svg)/
-
 /** Which surface a path belongs to. */
 export function surfaceFor(path: string): Surface {
-  if (/^\/(api|media|tiles)\//.test(path)) return 'api'
-  if (LEGACY.test(path)) return 'legacy'
-  return 'site'
+  return /^\/(api|media|tiles)\//.test(path) ? 'api' : 'site'
 }
 
 /**
  * The _headers file for the static files. Cloudflare joins the values of a
- * header set by two matching rules, so the policy is set once for everything
- * (the strict site policy); the old pages are all built by the Worker and get
- * theirs there. Paths below only add caching and indexing rules.
+ * header set by two matching rules, so the policy is set once for everything;
+ * the paths below only add caching and indexing rules.
  */
-export function staticHeadersFile(legacyRules: string): string {
+export function staticHeadersFile(): string {
   const lines = (h: Record<string, string>) => Object.entries(h).map(([k, v]) => `  ${k}: ${v}`)
   return [
     '# Written by apps/api/scripts/assemble-site.ts from src/lib/security-headers.ts (plan 9.1). Do not edit.',
@@ -111,8 +87,9 @@ export function staticHeadersFile(legacyRules: string): string {
     '/admin/*',
     '  X-Robots-Tag: noindex, nofollow',
     '',
-    '# The old citizen pages’ files (until plan 9.2).',
-    legacyRules.replace(/^#.*\n/gm, '').trim(),
+    '# Removes the old website\'s offline worker from browsers that still have it (plan 9.2).',
+    '/sw.js',
+    '  Cache-Control: no-cache',
     '',
   ].join('\n')
 }

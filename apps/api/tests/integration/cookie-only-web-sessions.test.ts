@@ -85,19 +85,14 @@ describe('website (browser page) sessions', () => {
 })
 
 describe('native app and API clients still receive tokens', () => {
-  it('the Capacitor app (capacitor:// and https://localhost origins)', async () => {
+  it('a page from any other origin, even one pretending to be the old app shell, gets cookies only', async () => {
     for (const origin of ['capacitor://localhost', 'https://localhost']) {
       const body = await json(await login(origin))
-      expect(body.access_token).toBeTruthy()
-      expect(body.refresh_token).toBeTruthy()
-      const r = await json(
-        await request(t.env, '/api/auth/refresh', { method: 'POST', headers: { 'X-Refresh-Token': body.refresh_token, Origin: origin } })
-      )
-      expect(r.refresh_token).toBeTruthy()
+      expect(body.access_token, origin).toBeUndefined()
     }
   })
 
-  it('scripts and other non-browser clients (no Origin header)', async () => {
+  it('the native app, scripts and other non-browser clients (no Origin header)', async () => {
     const body = await json(await login())
     expect(body.access_token).toBeTruthy()
   })

@@ -45,15 +45,6 @@ describe('with the website and admin panel built in', () => {
     expect((await request(t.env, '/admin/assets/index-old.js')).status).toBe(404)
   })
 
-  it('old addresses lead to the new pages', async () => {
-    const trust = await request(t.env, '/trust')
-    expect(trust.status).toBe(301)
-    expect(trust.headers.get('location')).toBe('/privacy')
-    const report = await request(t.env, '/pothole/42')
-    expect(report.status).toBe(301)
-    expect(report.headers.get('location')).toBe('/r/42')
-  })
-
   it('unknown pages show the website’s 404 page; the API keeps a plain answer', async () => {
     const page = await request(t.env, '/no-such-page', html)
     expect(page.status).toBe(404)
@@ -70,7 +61,6 @@ describe('with the website and admin panel built in', () => {
       ['/en/donate/3', 'Donate'],
       ['/donations/4', 'تبرعاتي'],
       ['/en/donations/4', 'My donations'],
-      ['/donations', 'تبرعاتي'],
     ]
     for (const [path, title] of cases) {
       const res = await request(t.env, path, html)
@@ -89,13 +79,9 @@ describe('with the website and admin panel built in', () => {
   })
 })
 
-describe('without the built files (local API, tests)', () => {
-  it('keeps the old pages', async () => {
-    expect((await request(t.env, '/admin')).status).toBe(200)
-    expect((await request(t.env, '/trust')).status).toBe(200)
-    expect((await request(t.env, '/pothole/5')).status).toBe(200)
-    expect((await request(t.env, '/admin/reports')).status).toBe(404)
-    expect((await request(t.env, '/donate/3')).status).toBe(200)
-    expect((await request(t.env, '/en/donate/3')).status).toBe(404)
+describe('without the built files (API tests)', () => {
+  it('serves no pages, only the API', async () => {
+    for (const path of ['/admin', '/admin/reports', '/donate/3', '/donations/3']) expect((await request(t.env, path)).status, path).toBe(404)
+    expect((await request(t.env, '/api/regions')).status).toBe(200)
   })
 })

@@ -13,14 +13,11 @@ export interface Bindings {
   PHOTOS: R2Bucket
   KV: KVNamespace
   JWT_SECRET: string
-  ADMIN_WHATSAPP?: string
   PUSH_WEBHOOK_URL?: string
   /** Firebase service-account key (the whole JSON file) for FCM HTTP v1 push. See src/lib/fcm.ts. */
   FCM_SERVICE_ACCOUNT?: string
   /** Optional tile URL template overriding OpenStreetMap, e.g. https://.../{z}/{x}/{y}.png?key=... */
   TILE_UPSTREAM?: string
-  /** "true" once the old website is removed (plan 9.2): reports and confirmations then need an account. */
-  REPORTS_REQUIRE_ACCOUNT?: string
   /** Extra origins allowed to call the API (comma-separated), e.g. a custom domain. See src/lib/origins.ts. */
   ALLOWED_ORIGINS?: string
   /** Static files (the website); bound once the Worker serves it (plan 9.1). */

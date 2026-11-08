@@ -1,59 +1,49 @@
 # HUFRA — Architecture
 
-> **Repository layout:** the backend now lives in `apps/api/` (npm workspaces, see `docs/EXECUTION_PLAN.md`). File paths in this document such as `src/…`, `public/…`, `migrations/…`, `scripts/…` and `tests/…` are relative to `apps/api/`. Commands like `npm test` still run from the repository root.
+> File paths such as `src/…`, `migrations/…`, `scripts/…` and `tests/…` are relative to `apps/api/` unless they name another app. The monorepo's parts are listed in the [README](../README.md).
 
 ## 1. High-level system diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Browser                                                              │
-│  Server-rendered HTML (Hono, no client framework) + vanilla JS       │
-│  Leaflet map · i18n.js (ar/en, RTL/LTR) · theme.js (light/dark)      │
-└───────────────────────────────┬───────────────────────────────────────┘
-                                 │ fetch('/api/*') , cookies (hufra_session, hufra_refresh)
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Cloudflare Workers — Hono app (src/index.tsx)                        │
-│                                                                       │
-│  middleware/auth.ts                                                  │
-│    attachAuth        → populates c.get('auth') from Bearer/cookie    │
-│    requireAuth()     → 401 if not authenticated                      │
-│    requireRole(...)  → 403 if role not in list                       │
-│                                                                       │
-│  routes/                                                              │
-│    auth.ts       register · login · refresh · logout · /me           │
-│                  GDPR export/delete                                  │
-│    potholes.ts   list/detail/create · status transitions · "mine"    │
-│    photos.ts     multipart upload → R2 (report/before/during/after)  │
-│    media.ts      binary photo streaming from R2                      │
-│    regions.ts    Greater Tripoli region CRUD (admin)                  │
-│    admin.ts      notifications · duplicates · analytics · audit log  │
-│                  · admin management (super_admin)                     │
-└───────┬────────────────────────┬────────────────────────┬────────────┘
-        │                        │                        │
-        ▼                        ▼                        ▼
-┌───────────────┐      ┌───────────────────┐      ┌─────────────────┐
-│ Cloudflare D1  │      │ Cloudflare KV      │      │ Cloudflare R2   │
-│ (SQLite)       │      │                    │      │                 │
-│ relational data│      │ rl:* rate-limit    │      │ photos/…        │
-│ + triggers      │      │ windows            │      │ thumbs/…        │
-│ (see §3)       │      │ counters:v1 cache  │      │ (2MB/photo cap) │
-└───────────────┘      └───────────────────┘      └─────────────────┘
+ Citizen app (apps/mobile)     Website (apps/web)          Admin panel (apps/admin)
+ Expo, iPhone + Android        Astro, static pages         React + Vite, at /admin
+ Bearer tokens                 HttpOnly cookies            HttpOnly cookies
+        │                             │                            │
+        └──────────────┬──────────────┴────────────────────────────┘
+                       ▼  https://hufra.mohamedsalem811.workers.dev
+┌─────────────────────────────────────────────────────────────────────────┐
+│ One Cloudflare Worker (src/index.tsx, wrangler.jsonc)                    │
+│  Static files (site/: website + admin panel) served first, with          │
+│  site/_headers (security headers, caching)                               │
+│  Hono app for everything else:                                           │
+│    /api/*    routes/: auth, potholes, photos, campaigns, donations,      │
+│              notifications, site, partners, admin-* …                    │
+│    /media/*  photos from R2 · /tiles/* map tiles (edge-cached proxy)     │
+│    /r/<id>, /donate/<id>, /donations/<id>, /admin/*: one built page      │
+│              each, read through the ASSETS binding                        │
+│    middleware: CORS + cross-site write check, body limits, security      │
+│              headers per surface (src/lib/security-headers.ts)           │
+│  Cron: daily clean-up (src/lib/cleanup.ts)                               │
+└───────┬───────────────────────────┬──────────────────────────┬──────────┘
+        ▼                           ▼                          ▼
+  Cloudflare D1 (SQLite)       Cloudflare R2               Cloudflare KV
+  data, triggers, rate-limit   photos, thumbnails,         Firebase push
+  counters (migrations/)       receipts, private proofs    access-token cache
 ```
 
-**Why this shape:** Cloudflare Pages/Workers has no persistent process, no
-filesystem, and a 10ms/30ms CPU budget per request — so HUFRA is built as a
-stateless edge function per request, with all state in D1/KV/R2 (never in
-memory), and the frontend deliberately kept to server-rendered HTML + vanilla
-JS (no SPA bundle) to stay fast on the slow/expensive mobile connections
-common in the target market.
+**Why this shape:** Cloudflare Workers have no persistent process and no
+filesystem, so each request is handled statelessly with all state in D1, R2
+and KV. One Worker on one domain serves the API, the website and the admin
+panel, so the web pages use same-origin cookies and a strict content security
+policy (only this site's own files). The website is static and small for slow,
+expensive mobile connections; live figures come from the API.
 
 ## 2. Request flow example: submitting a report
 
-1. `POST /api/potholes` (guest or authenticated — `attachAuth` runs but does
-   not require a session).
-2. Per-IP rate limit checked in D1 (`checkRateLimit`, `report_ip` scope, table `rate_limit_counters`); if
-   authenticated, a second per-user check runs too.
+1. `POST /api/potholes` from the app, signed in (a request without an account
+   is refused with `401`; guest reports ended with the old website in plan 9.2).
+2. Rate limits checked in D1 (table `rate_limit_counters`): per account, plus a
+   generous limit per shared carrier address.
 3. Body validated against `createPotholeSchema` (Zod) — coordinate plausibility
    is checked separately (`isPlausibleLibyaCoordinate`) since Zod validates
    shape, not geographic sanity.
@@ -127,7 +117,7 @@ erDiagram
     POTHOLES {
         int id PK
         int region_id FK
-        int reporter_id FK "nullable, guest reports allowed"
+        int reporter_id FK "nullable: old guest reports, deleted accounts"
         text reporter_contact "nullable"
         real lat
         real lng
@@ -304,7 +294,7 @@ all four are now covered by dedicated regression tests.
 
 | # | Bug | Root cause | Fix | Regression test |
 |---|---|---|---|---|
-| 1 | `/api/regions` and `/api/potholes/counters` 500'd in local dev | `wrangler pages dev` was invoked with `--d1/--r2/--kv` CLI flags, which spin up *fresh, separate* local resources instead of the ones declared in `wrangler.jsonc` — so the "real" bindings had no migrations/seed data | Removed the flags from `ecosystem.config.cjs`; bindings are picked up from `wrangler.jsonc` automatically | Manual verification (`curl`); this fix predates the automated integration suite |
+| 1 | `/api/regions` and `/api/potholes/counters` 500'd in local dev | `wrangler pages dev` was invoked with `--d1/--r2/--kv` CLI flags, which spin up *fresh, separate* local resources instead of the ones declared in `wrangler.jsonc` — so the "real" bindings had no migrations/seed data | Removed the flags; bindings are picked up from `wrangler.jsonc` automatically (Pages and its local setup are gone since plan 9.2) | Manual verification (`curl`); this fix predates the automated integration suite |
 | 2 | Every admin status-change request 500'd (`SQLITE_CONSTRAINT_TRIGGER`) | `PATCH /:id/status` tried to `UPDATE` an auto-inserted, immutable `status_history` row to attach `actor_id`/`note` | `pending_status_change` staging table + rewritten trigger (§3.3) | `tests/integration/status-transitions.test.ts` |
 | 3 | `/me`, `/me/export`, `/me/delete` (and formerly `/2fa/setup`/`/2fa/verify`) always 401'd regardless of a valid token | `auth.ts` router never wired `attachAuth`, so `c.get('auth')` was always `null` on that router | `auth.use('*', attachAuth)` added | `tests/integration/auth-2fa-bootstrap.test.ts` |
 
@@ -332,17 +322,16 @@ all four are now covered by dedicated regression tests.
   regression suite for bug #2 above), admin login without 2FA + RBAC
   boundaries (bug #3, and confirming the removed `/2fa/*` routes now 404),
   all `/api/admin/*` routes, and `/api/regions`.
-- Total: **143 tests**, run in CI on every push/PR via `.github/workflows/ci.yml`.
+- Everything else (the app, the website, the admin panel, browser and
+  emulator tests) and how CI runs it: [TESTING.md](TESTING.md).
 
 ## 7. Known architectural trade-offs
 
-- No client framework/bundler — server-rendered HTML + vanilla JS per page,
-  chosen for low-bandwidth resilience over developer ergonomics of a SPA.
+- The website is static (Astro) with small page scripts rather than a single-page
+  app, for low bandwidth; the admin panel, used by a small team on good
+  connections, is a React single-page app.
 - Geospatial queries are bounding-box + Haversine, not a true spatial index
   — fine at city scale, would need revisiting at a much larger data volume.
-- `photos.ts`/`media.ts` have low automated test coverage (file upload/R2
-  streaming is harder to exercise without a real multipart `File`/R2
-  round-trip) — see README §9 for the concrete next step.
 
 ## Status change rules (`PATCH /api/potholes/:id/status`)
 
@@ -357,5 +346,4 @@ Lifecycle: `reported → verified → under_repair → fixed` (`planStatusChange
 | Status changed by someone else since it was read | `409`. The `UPDATE ... WHERE status = <what was read>` changes no row, so the other admin's change is not overwritten. |
 
 The staging row for the `status_history` trigger, the update, and the clean-up
-run in one `DB.batch()` transaction. The offline admin queue drops a `409`
-instead of retrying it forever.
+run in one `DB.batch()` transaction.

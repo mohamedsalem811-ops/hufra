@@ -1,5 +1,5 @@
 // Server-side check that an uploaded photo really is the small, re-encoded
-// image produced by public/static/js/image-compress.js - not whatever a
+// image produced by the app (apps/mobile/src/features/report/photo-compress.ts) - not whatever a
 // client chooses to send.
 //
 // The browser's declared Content-Type and file name are not trusted. Instead

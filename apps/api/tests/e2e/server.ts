@@ -1,5 +1,6 @@
-// Local server for browser tests of the website: the real API (src/index.tsx)
-// on the in-memory test database, plus public/ static files. Not used in production.
+// Local test API for the browser tests (website, admin panel) and the app's
+// end-to-end journeys: the real API (src/index.tsx) on the in-memory test
+// database. Not used in production.
 //   npx tsx apps/api/tests/e2e/server.ts [port]   (prints the seed as JSON on its first line)
 import fs from 'node:fs'
 import http from 'node:http'
@@ -9,8 +10,6 @@ import { createTestEnv, request } from '../integration/helpers/test-env'
 
 const port = Number(process.argv[2] || 8788)
 const t = createTestEnv()
-const pub = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public')
-const TYPES: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.ttf': 'font/ttf', '.png': 'image/png', '.webmanifest': 'application/manifest+json' }
 
 // Seed: a super admin, a donor, a report with a photo, donations open, one campaign.
 const PW = 'Str0ngP@ssw0rd!'
@@ -42,12 +41,6 @@ async function seed() {
 http
   .createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://localhost:${port}`)
-    const file = path.join(pub, decodeURIComponent(url.pathname))
-    if ((url.pathname.startsWith('/static/') || url.pathname === '/favicon.svg') && file.startsWith(pub) && fs.existsSync(file)) {
-      res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' })
-      fs.createReadStream(file).pipe(res)
-      return
-    }
     const chunks: Buffer[] = []
     for await (const c of req) chunks.push(c as Buffer)
     const headers = new Headers()

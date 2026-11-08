@@ -1,43 +1,53 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
+  // HUFRA on Cloudflare Workers + Static Assets: one Worker serves the API, the
+  // website (root) and the admin panel (/admin), at
+  // https://hufra.mohamedsalem811.workers.dev. CI deploys it from main.
+  //
+  // Build the pages, then deploy:  npm run build:site && npx wrangler deploy
+  // Local:                         npm run build:site && npx wrangler dev
+  "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "hufra",
+  "main": "src/index.tsx",
   "compatibility_date": "2026-07-30",
   "compatibility_flags": ["nodejs_compat"],
-  "pages_build_output_dir": "./dist",
+  "workers_dev": true,
 
-  // D1 Database: relational + geospatial metadata (only tiny R2 keys are stored
-  // in D1, never raw image bytes).
+  // site/ holds the website (root) and the admin panel (/admin/), built by `npm run build:site`
+  // (scripts/assemble-site.ts). Files are served directly with site/_headers;
+  // everything else (the API, shared report pages, admin screens) reaches the code,
+  // which reads pages from the files through the ASSETS binding.
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    // Pages live at /how, not /how/ (the addresses in the sitemap and canonical links).
+    "html_handling": "drop-trailing-slash"
+  },
+
+  // Free Workers Logs: request logs and console output in the Cloudflare dashboard.
+  "observability": { "enabled": true },
+
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "hufra-production",
-      "database_id": "1a28d545-16ac-4062-ac5f-4348d9edf6cc"
+      "database_id": "1a28d545-16ac-4062-ac5f-4348d9edf6cc",
+      "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "hufra-photos" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "e926e97015c54e1e979ff8eb3ba0e92c" }],
 
-  // R2 bucket: pothole photos (ultra-compressed WebP/JPEG originals + thumbnails).
-  "r2_buckets": [
-    {
-      "binding": "PHOTOS",
-      "bucket_name": "hufra-photos"
-    }
-  ],
+  // Plan 9.1: the daily clean-up (src/lib/cleanup.ts), 03:17 UTC = 05:17 in Libya.
+  "triggers": { "crons": ["17 3 * * *"] },
 
-  // KV: rate limiting counters + short-lived caches (e.g. live counters).
-  "kv_namespaces": [
-    {
-      "binding": "KV",
-      "id": "e926e97015c54e1e979ff8eb3ba0e92c"
-    }
-  ]
+  // Plan 8.5: the signing key allowed to open /r/ links in the Android app.
+  // For now the public React Native template debug key that signs the test
+  // APKs (owner testing only); replaced by the Play signing key in Phase 10.
+  "vars": {
+    "ANDROID_CERT_SHA256": "FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C"
+  }
 
-  // Secrets (set via `npx wrangler pages secret put JWT_SECRET --project-name hufra`
-  // or automatically via `bash deploy.sh`):
-  // JWT_SECRET            - HMAC secret for signing access/refresh tokens
-  // ADMIN_WHATSAPP        - optional contact number for the admin WhatsApp button
-  // FCM_SERVICE_ACCOUNT   - optional Firebase service-account JSON (whole file) for
-  //                         Android push via FCM HTTP v1 (see src/lib/fcm.ts)
-  // ALLOWED_ORIGINS       - optional extra web origins allowed to call the API,
-  //                         comma-separated (e.g. a second domain). The site's own
-  //                         domain and the native app are always allowed.
+  // Secrets:
+  //   JWT_SECRET           generated automatically by CI on first deploy (see .github/workflows/ci.yml)
+  //   FCM_SERVICE_ACCOUNT  optional, Firebase key for Android push
 }

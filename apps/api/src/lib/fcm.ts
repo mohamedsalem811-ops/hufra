@@ -159,9 +159,8 @@ export async function sendFcmMessage(
 
 /**
  * True for tokens FCM can deliver to. Android registration tokens are FCM
- * tokens. On iOS, Capacitor's PushNotifications plugin returns a raw APNs
- * device token (64 hex characters) unless the Firebase iOS SDK is added, and
- * FCM cannot send to that, so those are skipped instead of being reported as
+ * tokens. On iOS the phone gives a raw APNs device token (64 hex characters)
+ * unless the Firebase iOS SDK is added, and FCM cannot send to that, so those are skipped instead of being reported as
  * failures.
  */
 export function isFcmToken(platform: string, token: string): boolean {

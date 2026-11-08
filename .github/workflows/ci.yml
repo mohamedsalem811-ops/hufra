@@ -2,8 +2,9 @@
 name: CI
 
 # HUFRA / حفرة CI pipeline.
-# Typecheck -> build -> test -> apply D1 migrations -> deploy to Cloudflare Pages.
-# The backend lives in apps/api (npm workspaces); dependencies install at the repo root.
+# Typecheck -> build -> test every part, then (main only) apply D1 migrations and
+# deploy the one Worker (API, website, admin panel) and smoke-test it live.
+# npm workspaces: dependencies install at the repo root.
 on:
   push:
     branches: [main]
@@ -46,9 +47,6 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
-
-      - name: Build (Vite -> Cloudflare Pages)
-        run: npm run build
 
       - name: Run test suite with coverage
         run: npm run test:coverage
@@ -231,65 +229,13 @@ jobs:
             apps/admin/test-results/
           retention-days: 14
 
-  deploy:
-    name: Deploy to Cloudflare Pages
-    needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies (workspace root)
-        working-directory: .
-        run: npm ci
-
-      - name: Build for production
-        run: npm run build
-
-      # Apply any new database migrations (migrations/*.sql) to the production
-      # D1 database BEFORE the new code goes live, so the code never runs
-      # against an older schema. Already-applied migrations are skipped, so
-      # this is a no-op when nothing changed. If a migration fails, the job
-      # stops here and the previous version of the site stays online.
-      # The CLOUDFLARE_API_TOKEN secret needs the "D1: Edit" permission.
-      - name: Apply D1 migrations (production)
-        run: npx wrangler d1 migrations apply hufra-production --remote
-        env:
-          CI: 'true'
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy dist --project-name hufra --branch main
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-  # Plan 9.1: one Worker serves everything: the API, the website (root), the
-  # admin panel (/admin/) and, until plan 9.2, the old citizen pages
-  # (apps/api/wrangler.worker.jsonc). It deploys only from main, after every
-  # check above has passed. The old Pages project keeps its own deploy until 9.2.
+  # Plan 9.1: one Worker serves everything: the API, the website (root) and the
+  # admin panel (/admin/) (apps/api/wrangler.jsonc). It deploys only from main,
+  # after every check above has passed.
   deploy-worker:
     name: Deploy to Cloudflare Workers
-    needs: [build-and-test, mobile-app, admin-panel, website, admin-e2e, deploy]
-    if: >-
-      always() && needs.build-and-test.result == 'success' && needs.mobile-app.result == 'success' &&
-      needs.admin-panel.result == 'success' && needs.website.result == 'success' && needs.admin-e2e.result == 'success' &&
-      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
-      github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [build-and-test, mobile-app, admin-panel, website, admin-e2e]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -316,31 +262,35 @@ jobs:
         working-directory: .
         run: npm ci
 
-      # The website and the admin panel, assembled with the old pages' files and
-      # the security headers into site/ (scripts/assemble-site.ts).
+      # The website and the admin panel, assembled with the security headers
+      # into site/ (scripts/assemble-site.ts).
       - name: Build the website and the admin panel
         run: npm run build:site
 
-      # No-op on main (the Pages job already applied them); needed on manual runs.
+      # Apply any new database migrations (migrations/*.sql) to the production
+      # D1 database BEFORE the new code goes live, so the code never runs
+      # against an older schema. Already-applied migrations are skipped. If a
+      # migration fails, the job stops here and the previous version stays online.
+      # The CLOUDFLARE_API_TOKEN secret needs the "D1: Edit" permission.
       - name: Apply D1 migrations (production)
-        run: npx wrangler d1 migrations apply hufra-production --remote -c wrangler.worker.jsonc
+        run: npx wrangler d1 migrations apply hufra-production --remote
 
       - name: Deploy the Worker
         id: deploy
         run: |
-          npx wrangler deploy -c wrangler.worker.jsonc --define "__BUILD_ID__:\"${GITHUB_SHA::8}\"" | tee deploy.log
+          npx wrangler deploy | tee deploy.log
           URL="$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Worker URL: $URL"
 
-      # The login-signing secret cannot be copied from Pages (it was never shown),
-      # so the first deploy generates a new random one, stored only in Cloudflare.
+      # The login-signing secret: the first deploy generated a random one, stored
+      # only in Cloudflare; later deploys keep it.
       - name: Ensure the JWT_SECRET secret exists on the Worker
         run: |
-          if npx wrangler secret list -c wrangler.worker.jsonc | grep -q '"JWT_SECRET"'; then
+          if npx wrangler secret list | grep -q '"JWT_SECRET"'; then
             echo "JWT_SECRET already set (kept)."
           else
-            openssl rand -hex 32 | npx wrangler secret put JWT_SECRET -c wrangler.worker.jsonc
+            openssl rand -hex 32 | npx wrangler secret put JWT_SECRET
             echo "JWT_SECRET generated and stored on the Worker (never printed)."
           fi
 
@@ -364,7 +314,7 @@ jobs:
               }
               console.log("Firebase project:", j.project_id)
             })'
-          printf '%s' "$FCM_SERVICE_ACCOUNT" | npx wrangler secret put FCM_SERVICE_ACCOUNT -c wrangler.worker.jsonc
+          printf '%s' "$FCM_SERVICE_ACCOUNT" | npx wrangler secret put FCM_SERVICE_ACCOUNT
           echo "FCM_SERVICE_ACCOUNT stored on the Worker (never printed)."
 
       # Check the LIVE Worker after every deploy (from GitHub's network).
@@ -406,22 +356,27 @@ jobs:
           check /api/regions 200
           check /api/potholes/counters 200
           check /api/site/numbers 200
-          # The old pages until plan 9.2, and old addresses leading to new pages
-          check /map 200
-          check /static/js/api.js 200
+          # The old website's addresses lead to the new pages (plan 9.2); its files are gone
+          check /map 301
+          check /login 301
           check /trust 301
+          check /pothole/12 301
           check /pothole/abc 404
+          check /static/js/api.js 404
+          check /sw.js 200
           # Security headers per surface (src/lib/security-headers.ts)
           header / content-security-policy | grep -q "script-src 'self'; script-src-attr 'none'" && header / content-security-policy | grep -q "frame-ancestors 'none'" && echo "ok   website policy" || { echo "FAIL website policy"; exit 1; }
           [ "$(curl -s -D - -o /dev/null "$URL/" | grep -ci '^content-security-policy:')" = "1" ] && echo "ok   one policy header" || { echo "FAIL policy header count"; exit 1; }
           header /admin/reports content-security-policy | grep -q "frame-ancestors 'none'" && header /admin x-robots-tag | grep -qi noindex && echo "ok   admin policy and noindex" || { echo "FAIL admin headers"; exit 1; }
           header /donate/1 content-security-policy | grep -q "script-src 'self'; script-src-attr 'none'" && echo "ok   donation pages policy" || { echo "FAIL donation pages policy"; exit 1; }
           header /api/regions content-security-policy | grep -q "default-src 'none'" && echo "ok   API policy" || { echo "FAIL API policy"; exit 1; }
-          header /map content-security-policy | grep -q "nominatim.openstreetmap.org" && echo "ok   old pages policy" || { echo "FAIL old pages policy"; exit 1; }
+          header /sw.js cache-control | grep -qi "no-cache" && echo "ok   old offline worker always fetched fresh" || { echo "FAIL sw.js caching"; exit 1; }
           header / strict-transport-security | grep -q "max-age=" && echo "ok   HSTS" || { echo "FAIL HSTS"; exit 1; }
           A="$(curl -s "$URL/" | grep -o '/_astro/[^"]*\.css' | head -1)"
           header "$A" cache-control | grep -q "immutable" && echo "ok   website files cached for a year" || { echo "FAIL website file caching ($A)"; exit 1; }
-          curl -sI "$URL/static/vendor/leaflet/leaflet.js" | grep -qi "cache-control: public, max-age=31536000, immutable" && echo "ok   old static cache headers"
+          # Reports need an account (plan 9.2)
+          code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/api/potholes" -H 'content-type: application/json' -d '{"lat":32.88,"lng":13.19,"severity":"minor"}')"
+          [ "$code" = "401" ] && echo "ok   a report without an account is refused (401)" || { echo "FAIL signed-out report -> $code (expected 401)"; exit 1; }
           code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/api/auth/login" -H 'content-type: application/json' -d '{"email":"smoke-test@example.com","password":"not-the-password"}')"
           [ "$code" = "401" ] && echo "ok   login rejects a wrong password (401)" || { echo "FAIL login -> $code (expected 401)"; exit 1; }
           echo "Live Worker OK: $URL"
