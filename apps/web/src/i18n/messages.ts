@@ -1,6 +1,7 @@
 /** Website copy. Arabic first; English mirrors it. Calm, plain words (packages/brand/VOICE.md). */
 export const ar = {
   'site.name': 'حفرة',
+  'site.cardAlt': 'شعار حفرة على خلفية زرقاء: بلّغ عن الحفر في طرابلس، وتابع إصلاحها خطوة بخطوة',
   'site.description': 'حفرة: بلّغ عن الحفر في طرابلس الكبرى من التطبيق، وتابع إصلاحها خطوة بخطوة، وساهم في تكلفتها.',
   'skip': 'تخطَّ إلى المحتوى',
   'nav.label': 'الرئيسية',
@@ -202,6 +203,7 @@ export type MessageKey = keyof typeof ar
 
 export const en: Record<MessageKey, string> = {
   'site.name': 'HUFRA',
+  'site.cardAlt': 'The HUFRA logo on blue: report potholes in Tripoli and follow their repair step by step',
   'site.description': 'HUFRA: report potholes in Greater Tripoli from the app, follow each repair step by step, and help pay for it.',
   'skip': 'Skip to content',
   'nav.label': 'Main',

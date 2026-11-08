@@ -139,8 +139,9 @@ jobs:
         run: npx vite build
 
   website:
-    name: "Website (Astro): check and build"
+    name: "Website (Astro): check, build, budget and browser tests"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: apps/web
@@ -165,6 +166,29 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Plan 8.6: what a first visit downloads per page (HTML, CSS, scripts, fonts, logos).
+      - name: Performance budget
+        run: npm run budget
+
+      # Chromium for the pinned @playwright/test version, with its system libraries.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Every page in Arabic and English, on desktop and phone: accessibility (axe),
+      # no sideways scrolling, no script errors; shared reports; search-engine files.
+      - name: Browser tests
+        run: npm run e2e
+
+      - name: Upload the report and screenshots when something failed
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: website-e2e-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 14
 
   admin-e2e:
     name: "Admin panel: browser tests (Playwright)"

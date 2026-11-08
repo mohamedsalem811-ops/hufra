@@ -1,2 +1,4 @@
 dist/
 .astro/
+playwright-report/
+test-results/

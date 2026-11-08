@@ -1,7 +1,7 @@
 ---
 import '../styles/site.css'
 
-import { appleTouchUrl, favicon32Url, faviconUrl, logoOnDarkUrl, logoUrl } from '../brand'
+import { appleTouchUrl, favicon32Url, faviconUrl, fontBoldUrl, fontRegularUrl, logoOnDarkUrl, logoUrl, socialCardUrl } from '../brand'
 import { href, otherPath, t, type Locale } from '../i18n/i18n'
 import { LEGAL, LEGAL_PAGES, type LegalPage } from '../legal/content'
 
@@ -26,6 +26,16 @@ const canonical = new URL(href(locale, bare), Astro.site)
 const alternates = (['ar', 'en'] as const).map((l) => ({ l, url: new URL(href(l, bare), Astro.site) }))
 const other = locale === 'ar' ? 'en' : 'ar'
 const year = new Date().getFullYear()
+// Home page only: who we are, for search engines.
+const structured = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'HUFRA',
+  alternateName: 'حفرة',
+  url: new URL('/', Astro.site).href,
+  logo: new URL(socialCardUrl, Astro.site).href,
+  areaServed: { '@type': 'City', name: locale === 'ar' ? 'طرابلس' : 'Tripoli' },
+}
 const nav = [
   { key: 'nav.how', to: href(locale, '/how'), id: 'how' },
   { key: 'nav.transparency', to: href(locale, '/transparency'), id: 'transparency' },
@@ -44,6 +54,8 @@ const nav = [
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     {!noindex && alternates.map((a) => <link rel="alternate" hreflang={a.l} href={a.url} />)}
     {!noindex && <link rel="alternate" hreflang="x-default" href={alternates[0]!.url} />}
+    <link rel="preload" href={fontRegularUrl} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fontBoldUrl} as="font" type="font/woff2" crossorigin />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#0B4A6F" />
     <link rel="icon" href={faviconUrl} type="image/svg+xml" />
@@ -60,6 +72,12 @@ const nav = [
           <meta property="og:description" content={description} />
           <meta property="og:locale" content={locale === 'ar' ? 'ar_LY' : 'en_GB'} />
           <meta property="og:url" content={canonical} />
+          <meta property="og:image" content={new URL(socialCardUrl, Astro.site)} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content={t(locale, 'site.cardAlt')} />
+          <meta name="twitter:card" content="summary_large_image" />
+          {bare === '/' && <script is:inline type="application/ld+json" set:html={JSON.stringify(structured)} />}
         </>
       )
     }
