@@ -115,6 +115,6 @@ describe('websiteUrl', () => {
   it('uses the English pages under /en', () => {
     expect(websiteUrl('ar', '/privacy')).toBe(`${API_URL}/privacy`);
     expect(websiteUrl('en', '/privacy')).toBe(`${API_URL}/en/privacy`);
-    expect(websiteUrl('en', '/')).toBe(`${API_URL}/en/`);
+    expect(websiteUrl('en', '/')).toBe(`${API_URL}/en`);
   });
 });

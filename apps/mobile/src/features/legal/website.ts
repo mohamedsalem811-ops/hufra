@@ -7,7 +7,7 @@ import type { Locale } from '@/i18n/locale';
 export function websiteUrl(locale: Locale, path: string): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
   if (locale === 'ar') return `${API_URL}${clean}`;
-  return `${API_URL}${clean === '/' ? '/en/' : `/en${clean}`}`;
+  return `${API_URL}${clean === '/' ? '/en' : `/en${clean}`}`;
 }
 
 /** Opens a website page in the in-app browser; failing to open is never an error screen. */

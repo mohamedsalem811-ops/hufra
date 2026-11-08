@@ -14,7 +14,8 @@ export function t(locale: Locale, key: MessageKey, vars?: Record<string, string 
 export function href(locale: Locale, path: string): string {
   const clean = path.startsWith('/') ? path : `/${path}`
   if (locale === 'ar') return clean
-  return clean === '/' ? '/en/' : `/en${clean}`
+  // No trailing slash: the Worker serves /en and /how (plan 9.1).
+  return clean === '/' ? '/en' : `/en${clean}`
 }
 
 /** The same page in the other language. */

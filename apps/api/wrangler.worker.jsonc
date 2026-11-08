@@ -17,8 +17,16 @@
 
   // Files in public/ are served directly (before the Worker code), with the
   // cache rules in public/_headers. Everything else reaches the Hono app.
+  // Plan 9.1: one Worker, three surfaces. site/ holds the website (root), the
+  // admin panel (/admin/) and the old pages' files, built by `npm run build:site`
+  // (scripts/assemble-site.ts). Files are served directly with site/_headers;
+  // everything else (the API, shared report pages, admin screens) reaches the code,
+  // which reads pages from the files through the ASSETS binding.
   "assets": {
-    "directory": "./public"
+    "directory": "./site",
+    "binding": "ASSETS",
+    // Pages live at /how, not /how/ (the addresses in the sitemap and canonical links).
+    "html_handling": "drop-trailing-slash"
   },
 
   // Free Workers Logs: request logs and console output in the Cloudflare dashboard.
@@ -34,6 +42,9 @@
   ],
   "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "hufra-photos" }],
   "kv_namespaces": [{ "binding": "KV", "id": "e926e97015c54e1e979ff8eb3ba0e92c" }],
+
+  // Plan 9.1: the daily clean-up (src/lib/cleanup.ts), 03:17 UTC = 05:17 in Libya.
+  "triggers": { "crons": ["17 3 * * *"] },
 
   // Plan 8.5: the signing key allowed to open /r/ links in the Android app.
   // For now the public React Native template debug key that signs the test

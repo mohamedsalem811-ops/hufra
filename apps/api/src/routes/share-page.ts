@@ -71,7 +71,7 @@ async function render(c: any, raw: string, locale: 'ar' | 'en') {
   const id = Number(raw)
   const origin = new URL(c.req.url).origin
   const env = c.env as Bindings
-  const template = env.ASSETS ? await env.ASSETS.fetch(new URL(locale === 'ar' ? '/r/' : '/en/r/', origin)).catch(() => null) : null
+  const template = env.ASSETS ? await env.ASSETS.fetch(new URL(locale === 'ar' ? '/r' : '/en/r', origin)).catch(() => null) : null
   if (!template || !template.ok) return c.redirect(`/pothole/${id}`, 302)
   const html = await template.text()
   const report = await loadSharedReport(env.DB, id, origin)
