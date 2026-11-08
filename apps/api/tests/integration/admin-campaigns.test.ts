@@ -50,7 +50,7 @@ async function openDonations() {
   return send(
     'PUT',
     '/api/admin/settings/donations',
-    { enabled: true, account_holder: 'شركة حفرة', bank_name: 'مصرف الجمهورية', iban: 'LY83 0020 4800 0020 1001 2036 1', account_number: '123456789', open_mode_ios: 'in_app', open_mode_android: 'in_app' },
+    { enabled: true, account_holder: 'شركة حفرة', bank_name: 'مصرف الجمهورية', iban: 'LY83 0020 4800 0020 1001 2036 1', account_number: '123456789', open_mode_ios: 'in_app', open_mode_android: 'in_app', current_password: PW },
     superAdmin.token
   )
 }
@@ -202,5 +202,19 @@ describe('what the public sees', () => {
     const done = await parse(await get(`/api/campaigns/by-pothole/${potholeId}`), C.potholeCampaignResponseSchema)
     expect(done.campaign).toMatchObject({ status: 'completed', final_cost_lyd: 280, receipt_key: expect.stringMatching(/^photos\/receipts\//) })
     expect(JSON.stringify(done)).not.toContain('contractor')
+  })
+})
+
+describe('rules the team can tune', () => {
+  it('use the saved screenshot deadline and large-amount threshold', async () => {
+    await send('PUT', '/api/admin/settings/rules', { duplicate_radius_m: 50, pending_hours: 6, large_lyd: 40 }, superAdmin.token)
+    const id = await campaign(5000)
+    const p = await pledge(id, 45)
+    const hours = (Date.parse(p.donation.expires_at!) - Date.now()) / 3600000
+    expect(hours).toBeGreaterThan(5.9)
+    expect(hours).toBeLessThanOrEqual(6)
+    await upload(p.donation.id, donor.token, proofForm())
+    const queue = await parse(await get('/api/admin/donations', admin.token), C.adminDonationListResponseSchema)
+    expect(queue.results[0]!.warnings).toContain('large_amount')
   })
 })

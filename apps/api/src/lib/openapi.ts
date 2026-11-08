@@ -122,7 +122,7 @@ export const ENDPOINTS: Endpoint[] = [
   { method: 'patch', path: '/api/admin/duplicates/:id', tag: 'Admin', summary: 'Merge or keep a possible duplicate', access: 'admin', body: c.duplicateReviewSchema },
   { method: 'get', path: '/api/admin/analytics', tag: 'Admin', summary: 'Numbers for the dashboard', access: 'admin' },
   { method: 'get', path: '/api/admin/reports', tag: 'Admin', summary: 'Reports with reporter details', access: 'admin' },
-  { method: 'get', path: '/api/admin/audit-logs', tag: 'Admin', summary: 'Who changed what', access: 'super_admin' },
+  { method: 'get', path: '/api/admin/audit-logs', tag: 'Admin', summary: 'Who changed what: filter by action, pages by cursor', access: 'super_admin', query: c.auditLogQuerySchema, response: c.auditLogResponseSchema },
   { method: 'get', path: '/api/admin/admins', tag: 'Admin', summary: 'Admin accounts', access: 'super_admin' },
   { method: 'post', path: '/api/admin/admins/promote', tag: 'Admin', summary: 'Make a person an admin', access: 'super_admin', body: c.promoteAdminSchema },
   { method: 'post', path: '/api/admin/admins/demote', tag: 'Admin', summary: 'Remove admin rights', access: 'super_admin', body: c.demoteAdminSchema },
@@ -140,8 +140,15 @@ export const ENDPOINTS: Endpoint[] = [
   { method: 'post', path: '/api/admin/campaigns/:id/allocate', tag: 'Admin', summary: 'Move leftover money to another campaign', access: 'admin', body: c.allocateSchema, response: c.adminCampaignResponseSchema },
   { method: 'get', path: '/api/admin/donations', tag: 'Admin', summary: 'Donations by status (default: waiting for review), with warnings and tab counts', access: 'admin', query: z.object({ status: c.donationStatusSchema.optional() }), response: c.adminDonationListResponseSchema },
   { method: 'post', path: '/api/admin/donations/:id/review', tag: 'Admin', summary: 'Confirm or reject a donation (notifies the donor)', access: 'admin', body: c.reviewDonationSchema, response: c.adminDonationReviewResponseSchema },
-  { method: 'get', path: '/api/admin/settings/donations', tag: 'Admin', summary: 'Donation settings (bank details, open mode)', access: 'admin', response: c.donationSettingsSchema },
-  { method: 'put', path: '/api/admin/settings/donations', tag: 'Admin', summary: 'Change donation settings', access: 'super_admin', body: c.donationSettingsSchema, response: c.donationSettingsSchema },
+  { method: 'get', path: '/api/admin/settings/donations', tag: 'Admin', summary: 'Donation settings (bank details, open mode)', access: 'admin', response: c.donationSettingsResponseSchema },
+  { method: 'put', path: '/api/admin/settings/donations', tag: 'Admin', summary: 'Change donation settings (your password is needed to change the bank details)', access: 'super_admin', body: c.donationSettingsSchema, response: c.donationSettingsResponseSchema },
+  { method: 'get', path: '/api/admin/settings/rules', tag: 'Admin', summary: 'General rules (duplicate radius, screenshot deadline, large-amount warning)', access: 'admin', response: c.generalRulesResponseSchema },
+  { method: 'put', path: '/api/admin/settings/rules', tag: 'Admin', summary: 'Change the general rules', access: 'super_admin', body: c.generalRulesSchema, response: c.generalRulesResponseSchema },
+  { method: 'put', path: '/api/admin/settings/contact', tag: 'Admin', summary: 'Change the public contact details', access: 'admin', body: c.contactSettingsSchema, response: c.contactResponseSchema },
+  { method: 'put', path: '/api/admin/settings/legal', tag: 'Admin', summary: 'Publish a new version of the legal information', access: 'super_admin', body: c.publishLegalSchema, response: c.legalResponseSchema },
+  { method: 'get', path: '/api/site/contact', tag: 'Site', summary: 'Public contact details', access: 'public', response: c.contactResponseSchema },
+  { method: 'get', path: '/api/site/legal', tag: 'Site', summary: 'The legal information, its version and the version users must have accepted', access: 'public', response: c.legalResponseSchema },
+  { method: 'post', path: '/api/auth/me/accept-legal', tag: 'Accounts', summary: 'Accept a version of the legal pages', access: 'user', body: c.acceptLegalSchema, response: z.object({ ok: z.literal(true), version: z.number().int() }) },
 ]
 
 const ACCESS_NOTE: Record<Access, string> = {

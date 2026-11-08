@@ -16,6 +16,7 @@ import { QueuePage } from '@/reports/queue-page'
 import { ReportPage } from '@/reports/report-page'
 import type { QueueFilters } from '@/reports/use-reports'
 import { ComingSoon, NotFound } from '@/routes/placeholders'
+import { SettingsPage } from '@/settings/settings-page'
 
 /** Every page needs a staff session; without one the sign-in form shows in place. */
 function Root() {
@@ -84,7 +85,7 @@ const routeTree = root.addChildren([
   soon('/regions', 'nav.regions'),
   soon('/people', 'nav.people'),
   soon('/partners', 'nav.partners'),
-  soon('/settings', 'nav.settings'),
+  createRoute({ getParentRoute: () => root, path: '/settings', component: SettingsPage }),
 ])
 
 export function createAdminRouter(history?: RouterHistory) {

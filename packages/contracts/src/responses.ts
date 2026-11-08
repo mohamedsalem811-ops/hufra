@@ -243,7 +243,12 @@ export const refreshResponseSchema = z.union([
 ])
 
 export const meResponseSchema = z.strictObject({
-  user: sessionUserSchema.extend({ totp_enabled: flag, created_at: timestamp }),
+  user: sessionUserSchema.extend({
+    totp_enabled: flag,
+    created_at: timestamp,
+    /** The version of the legal pages this person accepted (null: none yet). */
+    legal_version_accepted: z.number().int().nullable().default(null),
+  }),
 })
 
 export const notificationSchema = z.strictObject({

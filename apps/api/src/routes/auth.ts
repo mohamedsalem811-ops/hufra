@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings, UserRow } from '../lib/types'
 import { registerSchema, loginSchema, changePasswordSchema } from '../lib/validation'
-import { webHandoffSchema } from '@hufra/contracts'
+import { acceptLegalSchema, webHandoffSchema } from '@hufra/contracts'
 import { hashPassword, verifyPassword, isKnownPublicPassword } from '../lib/password'
 import {
   signJwt,
@@ -337,12 +337,28 @@ auth.post('/change-password', requireAuth(), async (c) => {
 auth.get('/me', requireAuth(), async (c) => {
   const authCtx = c.get('auth')!
   const user = await c.env.DB.prepare(
-    'SELECT id, email, role, code, locale, display_name, totp_enabled, created_at FROM users WHERE id = ? AND deleted_at IS NULL'
+    'SELECT id, email, role, code, locale, display_name, totp_enabled, created_at, legal_version_accepted FROM users WHERE id = ? AND deleted_at IS NULL'
   )
     .bind(authCtx.userId)
     .first()
   if (!user) return c.json({ error: 'User not found', error_ar: 'المستخدم غير موجود' }, 404)
   return c.json({ user })
+})
+
+// POST /api/auth/me/accept-legal - record that the person accepted this
+// version of the privacy policy, terms and donation rules (plan 8.2).
+auth.post('/me/accept-legal', requireAuth(), async (c) => {
+  const authCtx = c.get('auth')!
+  const parsed = acceptLegalSchema.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
+  const exists = await c.env.DB.prepare('SELECT version FROM legal_versions WHERE version = ?').bind(parsed.data.version).first()
+  if (!exists) return c.json({ error: 'No such version', error_ar: 'هذه النسخة غير موجودة' }, 404)
+  await c.env.DB.prepare(
+    `UPDATE users SET legal_version_accepted = MAX(COALESCE(legal_version_accepted, 0), ?), legal_accepted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`
+  )
+    .bind(parsed.data.version, authCtx.userId)
+    .run()
+  return c.json({ ok: true, version: parsed.data.version })
 })
 
 auth.get('/me/export', requireAuth(), async (c) => {

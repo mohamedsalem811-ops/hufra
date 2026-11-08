@@ -12,6 +12,8 @@ import { Hono } from 'hono'
 
 import { recordAudit } from '../lib/audit'
 import { inspectImage } from '../lib/image-check'
+import { verifyPassword } from '../lib/password'
+import { loadRules } from '../lib/site-settings'
 import { invalidatePublicCaches } from '../lib/cache'
 import {
   DONATION_SQL,
@@ -232,6 +234,7 @@ adminDonations.get('/donations', async (c) => {
         proof_uploaded_at: string | null
       }
     >()
+  const rules = await loadRules(c.env.DB)
   const counts = await c.env.DB.prepare(
     `SELECT status, COUNT(*) AS n FROM donations WHERE status IN ('under_review','awaiting_transfer','confirmed','rejected') GROUP BY status`
   ).all<{ status: string; n: number }>()
@@ -243,7 +246,7 @@ adminDonations.get('/donations', async (c) => {
       proof_url: r.proof_key ? `/api/donations/${r.id}/proof` : null,
       proof_uploaded_at: r.proof_uploaded_at ?? null,
       warnings: [
-        ...(r.amount_millimes >= lydToMillimes(DONATION_LIMITS.largeLyd) ? ['large_amount'] : []),
+        ...(r.amount_millimes >= lydToMillimes(rules.large_lyd) ? ['large_amount'] : []),
         ...(r.same_amount_pending > 0 ? ['same_amount_pending'] : []),
         ...(r.earlier_rejections > 0 ? ['earlier_rejections'] : []),
         ...(r.pledged_millimes != null && r.pledged_millimes !== r.amount_millimes ? ['amount_changed'] : []),
@@ -321,6 +324,15 @@ adminDonations.put('/settings/donations', requireRole('super_admin'), async (c) 
     return bad(c, 400, 'Fill in the account holder, bank and an IBAN or account number before opening donations', 'أكمل اسم صاحب الحساب والمصرف ورقم IBAN أو الحساب قبل فتح التبرعات')
   }
   const before = await loadDonationSettings(c.env.DB)
+  // Changing where donations go needs the super admin's own password, so an
+  // unattended signed-in browser cannot redirect the money.
+  const bankChanged = ['account_holder', 'bank_name', 'iban', 'account_number'].some((k) => (before as any)[k] !== (s as any)[k])
+  if (bankChanged) {
+    const me = await c.env.DB.prepare('SELECT password_hash FROM users WHERE id = ?').bind(auth.userId).first<{ password_hash: string }>()
+    if (!s.current_password || !me || !(await verifyPassword(s.current_password, me.password_hash))) {
+      return c.json({ error: 'Enter your password to change the bank details', error_ar: 'أدخل كلمة مرورك لتغيير بيانات الحساب', field: 'current_password' }, 403)
+    }
+  }
   const values: [string, string][] = [
     [SETTING_KEYS.enabled, s.enabled ? '1' : '0'],
     [SETTING_KEYS.accountHolder, s.account_holder],
@@ -338,9 +350,9 @@ adminDonations.put('/settings/donations', requireRole('super_admin'), async (c) 
       ).bind(key, value, auth.userId)
     )
   )
-  await recordAudit(c.env.DB, { actorId: auth.userId, action: 'settings.donations', entity: 'app_settings', before, after: s })
+  const { current_password: _pw, ...saved } = s
+  await recordAudit(c.env.DB, { actorId: auth.userId, action: 'settings.donations', entity: 'app_settings', before, after: saved })
   // Every admin hears about a change to the bank details, so a wrong or malicious edit is noticed at once.
-  const bankChanged = ['account_holder', 'bank_name', 'iban', 'account_number'].some((k) => (before as any)[k] !== (s as any)[k])
   if (bankChanged) await notifyAdmins(c.env.DB, 'payout_changed', { by: auth.code }, c.env, deferFrom(c))
   return c.json({ settings: await loadDonationSettings(c.env.DB) })
 })

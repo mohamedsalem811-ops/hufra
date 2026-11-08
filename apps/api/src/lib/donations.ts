@@ -65,8 +65,8 @@ export async function expireStalePledges(db: DB): Promise<void> {
     .run()
 }
 
-export function pledgeExpiry(now = Date.now()): string {
-  return new Date(now + DONATION_LIMITS.pendingHours * 3600 * 1000).toISOString()
+export function pledgeExpiry(now = Date.now(), hours: number = DONATION_LIMITS.pendingHours): string {
+  return new Date(now + hours * 3600 * 1000).toISOString()
 }
 
 /** Unambiguous characters only (no 0/O, 1/I/L), easy to type into a transfer note. */
