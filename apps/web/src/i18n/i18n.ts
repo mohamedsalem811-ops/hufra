@@ -51,3 +51,10 @@ export const SHARE_KEYS = [
   'share.notFound', 'share.failed', 'status.reported', 'status.verified', 'status.under_repair', 'status.fixed', 'site.name',
 ] as const satisfies readonly MessageKey[]
 export type ShareMessages = Record<(typeof SHARE_KEYS)[number], string>
+
+/** Every string under a prefix (the donation and sign-in pages build most of their text in the browser). */
+export function pickPrefix<P extends string>(locale: Locale, prefix: P): Record<Extract<MessageKey, `${P}${string}`>, string> {
+  return Object.fromEntries(Object.entries(dict[locale]).filter(([k]) => k.startsWith(prefix))) as Record<Extract<MessageKey, `${P}${string}`>, string>
+}
+export type DonateMessages = Record<Extract<MessageKey, `don.${string}`>, string>
+export type AuthMessages = Record<Extract<MessageKey, `auth.${string}`>, string>

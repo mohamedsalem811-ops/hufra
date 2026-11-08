@@ -7,6 +7,10 @@ let t: TestEnv
 const FILES: Record<string, string> = {
   '/admin': '<!doctype html><title>HUFRA admin</title><div id="root"></div>',
   '/404': '<!doctype html><title>Not found</title><h1>الصفحة غير موجودة</h1>',
+  '/donate': '<!doctype html><title>تبرّع</title>',
+  '/en/donate': '<!doctype html><title>Donate</title>',
+  '/donations': '<!doctype html><title>تبرعاتي</title>',
+  '/en/donations': '<!doctype html><title>My donations</title>',
 }
 function withAssets() {
   t.env.ASSETS = {
@@ -60,8 +64,28 @@ describe('with the website and admin panel built in', () => {
     expect(api.headers.get('content-type')).toContain('text/plain')
   })
 
-  it('the donation pages the app opens stay', async () => {
-    expect((await request(t.env, '/donations', html)).status).toBe(200)
+  it('every campaign and every donation gets the website’s donation pages, in both languages, under the site policy', async () => {
+    const cases: [string, string][] = [
+      ['/donate/3', 'تبرّع'],
+      ['/en/donate/3', 'Donate'],
+      ['/donations/4', 'تبرعاتي'],
+      ['/en/donations/4', 'My donations'],
+      ['/donations', 'تبرعاتي'],
+    ]
+    for (const [path, title] of cases) {
+      const res = await request(t.env, path, html)
+      expect(res.status, path).toBe(200)
+      expect(await res.text()).toContain(title)
+      expect(res.headers.get('content-security-policy')).toBe(CSP.site)
+      expect(res.headers.get('cache-control')).toBe('no-cache')
+    }
+    for (const path of ['/donate/0', '/donate/abc', '/en/donations/1.5']) expect((await request(t.env, path)).status, path).toBe(404)
+  })
+
+  it('an old or used sign-in link from the app leads to the website’s sign-in', async () => {
+    const res = await request(t.env, '/api/auth/handoff?t=' + 'x'.repeat(43))
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/sign-in')
   })
 })
 
@@ -71,5 +95,7 @@ describe('without the built files (local API, tests)', () => {
     expect((await request(t.env, '/trust')).status).toBe(200)
     expect((await request(t.env, '/pothole/5')).status).toBe(200)
     expect((await request(t.env, '/admin/reports')).status).toBe(404)
+    expect((await request(t.env, '/donate/3')).status).toBe(200)
+    expect((await request(t.env, '/en/donate/3')).status).toBe(404)
   })
 })

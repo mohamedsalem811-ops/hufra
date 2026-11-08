@@ -1,0 +1,119 @@
+---
+// A repair campaign and the first donation step (plan 9.2, design board 9).
+// One page for every campaign: the Worker serves it for /donate/<id> and
+// /en/donate/<id>; the browser fills it from the API.
+import { DONATION_LIMITS } from '@hufra/contracts'
+
+import { ui } from '../components/ui'
+import { href, pickPrefix, t, type Locale } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+const QUICK = [10, 25, 50, 100]
+const data = { locale, m: pickPrefix(locale, 'don.'), limits: { min: DONATION_LIMITS.minLyd, max: DONATION_LIMITS.maxLyd } }
+---
+
+<Base locale={locale} title={t(locale, 'don.title')} description={t(locale, 'don.description')} noindex>
+  <div class={ui.page}>
+    <div data-status class="flex flex-col items-start gap-3">
+      <p class="m-0 text-secondary" role="status" data-status-text>{t(locale, 'don.loading')}</p>
+      <button type="button" data-retry hidden class={ui.secondary}>{t(locale, 'don.retry')}</button>
+    </div>
+
+    <!-- The campaign -->
+    <section data-view="campaign" hidden class="flex flex-col gap-5" aria-labelledby="campaign-title">
+      <div class="overflow-hidden rounded-[20px] bg-subtle" data-hero hidden>
+        <img data-photo alt="" class="block aspect-[4/3] w-full object-cover" />
+      </div>
+      <div class="flex flex-col gap-2">
+        <span data-chip class="self-start rounded-full px-3 py-1 text-[13px] font-semibold"></span>
+        <h1 id="campaign-title" data-title tabindex="-1" class={ui.h1}></h1>
+        <p data-region class={ui.muted}></p>
+      </div>
+
+      <section class={ui.card} aria-labelledby="cp">
+        <h2 id="cp" class="m-0 text-sm font-semibold text-secondary">{t(locale, 'don.campaign')}</h2>
+        <p data-raised class="m-0 text-xl font-bold"></p>
+        <div data-bar role="img" class="flex h-3 overflow-hidden rounded-full bg-subtle">
+          <span data-bar-confirmed class="block h-full bg-[var(--color-status-fixed-fg)]"></span>
+          <span data-bar-review class="block h-full bg-[var(--color-status-under-repair-pin)]"></span>
+        </div>
+        <p data-review hidden class="m-0 text-sm text-secondary"></p>
+        <p data-donors class="m-0 text-sm text-secondary"></p>
+        <p data-note class={ui.muted}></p>
+      </section>
+
+      <section data-costs hidden class={ui.card} aria-labelledby="costs">
+        <h2 id="costs" class={ui.h2}>{t(locale, 'don.costs')}</h2>
+        <dl data-cost-list class="m-0 flex flex-col"></dl>
+      </section>
+
+      <div class="flex flex-col gap-3">
+        <button type="button" data-donate hidden class={ui.primary}>{t(locale, 'don.donate')}</button>
+        <p data-closed hidden class={ui.ok}></p>
+        <p data-not-open hidden class={ui.notice}>{t(locale, 'don.notOpen')}</p>
+      </div>
+
+      <section class={ui.card} aria-labelledby="wall">
+        <h2 id="wall" class={ui.h2}>{t(locale, 'don.wall')}</h2>
+        <ul data-wall class="m-0 flex list-none flex-col p-0"></ul>
+        <p data-no-donors hidden class={ui.muted}>{t(locale, 'don.noDonors')}</p>
+      </section>
+
+      <a data-report class={ui.text}>{t(locale, 'don.report')}</a>
+    </section>
+
+    <!-- Signed out: donating needs an account -->
+    <section data-view="signin" hidden class={ui.card} aria-labelledby="signin-title">
+      <h1 id="signin-title" tabindex="-1" class={ui.h1}>{t(locale, 'don.signinTitle')}</h1>
+      <p class={ui.muted}>{t(locale, 'don.signinBody')}</p>
+      <a data-signin class={ui.primary}>{t(locale, 'auth.signIn')}</a>
+      <a data-signup class={ui.text}>{t(locale, 'auth.signUp')}</a>
+      <button type="button" data-back class={ui.text}>{t(locale, 'don.back')}</button>
+    </section>
+
+    <!-- Step 0: how much -->
+    <section data-view="amount" hidden aria-labelledby="amount-title" class="flex flex-col gap-4">
+      <form data-amount-form novalidate class={ui.card}>
+        <h1 id="amount-title" tabindex="-1" class={ui.h1}>{t(locale, 'don.howMuch')}</h1>
+        <div role="group" aria-label={t(locale, 'don.quick')} class="flex flex-wrap gap-2.5" data-quick>
+          {QUICK.map((v) => <button type="button" class={ui.chip} aria-pressed="false" data-value={v}>{v}</button>)}
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="amount" class={ui.label}>{t(locale, 'don.custom')}</label>
+          <input id="amount" name="amount" type="number" inputmode="decimal" min={data.limits.min} max={data.limits.max} step="0.001" dir="ltr" aria-describedby="amount-hint" class={ui.input} />
+          <span id="amount-hint" class={ui.hint}>{t(locale, 'don.hint', { min: data.limits.min, max: new Intl.NumberFormat('en-US').format(data.limits.max) })}</span>
+        </div>
+        <label class="flex min-h-11 items-start gap-3">
+          <input type="checkbox" name="show_name" class="mt-1 size-5 accent-[var(--color-action-primary)]" />
+          <span class="flex flex-col"><strong class="font-semibold">{t(locale, 'don.showName')}</strong><span class={ui.hint}>{t(locale, 'don.showNameHint')}</span></span>
+        </label>
+        <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
+          <legend class={`${ui.label} mb-1.5 p-0`}>{t(locale, 'don.method')}</legend>
+          <label class="flex min-h-11 items-center gap-3 rounded-xl border border-action bg-brand-tint px-4">
+            <input type="radio" name="method" value="bank_transfer" checked class="size-5 accent-[var(--color-action-primary)]" />
+            <span>{t(locale, 'don.bank')}</span>
+          </label>
+          <label class="flex min-h-11 items-center gap-3 rounded-xl border border-default px-4 text-secondary">
+            <input type="radio" name="method" value="card_moamalat" disabled class="size-5" />
+            <span>{t(locale, 'don.card')}</span>
+          </label>
+        </fieldset>
+        <p data-error role="alert" hidden class={ui.error}></p>
+        <button type="submit" class={ui.primary}>{t(locale, 'don.continue')}</button>
+      </form>
+      <button type="button" data-back class={ui.text}>{t(locale, 'don.back')}</button>
+    </section>
+
+    <p class="m-0 text-sm text-secondary"><a href={href(locale, '/donation-rules')}>{t(locale, 'don.rules')}</a></p>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify(data)} />
+</Base>
+
+<script>
+  import { startCampaign } from '../scripts/donate'
+  startCampaign()
+</script>

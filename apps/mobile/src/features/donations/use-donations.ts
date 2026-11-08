@@ -13,6 +13,8 @@ import { Linking, Platform } from 'react-native';
 import { useApi } from '@/api/api-provider';
 import type { ApiClient } from '@/api/client';
 import { API_URL } from '@/config/env';
+import { useI18n } from '@/i18n/i18n-provider';
+import type { Locale } from '@/i18n/locale';
 
 import { useAuth } from '../auth/auth-provider';
 
@@ -70,10 +72,16 @@ export function openModeFor(config: { open_mode: { ios: DonationOpenMode; androi
   return Platform.OS === 'ios' ? config.open_mode.ios : config.open_mode.android;
 }
 
+/** A donation page in the app's language: the website keeps English under /en (plan 9.2). */
+export function donationPath(locale: Locale, path: string): string {
+  return locale === 'en' ? `/en${path}` : path;
+}
+
 /** Opens a donation page on the website the way the team chose, then refreshes the numbers on return. */
 export function useOpenDonationPage() {
   const { api } = useApi();
   const { state } = useAuth();
+  const { locale } = useI18n();
   const queryClient = useQueryClient();
   const config = useDonationConfig();
   const [opening, setOpening] = useState(false);
@@ -82,7 +90,7 @@ export function useOpenDonationPage() {
     async (path: string) => {
       setOpening(true);
       try {
-        const url = await donationUrl(api, path, state.status === 'signedIn');
+        const url = await donationUrl(api, donationPath(locale, path), state.status === 'signedIn');
         if (openModeFor(config.data) === 'safari') {
           await Linking.openURL(url);
         } else {
@@ -97,7 +105,7 @@ export function useOpenDonationPage() {
         for (const queryKey of [['campaign'], ['my-donations']]) void queryClient.invalidateQueries({ queryKey });
       }
     },
-    [api, state.status, config.data, queryClient],
+    [api, state.status, config.data, queryClient, locale],
   );
   return { open, opening };
 }

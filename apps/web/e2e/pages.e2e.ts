@@ -14,6 +14,10 @@ const PAGES: [string, string, string][] = [
   ['/donation-rules', 'قواعد التبرع', 'Donation rules'],
   ['/delete-account', 'حذف الحساب', 'Delete your account'],
   ['/r/1', 'حفرة في شارع الجمهورية', 'Pothole on Al Jumhuriya St'],
+  ['/donate/1', 'شارع الجمهورية', 'Al Jumhuriya St'],
+  ['/donations', 'تبرعاتي', 'My donations'],
+  ['/sign-in', 'تسجيل الدخول', 'Sign in'],
+  ['/sign-up', 'إنشاء حساب', 'Create an account'],
 ]
 
 for (const [path, ar, en] of PAGES) {

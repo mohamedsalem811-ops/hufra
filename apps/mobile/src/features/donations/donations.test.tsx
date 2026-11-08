@@ -124,6 +124,15 @@ describe('CampaignCardView', () => {
     expect(JSON.parse(String(handoff[1].body))).toEqual({ next: '/donate/3' });
   });
 
+  it('opens the English website pages when the app is in English', async () => {
+    await render(<AppProviders locale="en" themeMode="light"><CampaignCardView campaign={campaign} /></AppProviders>);
+    await waitFor(() => expect((globalThis.fetch as jest.Mock).mock.calls.some(([u]) => String(u).endsWith('/api/auth/me'))).toBe(true));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Donate to repair it' }));
+    await waitFor(() => expect(WebBrowser.openBrowserAsync).toHaveBeenCalled());
+    const handoff = (globalThis.fetch as jest.Mock).mock.calls.find(([u]) => String(u).endsWith('/web-handoff'));
+    expect(JSON.parse(String(handoff[1].body))).toEqual({ next: '/en/donate/3' });
+  });
+
   it("uses the phone's browser when the team switched to Safari, and the plain page if the link fails", async () => {
     setOS('ios');
     config = { ...config, open_mode: { ios: 'safari', android: 'in_app' } };

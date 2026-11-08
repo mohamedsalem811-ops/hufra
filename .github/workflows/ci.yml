@@ -396,6 +396,11 @@ jobs:
           check /.well-known/assetlinks.json 200
           check /how/ 307
           # Admin panel (its screens too) and the API
+          # Donation pages and sign-in (plan 9.2): the website's pages for every id
+          check /donate/1 200
+          check /en/donations/1 200
+          check /donations 200
+          check /sign-in 200
           check /admin 200
           check /admin/reports 200
           check /api/regions 200
@@ -403,7 +408,6 @@ jobs:
           check /api/site/numbers 200
           # The old pages until plan 9.2, and old addresses leading to new pages
           check /map 200
-          check /donations 200
           check /static/js/api.js 200
           check /trust 301
           check /pothole/abc 404
@@ -411,6 +415,7 @@ jobs:
           header / content-security-policy | grep -q "script-src 'self'; script-src-attr 'none'" && header / content-security-policy | grep -q "frame-ancestors 'none'" && echo "ok   website policy" || { echo "FAIL website policy"; exit 1; }
           [ "$(curl -s -D - -o /dev/null "$URL/" | grep -ci '^content-security-policy:')" = "1" ] && echo "ok   one policy header" || { echo "FAIL policy header count"; exit 1; }
           header /admin/reports content-security-policy | grep -q "frame-ancestors 'none'" && header /admin x-robots-tag | grep -qi noindex && echo "ok   admin policy and noindex" || { echo "FAIL admin headers"; exit 1; }
+          header /donate/1 content-security-policy | grep -q "script-src 'self'; script-src-attr 'none'" && echo "ok   donation pages policy" || { echo "FAIL donation pages policy"; exit 1; }
           header /api/regions content-security-policy | grep -q "default-src 'none'" && echo "ok   API policy" || { echo "FAIL API policy"; exit 1; }
           header /map content-security-policy | grep -q "nominatim.openstreetmap.org" && echo "ok   old pages policy" || { echo "FAIL old pages policy"; exit 1; }
           header / strict-transport-security | grep -q "max-age=" && echo "ok   HSTS" || { echo "FAIL HSTS"; exit 1; }

@@ -4,10 +4,11 @@ import type { APIRoute } from 'astro'
 import { href } from '../i18n/i18n'
 
 // Arabic pages (no prefix); each has an English twin under /en. The 404 page
-// and the shared-report template (/r/) are left out.
+// and the pages built for one person or one item (shared reports, donations,
+// sign-in) are left out: they are not in search engines.
 const PATHS = Object.keys(import.meta.glob('./**/*.astro'))
   .map((f) => f.replace(/^\.\//, '/').replace(/\.astro$/, '').replace(/\/index$/, '/') || '/')
-  .filter((p) => !p.startsWith('/en') && p !== '/404' && !p.startsWith('/r/'))
+  .filter((p) => !p.startsWith('/en') && p !== '/404' && !/^\/(r|donate|donations)\/|^\/sign-(in|up)$/.test(p))
   .map((p) => (p === '' ? '/' : p))
   .sort()
 

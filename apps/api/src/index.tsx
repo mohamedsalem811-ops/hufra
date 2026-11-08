@@ -153,17 +153,26 @@ app.get('/pothole/:id', (c) => {
   return c.html(renderPotholeDetailPage(Number(raw)))
 })
 
-// Donation pages (plan 6.9): campaign, my donations, one donation.
+// Donation pages: a campaign, my donations, one donation. Plan 9.2: the
+// website's pages (one page for every id, filled in the browser); without the
+// built files (tests, local API) the old pages from plan 6.9 stay.
 const pageId = (raw: string) => (/^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null)
-app.get('/donate/:id', (c) => {
-  const id = pageId(c.req.param('id'))
-  return id ? c.html(renderDonatePage('campaign', id, c.env.ADMIN_WHATSAPP)) : c.notFound()
-})
-app.get('/donations', (c) => c.html(renderDonatePage('mine', null, c.env.ADMIN_WHATSAPP)))
-app.get('/donations/:id', (c) => {
-  const id = pageId(c.req.param('id'))
-  return id ? c.html(renderDonatePage('donation', id, c.env.ADMIN_WHATSAPP)) : c.notFound()
-})
+for (const lang of ['', '/en']) {
+  app.get(`${lang}/donate/:id`, (c) => {
+    const id = pageId(c.req.param('id'))
+    if (!id) return c.notFound()
+    if (c.env.ASSETS) return staticPage(c.env, new URL(`${lang}/donate`, c.req.url), 200)
+    return lang ? c.notFound() : c.html(renderDonatePage('campaign', id, c.env.ADMIN_WHATSAPP))
+  })
+  app.get(`${lang}/donations/:id`, (c) => {
+    const id = pageId(c.req.param('id'))
+    if (!id) return c.notFound()
+    if (c.env.ASSETS) return staticPage(c.env, new URL(`${lang}/donations`, c.req.url), 200)
+    return lang ? c.notFound() : c.html(renderDonatePage('donation', id, c.env.ADMIN_WHATSAPP))
+  })
+}
+// With the built files, /donations is the website's own page (served before this code runs).
+app.get('/donations', (c) => (c.env.ASSETS ? staticPage(c.env, new URL('/donations', c.req.url), 200) : c.html(renderDonatePage('mine', null, c.env.ADMIN_WHATSAPP))))
 
 app.get('/login', (c) => c.html(renderLoginPage()))
 app.get('/register', (c) => c.html(renderRegisterPage()))
