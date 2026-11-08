@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { secureHeaders } from 'hono/secure-headers'
 import type { Bindings } from './lib/types'
 import { isAllowedOrigin, isForbiddenCrossSiteWrite } from './lib/origins'
+import { headersFor, surfaceFor } from './lib/security-headers'
 
 import authRoutes from './routes/auth'
 import potholeRoutes from './routes/potholes'
@@ -37,6 +37,7 @@ import { renderDonatePage } from './pages/donate'
 import { bodyLimit } from 'hono/body-limit'
 import { buildOpenApi } from './lib/openapi'
 import { sharePage } from './routes/share-page'
+import { dailyCleanup } from './lib/cleanup'
 
 const API_BODY_LIMIT_BYTES = 64 * 1024
 
@@ -72,38 +73,21 @@ app.use(
   })
 )
 
-app.use(
-  '*',
-  secureHeaders({
-    contentSecurityPolicy: {
-      defaultSrc: ["'self'"],
-      // No inline scripts anywhere (see public/static/js/boot*.js): only files
-      // served by this site can run, so injected markup cannot execute code.
-      scriptSrc: ["'self'"],
-      scriptSrcAttr: ["'none'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      fontSrc: ["'self'", 'data:'],
-      imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: [
-        "'self'",
-        'https://nominatim.openstreetmap.org',
-        'capacitor://localhost',
-        'https://localhost',
-        'http://localhost',
-      ],
-      workerSrc: ["'self'"],
-      manifestSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'self'"],
-    },
-    strictTransportSecurity: 'max-age=15552000; includeSubDomains',
-    xFrameOptions: 'SAMEORIGIN',
-    referrerPolicy: 'strict-origin-when-cross-origin',
-  })
-)
-
+// Security headers for each surface (src/lib/security-headers.ts). Static
+// files get the same ones from the _headers file written at deploy.
+app.use('*', async (c, next) => {
+  await next()
+  const wanted = Object.entries(headersFor(surfaceFor(c.req.path))).filter(([name]) => !c.res.headers.has(name))
+  if (!wanted.length) return
+  try {
+    for (const [name, value] of wanted) c.res.headers.set(name, value)
+  } catch {
+    // Responses fetched from the static files have read-only headers: copy first.
+    const copy = new Response(c.res.body, c.res)
+    for (const [name, value] of wanted) copy.headers.set(name, value)
+    c.res = copy
+  }
+})
 
 // Static files (public/) are served by the platform before this code runs:
 // Cloudflare Pages today, Workers Static Assets on the Worker (wrangler.worker.jsonc).
@@ -156,13 +140,16 @@ app.get('/', (c) => c.html(renderHomePage(c.env.ADMIN_WHATSAPP)))
 app.get('/map', (c) => c.html(renderMapPage()))
 app.get('/report', (c) => c.html(renderReportPage()))
 app.get('/transparency', (c) => c.html(renderTransparencyPage()))
-app.get('/trust', (c) => c.html(renderTrustPage()))
+// Plan 9.1: once the website is served from here, the old trust page and
+// report links lead to their new pages.
+app.get('/trust', (c) => (c.env.ASSETS ? c.redirect('/privacy', 301) : c.html(renderTrustPage())))
 
 // Report ids are integers (0 is the template the native app build renders, see
 // scripts/build-app.mjs); anything else is a 404 and is never echoed back.
 app.get('/pothole/:id', (c) => {
   const raw = c.req.param('id')
   if (!/^(0|[1-9]\d{0,9})$/.test(raw)) return c.notFound()
+  if (c.env.ASSETS && raw !== '0') return c.redirect(`/r/${raw}`, 301)
   return c.html(renderPotholeDetailPage(Number(raw)))
 })
 
@@ -182,8 +169,39 @@ app.get('/login', (c) => c.html(renderLoginPage()))
 app.get('/register', (c) => c.html(renderRegisterPage()))
 app.get('/account', (c) => c.html(renderAccountPage()))
 
-app.get('/admin', (c) => c.html(renderAdminPage()))
+// The admin panel (apps/admin) is a single page under /admin/: its files are
+// served directly; any other /admin/ address (a screen such as /admin/reports)
+// gets its page, which then shows that screen. Without the built files (tests,
+// local API only) the old admin page stays.
+app.get('/admin', (c) => (c.env.ASSETS ? staticPage(c.env, new URL('/admin', c.req.url), 200, true) : c.html(renderAdminPage())))
+app.get('/admin/*', async (c) => {
+  if (!c.env.ASSETS) return c.notFound()
+  // A missing file (an old script name after a deploy) is a plain 404, not the page.
+  if (/\.[a-z0-9]{2,5}$/i.test(c.req.path)) return c.notFound()
+  return staticPage(c.env, new URL('/admin', c.req.url), 200, true)
+})
 
-app.notFound((c) => c.text('Not found', 404))
+// Unknown addresses: the website's own "page not found" for people, plain text for the API.
+app.notFound(async (c) => {
+  const wantsPage = (c.req.header('Accept') ?? '').includes('text/html') && !/^\/(api|media|tiles)\//.test(c.req.path)
+  if (c.env.ASSETS && wantsPage) return staticPage(c.env, new URL('/404', c.req.url), 404)
+  return c.text('Not found', 404)
+})
 
-export default app
+/** A page from the built website or admin panel, with fresh headers (the static ones are read-only). */
+async function staticPage(env: Bindings, url: URL, status: number, admin = false) {
+  const res = await env.ASSETS!.fetch(url)
+  if (!res.ok) return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+  const headers: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }
+  if (admin) headers['X-Robots-Tag'] = 'noindex, nofollow'
+  return new Response(res.body, { status, headers })
+}
+
+// Plan 9.1: the daily clean-up (Cron Trigger in wrangler.worker.jsonc).
+const worker = Object.assign(app, {
+  scheduled(_controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    ctx.waitUntil(dailyCleanup(env).then((r) => console.log('daily clean-up', JSON.stringify(r))))
+  },
+})
+
+export default worker

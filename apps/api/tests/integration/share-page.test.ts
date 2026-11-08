@@ -16,7 +16,7 @@ function withAssets() {
     fetch: async (input: RequestInfo | URL) => {
       const path = new URL(String(input)).pathname
       assetPaths.push(path)
-      return new Response(TEMPLATE(path.startsWith('/en/') ? 'en' : 'ar'), { headers: { 'Content-Type': 'text/html' } })
+      return new Response(TEMPLATE(path.startsWith('/en') ? 'en' : 'ar'), { headers: { 'Content-Type': 'text/html' } })
     },
   } as unknown as Fetcher
 }
@@ -56,7 +56,7 @@ describe('/r/<id>', () => {
     const en = await (await request(t.env, `/en/r/${id}`)).text()
     expect(en).toContain('<title>Pothole on Omar St')
     expect(en).toContain(`content="http://localhost/en/r/${id}"`)
-    expect(assetPaths).toEqual(['/r/', '/en/r/'])
+    expect(assetPaths).toEqual(['/r', '/en/r'])
   })
 
   it('says so for an unknown report, and refuses ids that are not numbers', async () => {
