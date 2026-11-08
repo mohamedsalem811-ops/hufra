@@ -9,7 +9,7 @@ interface Props {
   title: string
   description?: string
   /** The menu item for this page, if any. */
-  current?: 'how'
+  current?: 'how' | 'transparency' | 'contact'
   /** Leave the page out of search engines (the 404 page). */
   noindex?: boolean
 }
@@ -24,6 +24,7 @@ const other = locale === 'ar' ? 'en' : 'ar'
 const year = new Date().getFullYear()
 const nav = [
   { key: 'nav.how', to: href(locale, '/how'), id: 'how' },
+  { key: 'nav.transparency', to: href(locale, '/transparency'), id: 'transparency' },
   { key: 'nav.about', to: `${href(locale, '/how')}#about` },
   { key: 'nav.faq', to: `${href(locale, '/how')}#faq` },
 ] as const
@@ -101,14 +102,11 @@ const nav = [
         <nav aria-label={t(locale, 'footer.links')} class="flex flex-wrap gap-x-5 gap-y-2">
           <a href={href(locale, '/how')} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.how')}</a>
           <a href={`${href(locale, '/how')}#faq`} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.faq')}</a>
-          <a data-contact-email hidden class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'footer.contact')}</a>
+          <a href={href(locale, '/transparency')} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.transparency')}</a>
+          <a href={href(locale, '/contact')} aria-current={current === 'contact' ? 'page' : undefined} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.contact')}</a>
         </nav>
         <span>{t(locale, 'footer.rights', { year })}</span>
       </div>
     </footer>
-    <script>
-      import { fillContact } from '../scripts/contact'
-      fillContact()
-    </script>
   </body>
 </html>

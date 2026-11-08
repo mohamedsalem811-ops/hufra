@@ -94,7 +94,7 @@ export const ENDPOINTS: Endpoint[] = [
 
   // Donations
   { method: 'get', path: '/api/donations/config', tag: 'Donations', summary: 'Whether donations are on, and how the app opens them', access: 'public', response: c.donationConfigResponseSchema },
-  { method: 'get', path: '/api/campaigns', tag: 'Donations', summary: 'Active campaigns', access: 'public', response: c.campaignListResponseSchema },
+  { method: 'get', path: '/api/campaigns', tag: 'Donations', summary: 'Open campaigns, or ?status=completed for finished repairs with final cost and receipt', access: 'public', response: c.campaignListResponseSchema },
   { method: 'get', path: '/api/campaigns/by-pothole/:potholeId', tag: 'Donations', summary: 'The campaign of a report, if any', access: 'public', response: c.potholeCampaignResponseSchema },
   { method: 'get', path: '/api/campaigns/:id', tag: 'Donations', summary: 'A campaign with its donor wall', access: 'public', response: c.campaignDetailResponseSchema },
   { method: 'post', path: '/api/campaigns/:id/donations', tag: 'Donations', summary: 'Start a donation (gives the bank details and a reference)', access: 'user', body: c.createDonationSchema, response: c.createDonationResponseSchema, status: 201 },
@@ -167,6 +167,7 @@ export const ENDPOINTS: Endpoint[] = [
   { method: 'get', path: '/api/site/contact', tag: 'Site', summary: 'Public contact details', access: 'public', response: c.contactResponseSchema },
   { method: 'get', path: '/api/site/legal', tag: 'Site', summary: 'The legal information, its version and the version users must have accepted', access: 'public', response: c.legalResponseSchema },
   { method: 'get', path: '/api/site/numbers', tag: 'Site', summary: 'Public figures for the website (cached for a minute)', access: 'public', response: c.siteNumbersResponseSchema },
+  { method: 'get', path: '/api/site/open-data.csv', tag: 'Site', summary: 'Open data: every public report as CSV (no personal details)', access: 'public', responseType: 'text/csv' },
   { method: 'post', path: '/api/auth/me/accept-legal', tag: 'Accounts', summary: 'Accept a version of the legal pages', access: 'user', body: c.acceptLegalSchema, response: z.object({ ok: z.literal(true), version: z.number().int() }) },
 ]
 

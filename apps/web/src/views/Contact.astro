@@ -1,0 +1,55 @@
+---
+import { CONTACT_KEYS, pickMessages, t, type Locale } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+const card = 'flex flex-col gap-1.5 rounded-[18px] border border-default bg-surface p-5'
+---
+
+<Base locale={locale} title={t(locale, 'contact.title')} current="contact">
+  <div class="mx-auto flex max-w-[860px] flex-col gap-7 px-4 pt-14 pb-[72px] sm:px-6">
+    <div class="flex flex-col gap-2.5">
+      <h1 class="m-0 text-[36px] font-bold sm:text-[44px]">{t(locale, 'contact.h1')}</h1>
+      <p class="m-0 text-[17px] leading-[1.7] text-secondary">{t(locale, 'contact.lead')}</p>
+    </div>
+
+    <p class="m-0 rounded-xl bg-subtle p-4" role="status" data-contact-status hidden></p>
+
+    <dl class="m-0 grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3.5">
+      <div class={card} data-row="public_email" hidden>
+        <dt class="text-sm text-secondary">{t(locale, 'contact.general')}</dt>
+        <dd class="m-0"><a data-value dir="ltr" class="inline-flex min-h-11 items-center text-lg font-semibold"></a></dd>
+      </div>
+      <div class={card} data-row="privacy_email" hidden>
+        <dt class="text-sm text-secondary">{t(locale, 'contact.privacy')}</dt>
+        <dd class="m-0"><a data-value dir="ltr" class="inline-flex min-h-11 items-center text-lg font-semibold"></a></dd>
+      </div>
+      <div class={card} data-row="phone" hidden>
+        <dt class="text-sm text-secondary">{t(locale, 'contact.phone')}</dt>
+        <dd class="m-0"><a data-value dir="ltr" class="inline-flex min-h-11 items-center text-lg font-semibold"></a></dd>
+      </div>
+      <div class={card} data-row="social_links" hidden>
+        <dt class="text-sm text-secondary">{t(locale, 'contact.social')}</dt>
+        <dd class="m-0"><ul data-value class="m-0 flex list-none flex-col p-0"></ul></dd>
+      </div>
+    </dl>
+
+    <section aria-labelledby="partner" class="flex flex-col gap-2 rounded-[18px] bg-brand-tint p-5">
+      <h2 id="partner" class="m-0 text-xl font-bold">{t(locale, 'contact.partner')}</h2>
+      <p class="m-0 leading-[1.8] text-secondary">{t(locale, 'contact.partnerText')}</p>
+    </section>
+    <section aria-labelledby="report" class="flex flex-col gap-2 rounded-[18px] border border-default bg-surface p-5">
+      <h2 id="report" class="m-0 text-xl font-bold">{t(locale, 'contact.report')}</h2>
+      <p class="m-0 leading-[1.8] text-secondary">{t(locale, 'contact.reportText')}</p>
+    </section>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify({ locale, m: pickMessages(locale, CONTACT_KEYS) })} />
+</Base>
+
+<script>
+  import { startContact } from '../scripts/contact'
+  startContact()
+</script>

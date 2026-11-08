@@ -1,5 +1,5 @@
 ---
-import { t, type Locale } from '../i18n/i18n'
+import { href, t, type Locale } from '../i18n/i18n'
 import type { MessageKey } from '../i18n/messages'
 import Base from '../layouts/Base.astro'
 
@@ -67,7 +67,7 @@ const faq = [1, 2, 3, 4, 5] as const
       <h3 class="m-0 text-xl font-semibold">{t(locale, 'how.partners')}</h3>
       <ul class="m-0 grid list-none grid-cols-3 gap-3 p-0" data-about-partners data-locale={locale}></ul>
       <p class="m-0 text-secondary" data-about-partners-none>{t(locale, 'how.partnersNone')}</p>
-      <a data-contact-email hidden class="flex min-h-11 items-center self-start font-semibold">{t(locale, 'how.partnerCta')}</a>
+      <a href={href(locale, '/contact')} class="flex min-h-11 items-center self-start font-semibold">{t(locale, 'how.partnerCta')}</a>
     </div>
   </section>
 

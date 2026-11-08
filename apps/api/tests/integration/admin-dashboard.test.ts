@@ -2,7 +2,7 @@
 import { adminCountsResponseSchema, dashboardResponseSchema } from '@hufra/contracts'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { csvCell } from '../../src/routes/admin-dashboard'
+import { csvCell } from '../../src/lib/csv'
 import { createTestEnv, json, request, type TestEnv } from './helpers/test-env'
 
 let t: TestEnv

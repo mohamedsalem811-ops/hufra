@@ -36,7 +36,15 @@ const MAX_OPEN_PLEDGES = 3
 const DONATION_LIMIT_PER_HOUR = 6
 
 // GET /api/campaigns - open campaigns (active first, then funded), newest first.
+// ?status=completed: finished repairs with their final cost and receipt (transparency page).
 campaigns.get('/', async (c) => {
+  const status = c.req.query('status')
+  if (status === 'completed') {
+    const done = await listCampaignRows(c.env.DB, `WHERE c.status = 'completed'`, [], 100)
+    done.sort((a, b) => (b.closed_at ?? '').localeCompare(a.closed_at ?? ''))
+    return c.json({ results: done.map(toCampaignSummary) })
+  }
+  if (status !== undefined && status !== 'open') return bad(c, 400, 'Unknown status', 'حالة غير معروفة')
   const rows = await listCampaignRows(c.env.DB, `WHERE c.status IN ('active', 'funded')`, [], 50)
   rows.sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
   return c.json({ results: rows.map(toCampaignSummary) })

@@ -1,0 +1,126 @@
+---
+import { pickMessages, t, TRANSPARENCY_KEYS, type Locale } from '../i18n/i18n'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+}
+const { locale } = Astro.props
+const card = 'flex flex-col gap-1.5 rounded-[18px] border border-default bg-surface p-[18px]'
+const tiles = [
+  ['reports', 'tr.all', null, null],
+  ['fixed', 'tr.fixed', null, 'text-success'],
+  ['avg_fix_days', 'tr.avg', 'unit.days', null],
+  ['open', 'tr.open', null, null],
+] as const
+const money = [
+  ['confirmed_lyd', 'tr.confirmed'],
+  ['spent_lyd', 'tr.spent'],
+  ['in_open_campaigns_lyd', 'tr.inOpen'],
+  ['moved_lyd', 'tr.moved'],
+] as const
+---
+
+<Base locale={locale} title={t(locale, 'tr.title')} current="transparency">
+  <div class="mx-auto flex max-w-[1200px] flex-col gap-7 px-4 pt-14 pb-[72px] sm:px-6">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div class="flex flex-col gap-2.5">
+        <h1 class="m-0 text-[36px] font-bold sm:text-[44px]">{t(locale, 'tr.h1')}</h1>
+        <p class="m-0 max-w-[680px] text-[17px] leading-[1.7] text-secondary">
+          {t(locale, 'tr.lead')} <span data-updated></span>
+        </p>
+      </div>
+      <div class="flex max-w-[360px] flex-col gap-1.5">
+        <a href="/api/site/open-data.csv" download class="inline-flex min-h-11 items-center self-start rounded-[10px] border-[1.5px] border-brand px-4 font-semibold text-brand no-underline hover:bg-brand-tint">
+          {t(locale, 'tr.csv')}
+        </a>
+        <span class="text-[13px] text-secondary">{t(locale, 'tr.csvHint')}</span>
+      </div>
+    </div>
+
+    <p class="m-0 rounded-xl bg-subtle p-4" role="status" data-error hidden>{t(locale, 'tr.unavailable')}</p>
+
+    <section aria-label={t(locale, 'tr.numbers')}>
+      <dl class="m-0 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
+        {
+          tiles.map(([key, label, unit, tone]) => (
+            <div class={card}>
+              <dt class="text-[15px] text-secondary">{t(locale, label)}</dt>
+              <dd class="m-0 flex flex-col gap-1">
+                <span class:list={['text-[36px] font-bold', tone]}>
+                  <span data-num={key}>—</span>
+                  {unit ? <span data-unit hidden class="text-lg font-semibold"> {t(locale, unit)}</span> : null}
+                </span>
+                {key === 'fixed' ? <span class="text-sm text-secondary" data-fixed-pct /> : null}
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+      <section aria-labelledby="mf" class="flex flex-col gap-3.5 rounded-[18px] border border-default bg-surface p-5">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="mf" class="m-0 text-[19px] font-semibold">{t(locale, 'tr.monthly')}</h2>
+          <button type="button" class="min-h-11 text-sm font-semibold text-link" aria-pressed="false" data-toggle hidden>{t(locale, 'tr.asTable')}</button>
+        </div>
+        <div data-chart></div>
+      </section>
+
+      <section aria-labelledby="rg" class="flex flex-col gap-3 rounded-[18px] border border-default bg-surface p-5">
+        <h2 id="rg" class="m-0 text-[19px] font-semibold">{t(locale, 'tr.byRegion')}</h2>
+        <div class="relative overflow-x-auto" tabindex="0" role="region" aria-labelledby="rg">
+          <table class="w-full min-w-[420px] border-collapse text-[15px]" aria-labelledby="rg">
+            <thead>
+              <tr class="text-secondary">
+                <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.region')}</th>
+                <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.reports')}</th>
+                <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.fixed')}</th>
+                <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.avgDays')}</th>
+              </tr>
+            </thead>
+            <tbody data-regions></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <section aria-labelledby="mn" class="flex flex-col gap-[18px] rounded-[18px] border border-default bg-surface p-6">
+      <h2 id="mn" class="m-0 text-2xl font-bold">{t(locale, 'tr.money')}</h2>
+      <dl class="m-0 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
+        {
+          money.map(([key, label]) => (
+            <div class="flex flex-col gap-1 rounded-[14px] bg-canvas p-4">
+              <dt class="text-sm text-secondary">{t(locale, label)}</dt>
+              <dd class="m-0 text-[28px] font-bold">
+                <span data-num={key}>—</span> <span class="text-base font-semibold">{t(locale, 'money.lyd')}</span>
+              </dd>
+            </div>
+          ))
+        }
+      </dl>
+      <div class="relative overflow-x-auto" tabindex="0" role="region" aria-labelledby="done">
+        <table class="w-full min-w-[640px] border-collapse text-[15px]">
+          <caption id="done" class="pb-2.5 text-start text-[17px] font-semibold">{t(locale, 'tr.completed')}</caption>
+          <thead>
+            <tr class="text-secondary">
+              <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.pothole')}</th>
+              <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.target')}</th>
+              <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.actual')}</th>
+              <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.diff')}</th>
+              <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{t(locale, 'tr.receipt')}</th>
+            </tr>
+          </thead>
+          <tbody data-completed></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify({ locale, m: pickMessages(locale, TRANSPARENCY_KEYS) })} />
+</Base>
+
+<script>
+  import { startTransparency } from '../scripts/transparency'
+  startTransparency()
+</script>
