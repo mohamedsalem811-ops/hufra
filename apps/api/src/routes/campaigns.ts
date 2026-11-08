@@ -17,6 +17,7 @@ import {
   type DonationRow,
 } from '../lib/donations'
 import { checkRateLimit, tooMany } from '../lib/rate-limit'
+import { loadRules } from '../lib/site-settings'
 import type { Bindings } from '../lib/types'
 import { attachAuth, requireAuth } from '../middleware/auth'
 
@@ -117,7 +118,7 @@ campaigns.post('/:id/donations', requireAuth(), async (c) => {
         `INSERT INTO donations (campaign_id, user_id, reference_code, method, amount_millimes, show_name, expires_at)
          VALUES (?, ?, ?, 'bank_transfer', ?, ?, ?)`
       )
-        .bind(id, auth.userId, newReferenceCode(), lydToMillimes(parsed.data.amount_lyd), parsed.data.show_name ? 1 : 0, pledgeExpiry())
+        .bind(id, auth.userId, newReferenceCode(), lydToMillimes(parsed.data.amount_lyd), parsed.data.show_name ? 1 : 0, pledgeExpiry(Date.now(), (await loadRules(c.env.DB)).pending_hours))
         .run()
       donationId = Number(res.meta.last_row_id)
     } catch (err) {

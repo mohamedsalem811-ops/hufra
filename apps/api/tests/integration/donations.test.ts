@@ -51,7 +51,7 @@ async function openDonations() {
   return send(
     'PUT',
     '/api/admin/settings/donations',
-    { enabled: true, account_holder: 'شركة حفرة', bank_name: 'مصرف الجمهورية', iban: 'LY83 0020 4800 0020 1001 2036 1', account_number: '123456789', open_mode_ios: 'in_app', open_mode_android: 'in_app' },
+    { enabled: true, account_holder: 'شركة حفرة', bank_name: 'مصرف الجمهورية', iban: 'LY83 0020 4800 0020 1001 2036 1', account_number: '123456789', open_mode_ios: 'in_app', open_mode_android: 'in_app', current_password: PW },
     superAdmin.token
   )
 }
@@ -85,7 +85,7 @@ describe('settings', () => {
     const badIban = await send(
       'PUT',
       '/api/admin/settings/donations',
-      { enabled: true, account_holder: 'x', bank_name: 'y', iban: 'LY84002048000020100120361', account_number: '', open_mode_ios: 'in_app', open_mode_android: 'in_app' },
+      { enabled: true, account_holder: 'x', bank_name: 'y', iban: 'LY84002048000020100120361', account_number: '', open_mode_ios: 'in_app', open_mode_android: 'in_app', current_password: PW },
       superAdmin.token
     )
     expect(badIban.status).toBe(400)
@@ -104,7 +104,7 @@ describe('settings', () => {
     await send(
       'PUT',
       '/api/admin/settings/donations',
-      { enabled: true, account_holder: 'شركة حفرة', bank_name: 'مصرف الجمهورية', iban: IBAN, account_number: '', open_mode_ios: 'safari', open_mode_android: 'in_app' },
+      { enabled: true, account_holder: 'شركة حفرة', bank_name: 'مصرف الجمهورية', iban: IBAN, account_number: '', open_mode_ios: 'safari', open_mode_android: 'in_app', current_password: PW },
       superAdmin.token
     )
     const config = await parse(await get('/api/donations/config'), C.donationConfigResponseSchema)

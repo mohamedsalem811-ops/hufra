@@ -138,6 +138,15 @@ export function buildNotificationCopy(
       url: '/admin',
     }
   }
+  if (type === 'legal_published') {
+    return {
+      title_ar: `نُشرت نسخة جديدة من المعلومات القانونية (${payload.version ?? ''})`,
+      title_en: `A new version of the legal information was published (${payload.version ?? ''})`,
+      body_ar: 'تغيير جوهري: سيُطلب من المستخدمين الموافقة عليه عند فتح التطبيق.',
+      body_en: 'A material change: users will be asked to accept it when they open the app.',
+      url: '/admin/settings',
+    }
+  }
   if (type === 'new_report') {
     const sev = String(payload.severity || 'medium')
     return {

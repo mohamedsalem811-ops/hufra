@@ -142,6 +142,8 @@ export const donationSettingsSchema = z.object({
     .refine((s) => s === '' || /^\d{6,20}$/.test(s), 'Account number: 6 to 20 digits'),
   open_mode_ios: donationOpenModeSchema,
   open_mode_android: donationOpenModeSchema,
+  /** The super admin's own password: required when the bank details change. */
+  current_password: z.string().max(200).optional(),
 })
 
 export const webHandoffSchema = z.object({
@@ -262,6 +264,19 @@ export const adminDonationListResponseSchema = z.strictObject({
   /** How many donations are in each review tab. */
   counts: z.strictObject({ under_review: z.number().int(), awaiting_transfer: z.number().int(), confirmed: z.number().int(), rejected: z.number().int() }),
 })
+/** GET/PUT /api/admin/settings/donations */
+export const donationSettingsResponseSchema = z.strictObject({
+  settings: z.strictObject({
+    enabled: z.boolean(),
+    account_holder: z.string(),
+    bank_name: z.string(),
+    iban: z.string(),
+    account_number: z.string(),
+    open_mode_ios: donationOpenModeSchema,
+    open_mode_android: donationOpenModeSchema,
+  }),
+})
+
 export const adminDonationReviewResponseSchema = z.strictObject({ donation: donationSchema, campaign_funded: z.boolean() })
 
 export const createDonationResponseSchema = z.strictObject({ donation: donationSchema, bank: bankDetailsSchema })

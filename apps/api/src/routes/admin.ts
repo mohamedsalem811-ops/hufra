@@ -4,7 +4,7 @@ import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
 import { purgeReportPhotos } from '../lib/storage'
-import { duplicateReviewSchema, promoteAdminSchema, demoteAdminSchema } from '@hufra/contracts'
+import { auditLogQuerySchema, duplicateReviewSchema, promoteAdminSchema, demoteAdminSchema } from '@hufra/contracts'
 import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
 const admin = new Hono<{ Bindings: Bindings }>()
@@ -163,12 +163,37 @@ admin.get('/reports', async (c) => {
 // Audit log viewer (super_admin only)
 // ---------------------------------------------------------------------------
 admin.get('/audit-logs', requireRole('super_admin'), async (c) => {
+  const parsed = auditLogQuerySchema.safeParse(c.req.query())
+  if (!parsed.success) return c.json({ error: 'Invalid query', error_ar: 'معايير بحث غير صحيحة' }, 400)
+  const { action, limit, cursor } = parsed.data
+  const where: string[] = []
+  const binds: unknown[] = []
+  // "campaign" matches campaign.create, campaign.completed...; "campaign.create" matches exactly.
+  if (action) (where.push('(al.action = ? OR al.action LIKE ?)'), binds.push(action, `${action}.%`))
+  if (cursor) (where.push('al.id < ?'), binds.push(Number(cursor)))
   const rows = await c.env.DB.prepare(
-    `SELECT al.*, u.email as actor_email, u.code as actor_code
+    `SELECT al.id, al.created_at, al.action, al.entity, al.entity_id, al.actor_id, al.before_json, al.after_json,
+       COALESCE(u.display_name, u.email) AS actor_name, u.email AS actor_email, u.code AS actor_code
      FROM audit_logs al LEFT JOIN users u ON u.id = al.actor_id
-     ORDER BY al.created_at DESC LIMIT 200`
-  ).all()
-  return c.json({ results: rows.results })
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY al.id DESC LIMIT ?`
+  )
+    .bind(...binds, limit + 1)
+    .all<Record<string, any>>()
+  const page = rows.results.slice(0, limit)
+  const json = (s: string | null) => {
+    if (!s) return null
+    try {
+      return JSON.parse(s)
+    } catch {
+      return s
+    }
+  }
+  c.header('Cache-Control', 'private, no-store')
+  return c.json({
+    results: page.map(({ before_json, after_json, ...r }) => ({ ...r, before: json(before_json), after: json(after_json) })),
+    next_cursor: rows.results.length > limit ? String(page.at(-1)!.id) : null,
+  })
 })
 
 // ---------------------------------------------------------------------------

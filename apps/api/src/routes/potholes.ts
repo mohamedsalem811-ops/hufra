@@ -7,7 +7,6 @@ import {
   haversineDistanceMeters,
   isPlausibleLibyaCoordinate,
   nearestRegion,
-  DUPLICATE_RADIUS_METERS,
 } from '../lib/geo'
 import {
   REPORT_LIMIT_PER_IP,
@@ -23,6 +22,7 @@ import {
   tooMany,
 } from '../lib/rate-limit'
 import { recordAudit, hashIp } from '../lib/audit'
+import { loadRules } from '../lib/site-settings'
 import { notifyAdmins, notifyUser, deferFrom } from '../lib/notifications'
 import { attachAuth, requireRole } from '../middleware/auth'
 import { invalidatePublicCaches, cachedJson } from '../lib/cache'
@@ -509,7 +509,8 @@ potholes.post('/', attachAuth, async (c) => {
     .bind(potholeId, authCtx?.userId ?? null)
     .run()
 
-  const box = boundingBoxForRadius({ lat: data.lat, lng: data.lng }, DUPLICATE_RADIUS_METERS)
+  const duplicateRadius = (await loadRules(c.env.DB)).duplicate_radius_m
+  const box = boundingBoxForRadius({ lat: data.lat, lng: data.lng }, duplicateRadius)
   const nearby = await c.env.DB.prepare(
     `SELECT id, lat, lng FROM potholes
      WHERE id != ? AND deleted_at IS NULL AND status != 'fixed'
@@ -520,7 +521,7 @@ potholes.post('/', attachAuth, async (c) => {
 
   for (const candidate of nearby.results) {
     const distance = haversineDistanceMeters({ lat: data.lat, lng: data.lng }, candidate)
-    if (distance <= DUPLICATE_RADIUS_METERS) {
+    if (distance <= duplicateRadius) {
       await c.env.DB.prepare(
         `INSERT INTO duplicate_flags (pothole_id, duplicate_of_id, distance_m) VALUES (?, ?, ?)`
       )

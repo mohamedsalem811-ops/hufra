@@ -17,6 +17,8 @@ import appInfoRoutes from './routes/app-info'
 import donationRoutes from './routes/donations'
 import adminDonationRoutes from './routes/admin-donations'
 import adminReportRoutes from './routes/admin-reports'
+import adminSettingsRoutes from './routes/admin-settings'
+import siteRoutes from './routes/site'
 import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
@@ -135,6 +137,8 @@ app.route('/api/app', appInfoRoutes)
 app.route('/api/donations', donationRoutes)
 app.route('/api/admin', adminDonationRoutes)
 app.route('/api/admin', adminReportRoutes)
+app.route('/api/admin', adminSettingsRoutes)
+app.route('/api/site', siteRoutes)
 
 app.route('/media', mediaRoutes)
 app.route('/tiles', tileRoutes)

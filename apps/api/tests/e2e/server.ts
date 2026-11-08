@@ -33,7 +33,7 @@ async function seed() {
   await call(`/api/photos/${created.id}`, { method: 'POST', body: fd })
   await jsonCall('/api/admin/settings/donations', {
     enabled: true, account_holder: 'شركة حفرة للخدمات', bank_name: 'مصرف الجمهورية', iban: 'LY83002048000020100120361',
-    account_number: '0012345678901', open_mode_ios: 'in_app', open_mode_android: 'in_app',
+    account_number: '0012345678901', open_mode_ios: 'in_app', open_mode_android: 'in_app', current_password: PW,
   }, owner, 'PUT')
   const camp = await jsonCall('/api/admin/campaigns', { pothole_id: created.id, target_lyd: 1200 }, owner)
   console.log(JSON.stringify({ campaign: camp.campaign.id, pothole: created.id, owner, donor }))
