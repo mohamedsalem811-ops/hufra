@@ -138,6 +138,47 @@ jobs:
       - name: Build
         run: npx vite build
 
+  admin-e2e:
+    name: "Admin panel: browser tests (Playwright)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (workspace root)
+        working-directory: .
+        run: npm ci
+
+      # Chromium for the pinned @playwright/test version, with its system libraries.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Starts the real API on its seeded in-memory database and the panel, then
+      # walks through sign-in, reports, donations, admins, duplicates, every page
+      # with an accessibility check (axe), and a phone-sized pass.
+      - name: Browser tests
+        run: npm run e2e
+
+      - name: Upload the report and screenshots when something failed
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: admin-e2e-report
+          path: |
+            apps/admin/playwright-report/
+            apps/admin/test-results/
+          retention-days: 14
+
   deploy:
     name: Deploy to Cloudflare Pages
     needs: build-and-test

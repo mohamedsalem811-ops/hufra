@@ -162,10 +162,10 @@ describe('POST /api/admin/admins/demote', () => {
       request(t.env, '/api/admin/admins/demote', { method: 'POST', headers: auth(tok), body: JSON.stringify({ email }) })
 
     expect((await demote(b, 'sa1@example.com')).status).toBe(200) // sa2 is now the only super admin
-    // sa1's already-issued access token still says super_admin, but staff rights are
-    // re-read on every request, so it no longer reaches the route at all.
+    // sa1's already-issued access token still says super_admin, but demoting ended
+    // that session: it no longer reaches the route at all.
     const blocked = await demote(a, 'sa2@example.com')
-    expect(blocked.status).toBe(403)
+    expect(blocked.status).toBe(401)
     const row = await t.db.prepare('SELECT role FROM users WHERE email = ?').bind('sa2@example.com').first<{ role: string }>()
     expect(row?.role).toBe('super_admin')
   })

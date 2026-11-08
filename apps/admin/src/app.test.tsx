@@ -92,7 +92,7 @@ describe('panel', () => {
 
   it('switches to English, left to right, and remembers it', async () => {
     show(fakeApi({ signedIn: true }))
-    await userEvent.setup().click(await screen.findByRole('button', { name: 'تغيير اللغة إلى الإنجليزية' }))
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'English · تغيير اللغة إلى الإنجليزية' }))
     expect(await screen.findByRole('navigation', { name: 'Admin menu' })).toBeInTheDocument()
     expect(document.documentElement.dir).toBe('ltr')
     expect(localStorage.getItem('hufra.admin.locale')).toBe('en')

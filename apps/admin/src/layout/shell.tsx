@@ -6,7 +6,7 @@ import { Icon, type IconName } from '@/components/icons'
 import logo from '@/components/logo-on-brand.svg'
 import type { SessionUser } from '@/auth/session'
 import { useSignOut } from '@/auth/session'
-import { useI18n } from '@/i18n/i18n'
+import { LanguageLabel, useI18n } from '@/i18n/i18n'
 import type { MessageKey } from '@/i18n/messages'
 import { useAdminCounts } from '@/reports/use-duplicates'
 
@@ -109,12 +109,10 @@ export function Shell({ user, children }: { user: SessionUser; children: ReactNo
         </div>
         <button
           type="button"
-          lang={locale === 'ar' ? 'en' : 'ar'}
-          aria-label={t('language.label')}
           className="mx-3 mt-2 min-h-11 rounded-[10px] text-start text-sm text-nav-muted underline hover:text-white"
           onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
         >
-          {t('language')}
+          <LanguageLabel />
         </button>
       </nav>
 

@@ -106,7 +106,7 @@ describe('admin accounts', () => {
     const third = await makeUser('third@example.com', 'super_admin')
     expect((await send(third.token, `/api/admin/admins/${owner.id}`, 'PUT', { role: 'admin' })).status).toBe(200)
     const last = await send(owner.token, `/api/admin/admins/${third.id}`, 'PUT', { role: 'admin' })
-    expect(last.status).toBe(403) // the owner is an admin now: the change applies at once, not when the token expires
+    expect(last.status).toBe(401) // the owner's role changed, which ended their session at once
     // With the seeded owner gone, the third is the only active super admin; it still cannot suspend itself.
     await t.db.prepare(`UPDATE users SET role = 'user' WHERE email = 'admin@hufra.ly'`).run()
     const lastOne = await send(third.token, `/api/admin/admins/${third.id}`, 'PUT', { suspended: true })
@@ -122,6 +122,16 @@ describe('admin accounts', () => {
     expect((await get(staff.token, '/api/admin/queue')).status).toBe(200)
     await send(owner.token, `/api/admin/admins/${staff.id}`, 'PUT', { suspended: true })
     expect((await get(staff.token, '/api/admin/queue')).status).toBe(401)
+  })
+
+  it('reinstating does not revive a session from before the suspension', async () => {
+    const owner = await makeUser('owner@example.com', 'super_admin')
+    const staff = await makeUser('staff@example.com', 'admin')
+    await send(owner.token, `/api/admin/admins/${staff.id}`, 'PUT', { suspended: true })
+    await send(owner.token, `/api/admin/admins/${staff.id}`, 'PUT', { suspended: false })
+    expect((await get(staff.token, '/api/admin/queue')).status).toBe(401)
+    const fresh = (await json(await login('staff@example.com'))).access_token
+    expect((await get(fresh, '/api/admin/queue')).status).toBe(200)
   })
 
   it('a super admin has no regions, and demoting clears regions and suspension', async () => {

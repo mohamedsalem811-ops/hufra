@@ -41,5 +41,8 @@
     "app:android": "npm run android -w @hufra/mobile --",
     "app:ios": "npm run ios -w @hufra/mobile --",
     "test:mobile": "npm run typecheck -w @hufra/mobile && npm run lint -w @hufra/mobile && npm test -w @hufra/mobile"
+  },
+  "overrides": {
+    "playwright-core": "1.63.0"
   }
 }

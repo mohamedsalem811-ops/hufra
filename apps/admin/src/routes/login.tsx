@@ -4,7 +4,7 @@ import { ApiError } from '@/api/client'
 import { NotStaffError, useSignIn } from '@/auth/session'
 import { Alert, Button, TextField } from '@/components/ui'
 import logo from '@/components/logo-on-brand.svg'
-import { useI18n } from '@/i18n/i18n'
+import { LanguageLabel, useI18n } from '@/i18n/i18n'
 
 export function LoginPage() {
   const { t, locale, setLocale } = useI18n()
@@ -51,8 +51,8 @@ export function LoginPage() {
           </Button>
         </form>
       </div>
-      <button type="button" lang={locale === 'ar' ? 'en' : 'ar'} aria-label={t('language.label')} className="min-h-11 text-link underline" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}>
-        {t('language')}
+      <button type="button" className="min-h-11 text-link underline" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}>
+        <LanguageLabel />
       </button>
     </div>
   )
