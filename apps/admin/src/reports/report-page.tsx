@@ -385,7 +385,7 @@ function Duplicates({ data }: { data: AdminReport }) {
               {pick(locale, d.other_street_ar, d.other_street_en) ?? t('queue.noStreet')} · {t('report.dupDistance', { m: number(Math.round(d.distance_m)) })} ·{' '}
               {dateTime(d.other_created_at, locale, false)}
             </span>
-            <span className="text-sm">{t('report.dupHelp', { newer, older })}</span>
+            <span className="text-sm">{t('dup.help', { newer: `\u2066#${newer}\u2069`, older: `\u2066#${older}\u2069` })}</span>
             <span className="flex flex-wrap gap-2">
               <Button variant="secondary" disabled={review.isPending} onClick={() => review.mutate({ flagId: d.flag_id, decision: 'confirmed' })}>
                 {t('report.dupConfirm')}

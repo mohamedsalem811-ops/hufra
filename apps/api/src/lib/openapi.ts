@@ -118,7 +118,8 @@ export const ENDPOINTS: Endpoint[] = [
   // Admin
   { method: 'get', path: '/api/admin/notifications', tag: 'Admin', summary: 'Admin inbox', access: 'admin', response: c.notificationListResponseSchema },
   { method: 'post', path: '/api/admin/notifications/read-all', tag: 'Admin', summary: 'Mark the admin inbox read', access: 'admin', response: c.okResponseSchema },
-  { method: 'get', path: '/api/admin/duplicates', tag: 'Admin', summary: 'Possible duplicate reports', access: 'admin' },
+  { method: 'get', path: '/api/admin/duplicates', tag: 'Admin', summary: 'Possible duplicate reports, both reports side by side', access: 'admin', response: c.duplicateListResponseSchema },
+  { method: 'get', path: '/api/admin/counts', tag: 'Admin', summary: 'Work waiting in each queue (menu badges)', access: 'admin', response: c.adminCountsResponseSchema },
   { method: 'patch', path: '/api/admin/duplicates/:id', tag: 'Admin', summary: 'Merge or keep a possible duplicate', access: 'admin', body: c.duplicateReviewSchema },
   { method: 'get', path: '/api/admin/analytics', tag: 'Admin', summary: 'Numbers for the dashboard', access: 'admin' },
   { method: 'get', path: '/api/admin/reports', tag: 'Admin', summary: 'Reports with reporter details', access: 'admin' },

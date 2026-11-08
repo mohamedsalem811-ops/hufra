@@ -26,6 +26,8 @@ export default defineConfig({
       },
       // Report photos are served by the same Worker.
       '/media': { target: api, changeOrigin: true },
+      // Map tiles, through the Worker's cached proxy.
+      '/tiles': { target: api, changeOrigin: true },
     },
   },
   build: { outDir: 'dist', sourcemap: true, assetsInlineLimit: 0 },

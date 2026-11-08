@@ -3,7 +3,6 @@ import { createRootRoute, createRoute, createRouter, Outlet, type RouterHistory 
 import { isStaff, useSession } from '@/auth/session'
 import { Alert, Button, Spinner } from '@/components/ui'
 import { useI18n } from '@/i18n/i18n'
-import type { MessageKey } from '@/i18n/messages'
 import { Shell } from '@/layout/shell'
 import { DashboardPage } from '@/routes/dashboard'
 import { LoginPage } from '@/routes/login'
@@ -12,12 +11,14 @@ import { CampaignsPage } from '@/campaigns/campaigns-page'
 import { NewCampaignPage } from '@/campaigns/new-campaign-page'
 import { ReviewPage } from '@/donations/review-page'
 import { REVIEW_TABS } from '@/donations/use-donations'
+import { DuplicatesPage } from '@/reports/duplicates-page'
 import { QueuePage } from '@/reports/queue-page'
+import { MapPage } from '@/map/map-page'
 import { ReportPage } from '@/reports/report-page'
 import type { QueueFilters } from '@/reports/use-reports'
 import { PartnersPage } from '@/partners/partners-page'
 import { PeoplePage, RegionsPage } from '@/people/people-page'
-import { ComingSoon, NotFound } from '@/routes/placeholders'
+import { NotFound } from '@/routes/placeholders'
 import { SettingsPage } from '@/settings/settings-page'
 
 /** Every page needs a staff session; without one the sign-in form shows in place. */
@@ -66,15 +67,12 @@ export function parseQueueSearch(s: Record<string, unknown>): QueueFilters {
 
 const root = createRootRoute({ component: Root, notFoundComponent: NotFound })
 
-const soon = (path: string, title: MessageKey) =>
-  createRoute({ getParentRoute: () => root, path, component: () => <ComingSoon title={title} /> })
-
 const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/', component: DashboardPage }),
   createRoute({ getParentRoute: () => root, path: '/reports', component: QueuePage, validateSearch: parseQueueSearch }),
   createRoute({ getParentRoute: () => root, path: '/reports/$id', component: ReportPage }),
-  soon('/map', 'nav.map'),
-  soon('/duplicates', 'nav.duplicates'),
+  createRoute({ getParentRoute: () => root, path: '/map', component: MapPage }),
+  createRoute({ getParentRoute: () => root, path: '/duplicates', component: DuplicatesPage }),
   createRoute({ getParentRoute: () => root, path: '/campaigns', component: CampaignsPage }),
   createRoute({ getParentRoute: () => root, path: '/campaigns/new', component: NewCampaignPage, validateSearch: (s: Record<string, unknown>) => ({ report: positive(s.report) }) }),
   createRoute({ getParentRoute: () => root, path: '/campaigns/$id', component: CampaignPage }),

@@ -27,18 +27,55 @@ admin.post('/notifications/read-all', async (c) => {
 // ---------------------------------------------------------------------------
 // Duplicate flags review
 // ---------------------------------------------------------------------------
+const SIDE = (a: string, r: string) => `
+  ${a}.id AS ${a}_id, ${a}.status AS ${a}_status, ${a}.severity AS ${a}_severity, ${a}.street_ar AS ${a}_street_ar, ${a}.street_en AS ${a}_street_en,
+  ${r}.name_ar AS ${a}_region_name_ar, ${r}.name_en AS ${a}_region_name_en, ${a}.lat AS ${a}_lat, ${a}.lng AS ${a}_lng,
+  ${a}.upvotes_count AS ${a}_upvotes_count, ${a}.created_at AS ${a}_created_at,
+  (SELECT ph.thumb_key FROM pothole_photos ph WHERE ph.pothole_id = ${a}.id AND ph.deleted_at IS NULL ORDER BY ph.created_at ASC LIMIT 1) AS ${a}_cover_thumb_key`
+const SIDE_FIELDS = ['id', 'status', 'severity', 'street_ar', 'street_en', 'region_name_ar', 'region_name_en', 'lat', 'lng', 'upvotes_count', 'created_at', 'cover_thumb_key']
+
+// Pairs still waiting for a decision (both reports must still exist), oldest first,
+// with enough of each report to compare them side by side.
 admin.get('/duplicates', async (c) => {
-  // Only flags that still need a decision: both reports must still exist.
   const rows = await c.env.DB.prepare(
-    `SELECT df.*, p1.lat as pothole_lat, p1.lng as pothole_lng, p1.status as pothole_status,
-            p2.lat as duplicate_lat, p2.lng as duplicate_lng, p2.status as duplicate_status
+    `SELECT df.id, df.pothole_id, df.duplicate_of_id, df.distance_m, df.created_at, ${SIDE('n', 'nr')}, ${SIDE('o', 'orr')}
      FROM duplicate_flags df
-     JOIN potholes p1 ON p1.id = df.pothole_id AND p1.deleted_at IS NULL
-     JOIN potholes p2 ON p2.id = df.duplicate_of_id AND p2.deleted_at IS NULL
+     JOIN potholes n ON n.id = df.pothole_id AND n.deleted_at IS NULL
+     JOIN regions nr ON nr.id = n.region_id
+     JOIN potholes o ON o.id = df.duplicate_of_id AND o.deleted_at IS NULL
+     JOIN regions orr ON orr.id = o.region_id
      WHERE df.review_status = 'pending'
-     ORDER BY df.created_at DESC`
-  ).all()
-  return c.json({ results: rows.results })
+     ORDER BY df.created_at ASC, df.id ASC
+     LIMIT 200`
+  ).all<Record<string, any>>()
+  const side = (r: Record<string, any>, a: string) => Object.fromEntries(SIDE_FIELDS.map((f) => [f, r[`${a}_${f}`]]))
+  c.header('Cache-Control', 'private, no-store')
+  return c.json({
+    results: rows.results.map((r) => ({
+      id: r.id,
+      pothole_id: r.pothole_id,
+      duplicate_of_id: r.duplicate_of_id,
+      distance_m: r.distance_m,
+      created_at: r.created_at,
+      newer: side(r, 'n'),
+      older: side(r, 'o'),
+    })),
+  })
+})
+
+// Numbers for the menu: work waiting in each queue.
+admin.get('/counts', async (c) => {
+  const row = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM potholes WHERE deleted_at IS NULL AND status = 'reported') AS new_reports,
+       (SELECT COUNT(*) FROM duplicate_flags df
+          JOIN potholes n ON n.id = df.pothole_id AND n.deleted_at IS NULL
+          JOIN potholes o ON o.id = df.duplicate_of_id AND o.deleted_at IS NULL
+          WHERE df.review_status = 'pending') AS duplicates,
+       (SELECT COUNT(*) FROM donations WHERE status = 'under_review') AS donations_to_review`
+  ).first<{ new_reports: number; duplicates: number; donations_to_review: number }>()
+  c.header('Cache-Control', 'private, no-store')
+  return c.json(row)
 })
 
 

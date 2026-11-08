@@ -1,6 +1,7 @@
 // Integration tests for /api/admin/* (notifications, duplicates, analytics,
 // reports queue, audit-logs, admin management) through the real Hono app.
 import { describe, it, expect, beforeEach } from 'vitest'
+import { adminCountsResponseSchema, duplicateListResponseSchema } from '@hufra/contracts'
 import { createTestEnv, request, json, type TestEnv } from './helpers/test-env'
 
 let t: TestEnv
@@ -196,5 +197,31 @@ describe('super_admin-only sub-routes', () => {
       body: JSON.stringify({ email: 'nobody@example.com', role: 'admin' }),
     })
     expect(res.status).toBe(404)
+  })
+})
+
+describe('duplicates side by side, and the menu counts', () => {
+  it('shows both reports of a pair, newer and older, and counts waiting work', async () => {
+    const token = await enrolledAdmin(t.env, 'pairs@example.com')
+    const older = await createReport(t.env, { lat: 32.8811, lng: 13.3502, street_ar: 'شارع الجمهورية' })
+    const newer = await createReport(t.env, { lat: 32.88128, lng: 13.3502 })
+    await t.db.prepare(`INSERT INTO pothole_photos (pothole_id, r2_key, thumb_key, stage) VALUES (?, 'photos/a.webp', 'thumbs/a.webp', 'report')`).bind(older).run()
+
+    const list = duplicateListResponseSchema.parse(await json(await request(t.env, '/api/admin/duplicates', { headers: { Authorization: `Bearer ${token}` } })))
+    expect(list.results).toHaveLength(1)
+    const [pair] = list.results
+    expect(pair!.newer).toMatchObject({ id: newer, status: 'reported', cover_thumb_key: null })
+    expect(pair!.older).toMatchObject({ id: older, street_ar: 'شارع الجمهورية', cover_thumb_key: 'thumbs/a.webp' })
+    expect(pair!.distance_m).toBeGreaterThan(10)
+    expect(pair!.older.region_name_ar).toBeTruthy()
+
+    const counts = adminCountsResponseSchema.parse(await json(await request(t.env, '/api/admin/counts', { headers: { Authorization: `Bearer ${token}` } })))
+    expect(counts).toEqual({ new_reports: 2, duplicates: 1, donations_to_review: 0 })
+
+    // A pair whose report was deleted no longer counts.
+    await t.db.prepare(`UPDATE potholes SET deleted_at = '2026-01-01' WHERE id = ?`).bind(newer).run()
+    const after = await json(await request(t.env, '/api/admin/counts', { headers: { Authorization: `Bearer ${token}` } }))
+    expect(after).toEqual({ new_reports: 1, duplicates: 0, donations_to_review: 0 })
+    expect((await request(t.env, '/api/admin/counts')).status).toBe(401)
   })
 })
