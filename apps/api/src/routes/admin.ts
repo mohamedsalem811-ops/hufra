@@ -4,7 +4,7 @@ import { attachAuth, requireRole } from '../middleware/auth'
 import { recordAudit } from '../lib/audit'
 import { invalidatePublicCaches } from '../lib/cache'
 import { purgeReportPhotos } from '../lib/storage'
-import { auditLogQuerySchema, duplicateReviewSchema, promoteAdminSchema, demoteAdminSchema } from '@hufra/contracts'
+import { auditLogQuerySchema, duplicateReviewSchema } from '@hufra/contracts'
 import { listNotificationsFor, markAllNotificationsRead } from '../lib/notifications'
 
 const admin = new Hono<{ Bindings: Bindings }>()
@@ -194,76 +194,6 @@ admin.get('/audit-logs', requireRole('super_admin'), async (c) => {
     results: page.map(({ before_json, after_json, ...r }) => ({ ...r, before: json(before_json), after: json(after_json) })),
     next_cursor: rows.results.length > limit ? String(page.at(-1)!.id) : null,
   })
-})
-
-// ---------------------------------------------------------------------------
-// Manage admins (super_admin only)
-// ---------------------------------------------------------------------------
-admin.get('/admins', requireRole('super_admin'), async (c) => {
-  const rows = await c.env.DB.prepare(
-    `SELECT id, email, role, code, totp_enabled, created_at FROM users WHERE role IN ('admin','super_admin') AND deleted_at IS NULL ORDER BY created_at DESC`
-  ).all()
-  return c.json({ results: rows.results })
-})
-
-
-admin.post('/admins/promote', requireRole('super_admin'), async (c) => {
-  const authCtx = c.get('auth')!
-  const body = await c.req.json().catch(() => null)
-  const parsed = promoteAdminSchema.safeParse(body)
-  if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
-
-  const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE email = ? AND deleted_at IS NULL').bind(parsed.data.email).first<{ id: number; role: string }>()
-  if (!user) return c.json({ error: 'User not found', error_ar: 'المستخدم غير موجود' }, 404)
-
-  await c.env.DB.prepare('UPDATE users SET role = ? WHERE id = ?').bind(parsed.data.role, user.id).run()
-  await recordAudit(c.env.DB, { actorId: authCtx.userId, action: 'user.promote', entity: 'users', entityId: user.id, before: { role: user.role }, after: { role: parsed.data.role } })
-  return c.json({ ok: true })
-})
-
-
-// Remove admin rights (account becomes a normal user). Guard rails: you cannot
-// demote yourself and the last remaining super_admin can never be demoted.
-admin.post('/admins/demote', requireRole('super_admin'), async (c) => {
-  const authCtx = c.get('auth')!
-  const body = await c.req.json().catch(() => null)
-  const parsed = demoteAdminSchema.safeParse(body)
-  if (!parsed.success) return c.json({ error: 'Invalid input', error_ar: 'بيانات غير صحيحة' }, 400)
-
-  const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE email = ? AND deleted_at IS NULL')
-    .bind(parsed.data.email)
-    .first<{ id: number; role: string }>()
-  if (!user) return c.json({ error: 'User not found', error_ar: 'المستخدم غير موجود' }, 404)
-  if (user.role === 'user') return c.json({ error: 'Account is not an admin', error_ar: 'الحساب ليس مشرفاً' }, 400)
-  if (user.id === authCtx.userId) {
-    return c.json({ error: 'You cannot remove your own admin rights', error_ar: 'لا يمكنك إزالة صلاحياتك بنفسك' }, 400)
-  }
-  if (user.role === 'super_admin') {
-    const remaining = await c.env.DB.prepare(
-      `SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL AND id != ?`
-    )
-      .bind(user.id)
-      .first<{ n: number }>()
-    if ((remaining?.n ?? 0) < 1) {
-      return c.json({ error: 'Cannot remove the last super admin', error_ar: 'لا يمكن إزالة آخر مسؤول عام' }, 400)
-    }
-  }
-
-  await c.env.DB.prepare(`UPDATE users SET role = 'user' WHERE id = ?`).bind(user.id).run()
-  await c.env.DB.prepare(
-    `UPDATE refresh_tokens SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ? AND revoked_at IS NULL`
-  )
-    .bind(user.id)
-    .run()
-  await recordAudit(c.env.DB, {
-    actorId: authCtx.userId,
-    action: 'user.demote',
-    entity: 'users',
-    entityId: user.id,
-    before: { role: user.role },
-    after: { role: 'user' },
-  })
-  return c.json({ ok: true })
 })
 
 export default admin
