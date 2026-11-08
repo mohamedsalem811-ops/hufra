@@ -5,6 +5,8 @@
 
 import { z } from 'zod'
 
+import { campaignPartnerSchema } from './partners'
+
 const id = z.number().int().positive()
 const timestamp = z.string().min(10)
 const nullableTimestamp = timestamp.nullable()
@@ -75,6 +77,7 @@ export const createCampaignSchema = z
     /** When given, the items must add up to the target. */
     cost_items: costItems.optional(),
     contractor: z.string().trim().max(120).optional(),
+    partner_id: id.nullable().optional(),
     note_ar: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
     note_en: z.string().trim().max(DONATION_LIMITS.noteMax).optional(),
   })
@@ -88,6 +91,7 @@ export const updateCampaignSchema = z
     target_lyd: lydAmountSchema.min(1).max(DONATION_LIMITS.maxTargetLyd).optional(),
     cost_items: costItems.optional(),
     contractor: z.string().trim().max(120).optional(),
+    partner_id: id.nullable().optional(),
     status: z.enum(['completed', 'cancelled']).optional(),
     reason: z.string().trim().max(DONATION_LIMITS.rejectReasonMax).optional(),
     /** What the repair really cost, published when the campaign is completed. */
@@ -184,6 +188,8 @@ export const campaignSummarySchema = z.strictObject({
   final_cost_lyd: money.nullable(),
   /** Photo of the repair receipt (/media/<key>), once published. */
   receipt_key: nullableText,
+  /** "Supported by": the partner funding this repair, when shown on campaigns. */
+  partner: campaignPartnerSchema.nullable().default(null),
 })
 
 export const donorWallEntrySchema = z.strictObject({
@@ -233,6 +239,8 @@ export const adminCampaignSchema = campaignSummarySchema.extend({
   raised_millimes: z.number().int(),
   /** Not public: who carries out the repair. */
   contractor: nullableText,
+  /** The linked partner, even when it is hidden from the public. */
+  partner_id: id.nullable(),
 })
 export const adminCampaignListResponseSchema = z.strictObject({
   results: z.array(adminCampaignSchema),

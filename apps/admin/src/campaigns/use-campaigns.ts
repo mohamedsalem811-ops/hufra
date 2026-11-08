@@ -41,7 +41,7 @@ export function useCreateCampaign() {
   const api = useApi()
   const refresh = useRefresh()
   return useMutation({
-    mutationFn: (body: { pothole_id: number; target_lyd: number; cost_items?: CostItem[]; contractor?: string; note_ar?: string }) =>
+    mutationFn: (body: { pothole_id: number; target_lyd: number; cost_items?: CostItem[]; contractor?: string; partner_id?: number; note_ar?: string }) =>
       api.request('/api/admin/campaigns', { method: 'POST', body, schema: adminCampaignResponseSchema }),
     onSettled: refresh,
   })
@@ -51,6 +51,7 @@ export interface CampaignChange {
   target_lyd?: number
   cost_items?: CostItem[]
   contractor?: string
+  partner_id?: number | null
   status?: Extract<CampaignStatus, 'completed' | 'cancelled'>
   reason?: string
   final_cost_lyd?: number

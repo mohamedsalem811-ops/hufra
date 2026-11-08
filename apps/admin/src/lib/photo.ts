@@ -58,3 +58,58 @@ export async function preparePhoto(file: Blob, canvas: Canvas2D = browserCanvas)
     thumb: await encode(img, PHOTO_LIMITS.thumb.maxLongEdgePx, PHOTO_LIMITS.thumb.maxBytes),
   }
 }
+
+/**
+ * A partner logo as the server accepts it: PNG (keeps transparency), at most
+ * 1024 px on the long edge, under 300 KB. SVG files are drawn onto a canvas
+ * here, so no SVG (which can carry script) is ever stored or served.
+ */
+export interface LogoCanvas {
+  load(file: Blob): Promise<{ width: number; height: number; draw: (w: number, h: number, type: string, quality?: number) => Promise<Blob | null> }>
+}
+
+export const browserLogoCanvas: LogoCanvas = {
+  load(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => {
+        // SVGs without a size report 0: give them a square canvas.
+        const width = img.naturalWidth || 1024
+        const height = img.naturalHeight || 1024
+        resolve({
+          width,
+          height,
+          draw: (w, h, type, quality) => {
+            const canvas = document.createElement('canvas')
+            canvas.width = w
+            canvas.height = h
+            canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+            URL.revokeObjectURL(url)
+            return new Promise((done) => canvas.toBlob(done, type, quality))
+          },
+        })
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('unreadable'))
+      }
+      img.src = url
+    })
+  },
+}
+
+export async function prepareLogo(file: Blob, canvas: LogoCanvas = browserLogoCanvas, maxBytes = 300 * 1024): Promise<Blob> {
+  const img = await canvas.load(file)
+  // Small logos are drawn larger (crisp on phones), big ones smaller.
+  const scale = Math.min(1024 / Math.max(img.width, img.height), Math.max(1, 512 / Math.max(img.width, img.height)))
+  const w = Math.max(1, Math.round(img.width * scale))
+  const h = Math.max(1, Math.round(img.height * scale))
+  const pngBlob = await img.draw(w, h, 'image/png')
+  if (pngBlob && pngBlob.size <= maxBytes) return pngBlob
+  for (const q of [0.9, 0.8, 0.7]) {
+    const webp = await img.draw(w, h, 'image/webp', q)
+    if (webp && webp.type === 'image/webp' && webp.size <= maxBytes) return webp
+  }
+  throw new Error('too-large')
+}

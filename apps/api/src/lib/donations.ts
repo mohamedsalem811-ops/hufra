@@ -84,10 +84,13 @@ const SUMMARY_SQL = `
     COALESCE((SELECT SUM(d.amount_millimes) FROM donations d WHERE d.campaign_id = c.id AND d.status = 'confirmed'), 0) AS confirmed_donations,
     COALESCE((SELECT SUM(a.amount_millimes) FROM campaign_allocations a WHERE a.to_campaign_id = c.id), 0) AS allocated_in,
     COALESCE((SELECT SUM(d.amount_millimes) FROM donations d WHERE d.campaign_id = c.id AND d.status = 'under_review'), 0) AS under_review,
-    (SELECT COUNT(DISTINCT d.user_id) FROM donations d WHERE d.campaign_id = c.id AND d.status = 'confirmed') AS donors_count
+    (SELECT COUNT(DISTINCT d.user_id) FROM donations d WHERE d.campaign_id = c.id AND d.status = 'confirmed') AS donors_count,
+    pt.name_ar AS partner_name_ar, pt.name_en AS partner_name_en, pt.logo_key AS partner_logo_key,
+    (pt.visible = 1 AND pt.show_campaigns = 1 AND (pt.starts_on IS NULL OR pt.starts_on <= date('now')) AND (pt.ends_on IS NULL OR pt.ends_on >= date('now'))) AS partner_public
   FROM campaigns c
   JOIN potholes p ON p.id = c.pothole_id
-  JOIN regions r ON r.id = p.region_id`
+  JOIN regions r ON r.id = p.region_id
+  LEFT JOIN partners pt ON pt.id = c.partner_id AND pt.deleted_at IS NULL`
 
 export interface CampaignRow {
   id: number
@@ -112,6 +115,11 @@ export interface CampaignRow {
   contractor?: string | null
   final_cost_millimes?: number | null
   receipt_key?: string | null
+  partner_id?: number | null
+  partner_name_ar?: string | null
+  partner_name_en?: string | null
+  partner_logo_key?: string | null
+  partner_public?: number | null
 }
 
 export async function getCampaignRow(db: DB, id: number): Promise<CampaignRow | null> {
@@ -147,6 +155,10 @@ export function toCampaignSummary(c: CampaignRow) {
     cost_items: parseCostItems(c.cost_items_json),
     final_cost_lyd: c.final_cost_millimes == null ? null : millimesToLyd(c.final_cost_millimes),
     receipt_key: c.receipt_key ?? null,
+    partner:
+      c.partner_id && c.partner_public
+        ? { id: c.partner_id, name_ar: c.partner_name_ar ?? '', name_en: c.partner_name_en ?? '', logo_key: c.partner_logo_key ?? null }
+        : null,
   }
 }
 

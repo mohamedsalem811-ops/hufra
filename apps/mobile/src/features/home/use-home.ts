@@ -1,5 +1,6 @@
 import {
   countersResponseSchema,
+  publicPartnerListResponseSchema,
   publicPotholeListResponseSchema,
   recentFixedResponseSchema,
   topDonorResponseSchema,
@@ -26,6 +27,7 @@ export function useHomeData() {
       queryFn: ({ signal }) => get('/api/potholes/top-reporter', topReporterResponseSchema, signal),
     }),
     topDonor: useQuery({ queryKey: ['home', 'top-donor'], queryFn: ({ signal }) => get('/api/donors/top', topDonorResponseSchema, signal) }),
+    partners: useQuery({ queryKey: ['home', 'partners'], queryFn: ({ signal }) => get('/api/partners?place=app', publicPartnerListResponseSchema, signal) }),
   };
 }
 

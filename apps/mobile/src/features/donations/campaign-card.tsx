@@ -71,6 +71,11 @@ export function CampaignCardView({ campaign: c }: { campaign: CampaignSummary })
       <AppText variant="small" tone="secondary">
         {note}
       </AppText>
+      {c.partner ? (
+        <AppText variant="small" style={fontFor(600)}>
+          {t('campaign.partner', { name: (locale === 'ar' ? c.partner.name_ar || c.partner.name_en : c.partner.name_en || c.partner.name_ar) ?? '' })}
+        </AppText>
+      ) : null}
       <CostDetails campaign={c} />
       {closed ? (
         <View style={[styles.notice, { backgroundColor: colors.status.fixed.bg }]}>

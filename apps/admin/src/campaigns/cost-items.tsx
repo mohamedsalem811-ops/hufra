@@ -2,6 +2,8 @@ import { DONATION_LIMITS } from '@hufra/contracts'
 import { useId } from 'react'
 
 import { useI18n } from '@/i18n/i18n'
+import { pick } from '@/lib/format'
+import { usePartners } from '@/partners/use-partners'
 
 /** Editable lines; amounts stay as typed text until saved. */
 export interface ItemDraft {
@@ -76,5 +78,27 @@ export function CostItemsEditor({ items, onChange, invalid }: { items: ItemDraft
         </span>
       </div>
     </fieldset>
+  )
+}
+
+/** "Supported by": choose the partner funding this repair (optional). */
+export function PartnerSelect({ value, onChange }: { value: number | null; onChange: (id: number | null) => void }) {
+  const { t, locale } = useI18n()
+  const partners = usePartners()
+  const id = useId()
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="text-sm font-semibold">
+        {t('camp.partner')} <span className="font-normal text-secondary">{t('camp.optional')}</span>
+      </label>
+      <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)} className="min-h-11 rounded-[10px] border border-strong bg-surface px-3">
+        <option value="">{t('camp.noPartner')}</option>
+        {(partners.data ?? []).map((p) => (
+          <option key={p.id} value={p.id}>
+            {pick(locale, p.name_ar, p.name_en)}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }

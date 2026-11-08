@@ -37,6 +37,7 @@ const campaign: CampaignSummary = {
   cost_items: [],
   final_cost_lyd: null,
   receipt_key: null,
+  partner: null,
 };
 const donation = (over: Partial<Donation> & { id: number }): Donation => ({
   campaign_id: 3,
@@ -157,6 +158,11 @@ describe('CampaignCardView', () => {
     expect(screen.getByText(/التكلفة النهائية للإصلاح:/)).toBeTruthy();
     await fireEvent.press(screen.getByRole('imagebutton', { name: 'فتح إيصال الإصلاح' }));
     expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(expect.stringMatching(/\/media\/photos\/receipts\/3\/r\.jpg$/));
+  });
+
+  it('credits the supporting partner', async () => {
+    await show(<CampaignCardView campaign={{ ...campaign, partner: { id: 1, name_ar: 'مصرف الجمهورية', name_en: 'Jumhouria Bank', logo_key: null } }} />);
+    expect(screen.getByText('بدعم من مصرف الجمهورية')).toBeTruthy();
   });
 
   it('says when donations are not open yet', async () => {

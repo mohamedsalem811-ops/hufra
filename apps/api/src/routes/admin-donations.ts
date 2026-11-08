@@ -51,8 +51,12 @@ function adminCampaign(row: Awaited<ReturnType<typeof getCampaignRow>> & {}) {
     close_reason: row.close_reason,
     raised_millimes: raisedMillimes(row),
     contractor: row.contractor ?? null,
+    partner_id: row.partner_id ?? null,
   }
 }
+
+const partnerExists = async (db: Bindings['DB'], id: number) =>
+  !!(await db.prepare('SELECT id FROM partners WHERE id = ? AND deleted_at IS NULL').bind(id).first())
 
 const itemsJson = (items: { label: string; amount_lyd: number }[] | undefined) =>
   items?.length ? JSON.stringify(items.map((i) => ({ label: i.label, amount_lyd: i.amount_lyd }))) : null
@@ -74,15 +78,16 @@ adminDonations.post('/campaigns', async (c) => {
   const auth = c.get('auth')!
   const parsed = createCampaignSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) return bad(c, 400, 'Invalid input', 'بيانات غير صحيحة')
-  const { pothole_id, target_lyd, cost_items, contractor, note_ar, note_en } = parsed.data
+  const { pothole_id, target_lyd, cost_items, contractor, partner_id, note_ar, note_en } = parsed.data
+  if (partner_id && !(await partnerExists(c.env.DB, partner_id))) return bad(c, 404, 'Partner not found', 'الشريك غير موجود')
   const pothole = await c.env.DB.prepare('SELECT id, status FROM potholes WHERE id = ? AND deleted_at IS NULL').bind(pothole_id).first<{ status: string }>()
   if (!pothole) return bad(c, 404, 'Report not found', 'البلاغ غير موجود')
   if (pothole.status === 'fixed') return bad(c, 409, 'This pothole is already fixed', 'هذه الحفرة أُصلحت')
   try {
     const res = await c.env.DB.prepare(
-      'INSERT INTO campaigns (pothole_id, target_millimes, cost_items_json, contractor, note_ar, note_en, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO campaigns (pothole_id, target_millimes, cost_items_json, contractor, partner_id, note_ar, note_en, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-      .bind(pothole_id, lydToMillimes(target_lyd), itemsJson(cost_items), contractor || null, note_ar || null, note_en || null, auth.userId)
+      .bind(pothole_id, lydToMillimes(target_lyd), itemsJson(cost_items), contractor || null, partner_id ?? null, note_ar || null, note_en || null, auth.userId)
       .run()
     const id = Number(res.meta.last_row_id)
     await recordAudit(c.env.DB, { actorId: auth.userId, action: 'campaign.create', entity: 'campaigns', entityId: id, after: parsed.data })
@@ -103,12 +108,13 @@ adminDonations.patch('/campaigns/:id', async (c) => {
   if (!parsed.success) return bad(c, 400, 'Invalid input', 'بيانات غير صحيحة')
   const before = await getCampaignRow(c.env.DB, id)
   if (!before) return bad(c, 404, 'Not found', 'غير موجود')
-  const { status, reason, note_ar, note_en, cost_items, contractor, final_cost_lyd } = parsed.data
+  const { status, reason, note_ar, note_en, cost_items, contractor, final_cost_lyd, partner_id } = parsed.data
+  if (partner_id && !(await partnerExists(c.env.DB, partner_id))) return bad(c, 404, 'Partner not found', 'الشريك غير موجود')
   // A breakdown sets the target: the two can never disagree.
   const target_lyd = cost_items?.length ? sumItems(cost_items) : parsed.data.target_lyd
   const closed = before.status === 'completed' || before.status === 'cancelled'
   // After the repair, only the published facts can still be added or corrected.
-  const onlyPublishing = Object.keys(parsed.data).every((k) => k === 'final_cost_lyd' || k === 'contractor')
+  const onlyPublishing = Object.keys(parsed.data).every((k) => k === 'final_cost_lyd' || k === 'contractor' || k === 'partner_id')
   if (closed && !(before.status === 'completed' && onlyPublishing)) return bad(c, 409, 'This campaign is closed', 'هذه الحملة مغلقة')
   if (status === 'cancelled' && !reason) return bad(c, 400, 'Cancelling needs a reason', 'الإلغاء يحتاج سبباً')
   if (final_cost_lyd !== undefined && status !== 'completed' && before.status !== 'completed') {
@@ -120,6 +126,7 @@ adminDonations.patch('/campaigns/:id', async (c) => {
   if (target_lyd !== undefined) sets.push('target_millimes = ?'), binds.push(lydToMillimes(target_lyd))
   if (cost_items !== undefined) sets.push('cost_items_json = ?'), binds.push(itemsJson(cost_items))
   if (contractor !== undefined) sets.push('contractor = ?'), binds.push(contractor || null)
+  if (partner_id !== undefined) sets.push('partner_id = ?'), binds.push(partner_id)
   if (final_cost_lyd !== undefined) sets.push('final_cost_millimes = ?'), binds.push(lydToMillimes(final_cost_lyd))
   if (note_ar !== undefined) sets.push('note_ar = ?'), binds.push(note_ar || null)
   if (note_en !== undefined) sets.push('note_en = ?'), binds.push(note_en || null)

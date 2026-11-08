@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n/i18n'
 import { mediaUrl, pick } from '@/lib/format'
 import { useReport } from '@/reports/use-reports'
 
-import { CostItemsEditor, newItem, parseItems, sumLyd, type ItemDraft } from './cost-items'
+import { CostItemsEditor, newItem, parseItems, PartnerSelect, sumLyd, type ItemDraft } from './cost-items'
 import { useCreateCampaign } from './use-campaigns'
 
 export function NewCampaignPage() {
@@ -34,6 +34,7 @@ function NewCampaignForm({ reportId }: { reportId: number }) {
   const navigate = useNavigate()
   const [items, setItems] = useState<ItemDraft[]>(() => [newItem(t('camp.defaultMaterials')), newItem(t('camp.defaultLabour'))])
   const [contractor, setContractor] = useState('')
+  const [partnerId, setPartnerId] = useState<number | null>(null)
   const [note, setNote] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const ids = { contractor: useId(), note: useId(), exec: useId(), pv: useId(), rules: useId() }
@@ -50,7 +51,7 @@ function NewCampaignForm({ reportId }: { reportId: number }) {
     if (target <= 0) return setProblem(t('camp.targetInvalid'))
     setProblem(null)
     create.mutate(
-      { pothole_id: reportId, target_lyd: target, cost_items: parsed, contractor: contractor.trim() || undefined, note_ar: note.trim() || undefined },
+      { pothole_id: reportId, target_lyd: target, cost_items: parsed, contractor: contractor.trim() || undefined, ...(partnerId ? { partner_id: partnerId } : {}), note_ar: note.trim() || undefined },
       { onSuccess: (res) => void navigate({ to: '/campaigns/$id', params: { id: String(res.campaign.id) } }) },
     )
   }
@@ -98,6 +99,7 @@ function NewCampaignForm({ reportId }: { reportId: number }) {
               </label>
               <input id={ids.contractor} value={contractor} maxLength={120} onChange={(e) => setContractor(e.target.value)} placeholder={t('camp.contractorHint')} className="min-h-11 rounded-[10px] border border-strong bg-surface px-3" />
             </div>
+            <PartnerSelect value={partnerId} onChange={setPartnerId} />
             <div className="flex flex-col gap-2 sm:col-span-2">
               <label htmlFor={ids.note} className="text-sm font-semibold">
                 {t('camp.note')} <span className="font-normal text-secondary">{t('camp.noteHint')}</span>
