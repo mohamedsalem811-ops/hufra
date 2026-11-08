@@ -15,6 +15,7 @@ import { REVIEW_TABS } from '@/donations/use-donations'
 import { QueuePage } from '@/reports/queue-page'
 import { ReportPage } from '@/reports/report-page'
 import type { QueueFilters } from '@/reports/use-reports'
+import { PartnersPage } from '@/partners/partners-page'
 import { ComingSoon, NotFound } from '@/routes/placeholders'
 import { SettingsPage } from '@/settings/settings-page'
 
@@ -84,7 +85,12 @@ const routeTree = root.addChildren([
   }),
   soon('/regions', 'nav.regions'),
   soon('/people', 'nav.people'),
-  soon('/partners', 'nav.partners'),
+  createRoute({
+    getParentRoute: () => root,
+    path: '/partners',
+    component: PartnersPage,
+    validateSearch: (s: Record<string, unknown>): { id?: number | 'new' } => ({ id: s.id === 'new' ? 'new' : positive(s.id) }),
+  }),
   createRoute({ getParentRoute: () => root, path: '/settings', component: SettingsPage }),
 ])
 

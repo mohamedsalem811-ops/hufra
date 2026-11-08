@@ -1,3 +1,4 @@
+import * as WebBrowser from 'expo-web-browser';
 import type {
   CountersResponse,
   PublicPotholeListItem,
@@ -39,6 +40,7 @@ const empty: HomeFixture = {
   near: { results: [], limit: 50, offset: 0 },
 };
 let data: HomeFixture = empty;
+let partners: unknown[] = [];
 
 function mockFetch() {
   globalThis.fetch = jest.fn(async (url: string) => {
@@ -47,6 +49,7 @@ function mockFetch() {
     if (u.includes('/recent-fixed')) return json(data.recent);
     if (u.includes('/top-reporter')) return json(data.reporter);
     if (u.includes('/donors/top')) return json(data.donor);
+    if (u.includes('/api/partners?place=app')) return json({ results: partners });
     if (u.includes('near_lat')) return json(data.near);
     return json({ error: 'x' }, 404);
   }) as unknown as typeof fetch;
@@ -55,6 +58,7 @@ function mockFetch() {
 beforeEach(() => {
   jest.clearAllMocks();
   data = empty;
+  partners = [];
   mockFetch();
 });
 
@@ -146,7 +150,18 @@ describe('HomeScreen', () => {
     expect(nearUrl).toContain('near_lat=32.887&near_lng=13.191&radius_m=2000');
   });
 
-  it('asks for location when it is off', async () => {
+  it('shows the partners the team chose for the app, with their funded repairs', async () => {
+    partners = [
+      { id: 1, name_ar: 'مصرف الجمهورية', name_en: 'Jumhouria Bank', description_ar: '', description_en: '', website: 'https://bank.ly', kind: 'repair_sponsor', logo_key: null, featured: true, funded_count: 3, funded_lyd: 2400 },
+    ];
+    await show();
+    expect(await screen.findByRole('header', { name: 'شركاؤنا' })).toBeTruthy();
+    expect(screen.getByText('موّل إصلاح 3 حفر')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('link', { name: 'مصرف الجمهورية' }));
+    expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith('https://bank.ly');
+  });
+
+    it('asks for location when it is off', async () => {
     jest.mocked(permissions.hasLocationPermission).mockResolvedValueOnce(false);
     await show();
     await fireEvent.press(await screen.findByRole('button', { name: 'السماح بالموقع' }));

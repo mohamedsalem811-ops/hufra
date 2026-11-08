@@ -1,5 +1,5 @@
 import { radius, space } from '@hufra/brand';
-import type { PublicPotholeListItem, RecentFixedResponse } from '@hufra/contracts';
+import type { PublicPartner, PublicPotholeListItem, RecentFixedResponse } from '@hufra/contracts';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -64,6 +64,7 @@ export function HomeScreen() {
       home.recentFixed.refetch(),
       home.topReporter.refetch(),
       home.topDonor.refetch(),
+      home.partners.refetch(),
       position ? nearby.refetch() : Promise.resolve(),
     ]);
     setRefreshing(false);
@@ -210,8 +211,52 @@ export function HomeScreen() {
             />
           </View>
         </Section>
+
+        {/* Partners (plan 8.2): shown only when the team chose "app home" for them. */}
+        {home.partners.data?.results.length ? (
+          <Section title={t('home.partners')}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.partners}>
+              {home.partners.data.results.map((p) => (
+                <PartnerCard key={p.id} partner={p} />
+              ))}
+            </ScrollView>
+          </Section>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function PartnerCard({ partner: p }: { partner: PublicPartner }) {
+  const { colors } = useTheme();
+  const { t, locale } = useI18n();
+  const name = (locale === 'ar' ? p.name_ar || p.name_en : p.name_en || p.name_ar) ?? '';
+  const logo = mediaUrl(p.logo_key);
+  const body = (
+    <View style={[styles.partner, { backgroundColor: colors.bg.surface, borderColor: p.featured ? colors.brand.primary : colors.border.default }]}>
+      {logo ? (
+        <Image source={logo} style={styles.partnerLogo} contentFit="contain" accessible={false} />
+      ) : (
+        <View style={[styles.partnerLogo, { backgroundColor: colors.bg.subtle }]} />
+      )}
+      <AppText variant="small" style={fontFor(600)} numberOfLines={2}>
+        {name}
+      </AppText>
+      {p.funded_count > 0 ? (
+        <AppText variant="caption" tone="secondary">
+          {t('home.partnerFunded', { n: p.funded_count })}
+        </AppText>
+      ) : null}
+    </View>
+  );
+  return p.website ? (
+    <Pressable accessibilityRole="link" accessibilityLabel={name} onPress={() => void WebBrowser.openBrowserAsync(p.website)}>
+      {body}
+    </Pressable>
+  ) : (
+    <View accessible accessibilityLabel={name}>
+      {body}
+    </View>
   );
 }
 
@@ -391,6 +436,9 @@ function PersonCard({
 }
 
 const styles = StyleSheet.create({
+  partners: { gap: space[4], paddingVertical: space[1] },
+  partner: { width: 140, borderWidth: 1, borderRadius: radius.lg, padding: space[4], gap: space[2] },
+  partnerLogo: { width: '100%', height: 56, borderRadius: radius.md },
   flex: { flex: 1 },
   content: { padding: space[7], paddingTop: space[5], gap: space[7] },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

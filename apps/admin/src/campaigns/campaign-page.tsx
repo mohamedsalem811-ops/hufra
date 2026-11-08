@@ -9,7 +9,7 @@ import { useI18n } from '@/i18n/i18n'
 import { dateTime, mediaUrl, pick } from '@/lib/format'
 
 import { campaignTone, Progress } from './campaigns-page'
-import { CostItemsEditor, newItem, parseItems, sumLyd, type ItemDraft } from './cost-items'
+import { CostItemsEditor, newItem, parseItems, PartnerSelect, sumLyd, type ItemDraft } from './cost-items'
 import { useAllocate, useCampaign, useUpdateCampaign, useUploadReceipt } from './use-campaigns'
 
 type Campaign = z.infer<typeof adminCampaignSchema>
@@ -121,6 +121,7 @@ function EditCosts({ c }: { c: Campaign }) {
     c.cost_items.length ? c.cost_items.map((i) => newItem(i.label, String(i.amount_lyd))) : [newItem(t('camp.repairCost'), String(c.target_lyd))],
   )
   const [contractor, setContractor] = useState(c.contractor ?? '')
+  const [partnerId, setPartnerId] = useState<number | null>(c.partner_id)
   const [problem, setProblem] = useState<string | null>(null)
   const contractorId = useId()
   const error = useErrorText(update.error)
@@ -131,7 +132,7 @@ function EditCosts({ c }: { c: Campaign }) {
     if (!parsed?.length) return setProblem(t('camp.itemsInvalid'))
     if (sumLyd(parsed) <= 0) return setProblem(t('camp.targetInvalid'))
     setProblem(null)
-    update.mutate({ cost_items: parsed, contractor: contractor.trim() })
+    update.mutate({ cost_items: parsed, contractor: contractor.trim(), ...(partnerId !== c.partner_id ? { partner_id: partnerId } : {}) })
   }
 
   return (
@@ -143,6 +144,7 @@ function EditCosts({ c }: { c: Campaign }) {
         </label>
         <input id={contractorId} value={contractor} maxLength={120} onChange={(e) => setContractor(e.target.value)} className="min-h-11 rounded-[10px] border border-strong bg-surface px-3" />
       </div>
+      <PartnerSelect value={partnerId} onChange={setPartnerId} />
       {problem ? <Alert>{problem}</Alert> : null}
       {error ? <Alert>{error}</Alert> : null}
       <div aria-live="polite">{update.isSuccess ? <Alert tone="success">{t('camp.saved')}</Alert> : null}</div>

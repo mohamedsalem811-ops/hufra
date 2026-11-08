@@ -19,6 +19,7 @@ import adminDonationRoutes from './routes/admin-donations'
 import adminReportRoutes from './routes/admin-reports'
 import adminSettingsRoutes from './routes/admin-settings'
 import siteRoutes from './routes/site'
+import { adminPartners, publicPartners } from './routes/partners'
 import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
@@ -106,7 +107,7 @@ app.use(
 
 // Plan 7.2: plain API bodies are small (the largest is a report with its
 // note). Uploads have their own, larger limits in their routes.
-const UPLOAD_PATHS = /^\/api\/(photos\/\d+|donations\/\d+\/proof|admin\/campaigns\/\d+\/receipt)$/
+const UPLOAD_PATHS = /^\/api\/(photos\/\d+|donations\/\d+\/proof|admin\/campaigns\/\d+\/receipt|admin\/partners\/\d+\/logo)$/
 const jsonBodyLimit = bodyLimit({
   maxSize: API_BODY_LIMIT_BYTES,
   onError: (c) => c.json({ error: 'Request too large', error_ar: 'الطلب كبير جداً' }, 413),
@@ -138,6 +139,8 @@ app.route('/api/donations', donationRoutes)
 app.route('/api/admin', adminDonationRoutes)
 app.route('/api/admin', adminReportRoutes)
 app.route('/api/admin', adminSettingsRoutes)
+app.route('/api/admin', adminPartners)
+app.route('/api/partners', publicPartners)
 app.route('/api/site', siteRoutes)
 
 app.route('/media', mediaRoutes)

@@ -94,6 +94,44 @@ function inspectWebp(b: Uint8Array): ImageInfo | null {
   return { type: 'image/webp', width, height, hasExif }
 }
 
+const u32be = (b: Uint8Array, o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0
+
+export interface LogoInfo {
+  type: 'image/png' | ImageKind
+  width: number
+  height: number
+  /** EXIF or text chunks (eXIf, tEXt, iTXt, zTXt) that could carry metadata. */
+  hasMetadata: boolean
+}
+
+function inspectPng(b: Uint8Array): LogoInfo | null {
+  if (ascii(b, 12, 4) !== 'IHDR') return null
+  const width = u32be(b, 16)
+  const height = u32be(b, 20)
+  let hasMetadata = false
+  let o = 8
+  while (o + 8 <= b.length) {
+    const length = u32be(b, o)
+    const type = ascii(b, o + 4, 4)
+    if (type === 'eXIf' || type === 'tEXt' || type === 'iTXt' || type === 'zTXt') hasMetadata = true
+    if (type === 'IEND') break
+    o += 12 + length
+  }
+  return width && height ? { type: 'image/png', width, height, hasMetadata } : null
+}
+
+/**
+ * Partner logos (plan 8.2): PNG (for transparency), WebP or JPEG, re-drawn in
+ * the admin panel. Never SVG: an SVG served from our own site can run script.
+ */
+export function inspectLogo(bytes: ArrayBuffer | Uint8Array): LogoInfo | null {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  if (b.length < 24) return null
+  if (b[0] === 0x89 && ascii(b, 1, 3) === 'PNG' && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a) return inspectPng(b)
+  const photo = inspectImage(b)
+  return photo ? { type: photo.type, width: photo.width, height: photo.height, hasMetadata: photo.hasExif } : null
+}
+
 /** Identify an image from its bytes. Returns null for anything that is not a well-formed WebP or JPEG. */
 export function inspectImage(bytes: ArrayBuffer | Uint8Array): ImageInfo | null {
   const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)

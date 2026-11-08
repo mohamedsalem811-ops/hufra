@@ -16,7 +16,7 @@ const camp = (over: Record<string, unknown> = {}): Record<string, any> => ({
   id: 3, pothole_id: 1042, status: 'active', target_lyd: 1200, confirmed_lyd: 340, under_review_lyd: 90, donors_count: 12, note_ar: null, note_en: null,
   street_ar: 'شارع الجمهورية', street_en: null, region_name_ar: 'وسط المدينة', region_name_en: 'City centre', created_at: '2026-11-01T08:00:00.000Z',
   funded_at: null, closed_at: null, close_reason: null, raised_millimes: 340000,
-  cost_items: [{ label: 'مواد', amount_lyd: 700 }, { label: 'عمال', amount_lyd: 500 }], contractor: null, final_cost_lyd: null, receipt_key: null, ...over,
+  cost_items: [{ label: 'مواد', amount_lyd: 700 }, { label: 'عمال', amount_lyd: 500 }], contractor: null, final_cost_lyd: null, receipt_key: null, partner_id: null, ...over,
 })
 const report = {
   pothole: {
