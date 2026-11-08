@@ -148,8 +148,11 @@ auth.post('/register', async (c) => {
 
   const passwordHash = await hashPassword(password)
   const result = await c.env.DB.prepare(
-    `INSERT INTO users (email, password_hash, role, code, locale, display_name, consent_at)
-     VALUES (?, ?, 'user', '', ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
+    // Agreeing at sign-up accepts the legal pages as published now.
+    `INSERT INTO users (email, password_hash, role, code, locale, display_name, consent_at, legal_version_accepted, legal_accepted_at)
+     VALUES (?, ?, 'user', '', ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+       (SELECT MAX(version) FROM legal_versions),
+       CASE WHEN EXISTS (SELECT 1 FROM legal_versions) THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') END)`
   )
     .bind(email, passwordHash, locale, display_name ?? null)
     .run()

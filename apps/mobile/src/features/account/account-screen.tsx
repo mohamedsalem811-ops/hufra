@@ -1,29 +1,26 @@
 import { radius, space } from '@hufra/brand';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { Bell, FileDown, HandHeart, Info, LogOut, Settings, ShieldCheck } from 'lucide-react-native';
+import { Bell, FileDown, FileText, HandHeart, Info, LogOut, Settings, ShieldCheck } from 'lucide-react-native';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
 import { ListGroup, ListRow } from '@/components/list-group';
-import { API_URL } from '@/config/env';
 import { useI18n } from '@/i18n/i18n-provider';
 import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
 import { useAuth } from '../auth/auth-provider';
+import { openWebsite } from '../legal/website';
 import { useDeleteAccount, useExportData, useMyReports, useNotifications } from './use-account';
-
-const openWeb = (path: string) => void WebBrowser.openBrowserAsync(`${API_URL}${path}`).catch(() => undefined);
 
 /** "My account" tab (design board 5, screen 3; plan 6.6). */
 export function AccountScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { state, signOut } = useAuth();
   const signedIn = state.status === 'signedIn';
   const reports = useMyReports();
@@ -131,8 +128,9 @@ export function AccountScreen() {
             <ListRow icon={FileDown} label={t('account.export')} hint={t('account.exportHint')} busy={exportData.isPending} onPress={runExport} />
           ) : null}
           <ListRow icon={Settings} label={t('account.settings')} onPress={() => router.push('/settings')} />
-          <ListRow icon={Info} role="link" label={t('account.about')} onPress={() => openWeb('/')} />
-          <ListRow icon={ShieldCheck} role="link" label={t('account.trust')} onPress={() => openWeb('/trust')} />
+          <ListRow icon={Info} role="link" label={t('account.about')} onPress={() => openWebsite(locale, '/how')} />
+          <ListRow icon={ShieldCheck} role="link" label={t('account.trust')} onPress={() => openWebsite(locale, '/privacy')} />
+          <ListRow icon={FileText} role="link" label={t('account.terms')} onPress={() => openWebsite(locale, '/terms')} />
         </ListGroup>
 
         {user ? (

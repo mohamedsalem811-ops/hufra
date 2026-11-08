@@ -3,13 +3,14 @@ import '../styles/site.css'
 
 import { appleTouchUrl, favicon32Url, faviconUrl, logoOnDarkUrl, logoUrl } from '../brand'
 import { href, otherPath, t, type Locale } from '../i18n/i18n'
+import { LEGAL, LEGAL_PAGES, type LegalPage } from '../legal/content'
 
 interface Props {
   locale: Locale
   title: string
   description?: string
   /** The menu item for this page, if any. */
-  current?: 'how' | 'transparency' | 'contact'
+  current?: 'how' | 'transparency' | 'contact' | LegalPage
   /** Leave the page out of search engines (the 404 page). */
   noindex?: boolean
 }
@@ -104,6 +105,15 @@ const nav = [
           <a href={`${href(locale, '/how')}#faq`} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.faq')}</a>
           <a href={href(locale, '/transparency')} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.transparency')}</a>
           <a href={href(locale, '/contact')} aria-current={current === 'contact' ? 'page' : undefined} class="flex min-h-11 items-center text-white no-underline hover:underline">{t(locale, 'nav.contact')}</a>
+        </nav>
+        <nav aria-label={LEGAL[locale].heading} class="flex flex-wrap gap-x-5 gap-y-2">
+          {
+            LEGAL_PAGES.map((key) => (
+              <a href={href(locale, `/${key}`)} aria-current={current === key ? 'page' : undefined} class="flex min-h-11 items-center text-white no-underline hover:underline">
+                {LEGAL[locale].pages[key].nav}
+              </a>
+            ))
+          }
         </nav>
         <span>{t(locale, 'footer.rights', { year })}</span>
       </div>

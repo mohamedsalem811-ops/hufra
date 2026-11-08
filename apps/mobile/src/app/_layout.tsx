@@ -10,6 +10,7 @@ import { AppProviders } from '@/app-shell/providers';
 import { ErrorView } from '@/components/error-view';
 import { breadcrumb, reportError } from '@/crash/crash';
 import { UpdateGate } from '@/features/app-version/update-gate';
+import { LegalGate } from '@/features/legal/legal-gate';
 import { PushHandler } from '@/features/push/push-handler';
 import { fontAssets } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
@@ -30,7 +31,9 @@ export default function RootLayout() {
     <AppProviders locale={boot.locale} themeMode={boot.themeMode} textSize={boot.textSize}>
       <UpdateGate>
         <OnboardingProvider initial={boot.onboarded}>
-          <RootStack />
+          <LegalGate>
+            <RootStack />
+          </LegalGate>
         </OnboardingProvider>
       </UpdateGate>
     </AppProviders>

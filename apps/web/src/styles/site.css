@@ -50,3 +50,6 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
 }
+
+/* A blank of the legal pages not filled yet (plan 8.4c). */
+[data-missing] { background: var(--color-feedback-warning-bg); color: var(--color-text-primary); border-radius: 4px; padding-inline: 4px; }

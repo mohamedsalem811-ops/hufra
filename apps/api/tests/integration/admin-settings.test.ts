@@ -124,6 +124,14 @@ describe('legal information', () => {
     const inbox = await json(await get('/api/notifications', admin.token))
     expect(inbox.results.some((n: any) => n.type === 'legal_published')).toBe(true)
   })
+
+  it('counts signing up as accepting the version published then', async () => {
+    await send('PUT', '/api/admin/settings/legal', { ...full, material: true }, owner.token)
+    await send('PUT', '/api/admin/settings/legal', { ...full, material: false }, owner.token)
+    const late = await account('late@hufra.ly')
+    const me = await parse(await get('/api/auth/me', late.token), C.meResponseSchema)
+    expect(me.user.legal_version_accepted).toBe(2)
+  })
 })
 
 describe('audit log', () => {

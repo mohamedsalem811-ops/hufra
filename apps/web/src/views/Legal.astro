@@ -1,0 +1,115 @@
+---
+import { LEGAL_DEFAULTS } from '@hufra/contracts'
+
+import LegalText from '../components/LegalText.astro'
+import { href, type Locale } from '../i18n/i18n'
+import { LEGAL, LEGAL_PAGES, type LegalPage } from '../legal/content'
+import { slotValues } from '../legal/slots'
+import Base from '../layouts/Base.astro'
+
+interface Props {
+  locale: Locale
+  page: LegalPage
+}
+const { locale, page } = Astro.props
+const L = LEGAL[locale]
+const p = L.pages[page]
+// Built with the defaults; the browser fills the published values.
+const values = slotValues(locale, LEGAL_DEFAULTS)
+---
+
+<Base locale={locale} title={p.title} description={p.description} current={page}>
+  <div class="mx-auto box-border flex w-full max-w-[1200px] flex-wrap items-start gap-x-12 gap-y-8 px-4 pt-14 pb-[72px] sm:px-6">
+    <nav aria-labelledby="legal-nav" class="flex flex-[1_1_240px] flex-col gap-1 text-[15px] lg:sticky lg:top-6">
+      <h2 id="legal-nav" class="m-0 mb-2 text-sm font-semibold text-secondary">{L.heading}</h2>
+      {
+        LEGAL_PAGES.map((key) => (
+          <a
+            href={href(locale, `/${key}`)}
+            aria-current={key === page ? 'page' : undefined}
+            class:list={[
+              'flex min-h-11 items-center rounded-[10px] px-3 no-underline',
+              key === page ? 'bg-brand-tint font-semibold text-brand' : 'text-primary hover:bg-subtle',
+            ]}
+          >
+            {L.pages[key].nav}
+          </a>
+        ))
+      }
+    </nav>
+
+    <article class="flex min-w-0 flex-[999_1_560px] flex-col gap-4 text-[17px] leading-[1.9] text-secondary lg:max-w-[780px]">
+      <p role="note" data-draft class="m-0 rounded-xl bg-[var(--color-feedback-warning-bg)] px-4 py-3.5 text-[15px] leading-[1.7] text-primary">{L.draft}</p>
+      <h1 class="m-0 text-[32px] leading-[1.3] font-bold text-primary sm:text-[40px]">{p.title}</h1>
+      <p class="m-0 text-[15px]">
+        <span data-updated hidden></span>
+        {page === 'privacy' || page === 'terms' ? ` ${L.materialNote}` : null}
+      </p>
+
+      {
+        p.blocks.map((b) => {
+          if ('h2' in b) return <h2 class="m-0 mt-5 text-[22px] leading-[1.5] font-bold text-primary">{b.h2}</h2>
+          if ('p' in b)
+            return (
+              <p class="m-0" data-if={b.if} hidden={b.if ? !values[b.if] : undefined}>
+                <LegalText locale={locale} text={b.p} values={values} />
+              </p>
+            )
+          if ('ul' in b)
+            return (
+              <ul class="m-0 flex flex-col gap-2 ps-[22px]">
+                {b.ul.map((item) => (
+                  <li>
+                    <LegalText locale={locale} text={item} values={values} />
+                  </li>
+                ))}
+              </ul>
+            )
+          if ('ol' in b)
+            return (
+              <ol class="m-0 flex flex-col gap-3 ps-[22px]">
+                {b.ol.map(([label, item]) => (
+                  <li>
+                    <strong class="font-semibold text-primary">{label}: </strong>
+                    <LegalText locale={locale} text={item} values={values} />
+                  </li>
+                ))}
+              </ol>
+            )
+          return (
+            <div class="relative overflow-x-auto" tabindex="0" role="region" aria-labelledby={`t-${b.table.id}`}>
+              <table class="w-full min-w-[520px] border-collapse text-[15px] leading-[1.6]">
+                <caption id={`t-${b.table.id}`} class="sr-only">{b.table.caption}</caption>
+                <thead>
+                  <tr class="text-primary">
+                    {b.table.head.map((h) => (
+                      <th scope="col" class="border-b border-default px-2 py-2.5 text-start font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.table.rows.map(([first, ...rest]) => (
+                    <tr>
+                      <th scope="row" class="border-b border-subtle px-2 py-2.5 text-start font-normal text-primary">{first}</th>
+                      {rest.map((cell) => (
+                        <td class="border-b border-subtle px-2 py-2.5">
+                          <LegalText locale={locale} text={cell} values={values} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })
+      }
+    </article>
+  </div>
+  <script is:inline type="application/json" id="i18n" set:html={JSON.stringify({ locale, updated: L.updated })} />
+</Base>
+
+<script>
+  import { startLegal } from '../scripts/legal'
+  startLegal()
+</script>
