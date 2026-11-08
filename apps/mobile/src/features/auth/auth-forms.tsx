@@ -15,6 +15,7 @@ import { fontFor } from '@/theme/fonts';
 import { useTheme } from '@/theme/theme-provider';
 
 import { useAuth } from './auth-provider';
+import { openWebsite } from '../legal/website';
 
 /** Plain-language message for a failed sign-in/sign-up (never a status code). */
 export function authErrorKey(error: unknown, mode: 'signIn' | 'signUp'): MessageKey {
@@ -112,6 +113,10 @@ export function SignUpForm({ onDone, onSignIn, onBack }: { onDone: () => void; o
           {t('auth.consent')}
         </AppText>
       </Pressable>
+      <View style={styles.legalLinks}>
+        <Button variant="text" accessibilityRole="link" label={t('auth.readTerms')} onPress={() => openWebsite(locale, '/terms')} />
+        <Button variant="text" accessibilityRole="link" label={t('auth.readPrivacy')} onPress={() => openWebsite(locale, '/privacy')} />
+      </View>
       <ErrorText messageKey={error} />
       <Button label={t('auth.signUp.submit')} onPress={submit} disabled={busy} />
       <Button variant="text" label={t('auth.haveAccount')} onPress={onSignIn} disabled={busy} />
@@ -278,6 +283,7 @@ const styles = StyleSheet.create({
   passwordInput: { paddingEnd: 52 },
   eye: { position: 'absolute', end: 4, top: 4, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   consent: { flexDirection: 'row', alignItems: 'center', gap: space[4], minHeight: 44 },
+  legalLinks: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[5] },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   error: { borderRadius: radius.md, padding: space[5] },
   divider: { flexDirection: 'row', alignItems: 'center', gap: space[4] },

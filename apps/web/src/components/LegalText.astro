@@ -1,0 +1,28 @@
+---
+// One line of legal text with its blanks: the default value, or a bracketed label marked as missing.
+import { href, type Locale } from '../i18n/i18n'
+import { LEGAL, type Slot } from '../legal/content'
+import { segments } from '../legal/slots'
+
+interface Props {
+  locale: Locale
+  text: string
+  values: Record<Slot, string | null>
+}
+const { locale, text, values } = Astro.props
+const placeholders = LEGAL[locale].placeholders
+---
+
+{
+  segments(text).map((s) =>
+    'text' in s ? (
+      s.text
+    ) : s.slot === 'email' ? (
+      <a data-slot="email" href={values.email ? `mailto:${values.email}` : href(locale, '/contact')} dir={values.email ? 'ltr' : undefined} class="font-semibold">
+        {values.email ?? placeholders.email}
+      </a>
+    ) : (
+      <span data-slot={s.slot} data-missing={values[s.slot] ? undefined : ''}>{values[s.slot] ?? placeholders[s.slot]}</span>
+    )
+  )
+}
