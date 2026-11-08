@@ -13,9 +13,12 @@ interface Props {
   current?: 'how' | 'transparency' | 'contact' | LegalPage
   /** Leave the page out of search engines (the 404 page). */
   noindex?: boolean
+  /** The shared-report template (/r/): the Worker fills its preview tags per report (plan 8.5). */
+  shareTemplate?: boolean
 }
 
-const { locale, title, description = t(locale, 'site.description'), current, noindex = false } = Astro.props
+const { locale, title, description = t(locale, 'site.description'), current, shareTemplate = false } = Astro.props
+const noindex = Astro.props.noindex || shareTemplate
 const dir = locale === 'ar' ? 'rtl' : 'ltr'
 const path = Astro.url.pathname
 const bare = path.replace(/^\/en(?=\/|$)/, '') || '/'
@@ -46,12 +49,20 @@ const nav = [
     <link rel="icon" href={faviconUrl} type="image/svg+xml" />
     <link rel="icon" href={favicon32Url} type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href={appleTouchUrl} />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content={t(locale, 'site.name')} />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:locale" content={locale === 'ar' ? 'ar_LY' : 'en_GB'} />
-    <meta property="og:url" content={canonical} />
+    {
+      shareTemplate ? (
+        <Fragment set:html="<!--share-meta-->" />
+      ) : (
+        <>
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content={t(locale, 'site.name')} />
+          <meta property="og:title" content={title} />
+          <meta property="og:description" content={description} />
+          <meta property="og:locale" content={locale === 'ar' ? 'ar_LY' : 'en_GB'} />
+          <meta property="og:url" content={canonical} />
+        </>
+      )
+    }
   </head>
   <body class="bg-canvas text-primary">
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
@@ -82,7 +93,7 @@ const nav = [
           }
         </nav>
         <div class="flex items-center gap-2.5">
-          <a href={otherPath(locale, path)} hreflang={other} class="flex min-h-11 items-center px-2 text-[15px] font-semibold no-underline">
+          <a href={otherPath(locale, path)} hreflang={other} data-lang-switch class="flex min-h-11 items-center px-2 text-[15px] font-semibold no-underline">
             <span lang={other}>{t(locale, 'lang.other')}</span>
             <span class="sr-only"> · {t(locale, 'lang.otherLabel')}</span>
           </a>

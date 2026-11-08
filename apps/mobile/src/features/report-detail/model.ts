@@ -70,9 +70,9 @@ export function daysText(n: number, locale: Locale): string {
   return `${n} يوماً`;
 }
 
-/** Public web address of a report, used for sharing. */
+/** Public web address of a report, used for sharing (opens the app directly where it is installed). */
 export function shareUrl(id: number): string {
-  return `${API_URL}/pothole/${id}`;
+  return `${API_URL}/r/${id}`;
 }
 
 /** Directions to a point, per maps app. Android's geo: lets the person pick any installed maps app. */

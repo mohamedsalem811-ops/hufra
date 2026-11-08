@@ -142,7 +142,7 @@ describe('shared report', () => {
     expect(res.headers.get('cache-control')).toBe('public, max-age=300')
     const shared = await parse(res, C.sharedReportResponseSchema)
     expect(shared).toMatchObject({ id: r.id, status: 'reported', street_ar: 'شارع', photo_after: null, campaign: null })
-    expect(shared.url).toMatch(new RegExp(`/pothole/${r.id}$`))
+    expect(shared.url).toMatch(new RegExp(`/r/${r.id}$`))
     expect(shared.photo_before?.thumb_key).toMatch(/^thumbs\//)
     expect(JSON.stringify(shared)).not.toMatch(/reporter|me@example/)
     expect((await get('/api/potholes/9999/share')).status).toBe(404)

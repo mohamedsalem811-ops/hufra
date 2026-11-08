@@ -5,7 +5,25 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Must match DEFAULT_API_URL in src/config/env.ts (a test checks it).
+const DEFAULT_SITE = 'https://hufra.mohamedsalem811.workers.dev';
+
+/** Android App Links (plan 8.5): shared report links open the app directly. */
+function sharedLinkFilters(siteUrl) {
+  const url = new URL(siteUrl);
+  if (url.protocol !== 'https:') return [];
+  return [
+    {
+      action: 'VIEW',
+      autoVerify: true,
+      data: ['/r/', '/en/r/'].map((pathPrefix) => ({ scheme: 'https', host: url.host, pathPrefix })),
+      category: ['BROWSABLE', 'DEFAULT'],
+    },
+  ];
+}
+
 module.exports = ({ config }) => {
+  config.android = { ...config.android, intentFilters: sharedLinkFilters(process.env.EXPO_PUBLIC_API_URL || DEFAULT_SITE) };
   const file = './google-services.json';
   if (fs.existsSync(path.join(__dirname, file))) {
     config.android = { ...config.android, googleServicesFile: file };
@@ -18,3 +36,6 @@ module.exports = ({ config }) => {
   }
   return config;
 };
+
+module.exports.DEFAULT_SITE = DEFAULT_SITE;
+module.exports.sharedLinkFilters = sharedLinkFilters;

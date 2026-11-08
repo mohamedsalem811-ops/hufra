@@ -29,6 +29,7 @@ import { invalidatePublicCaches, cachedJson } from '../lib/cache'
 import { createUploadToken } from '../lib/upload-token'
 import { purgeReportPhotos } from '../lib/storage'
 import { beforeCursor, readPage, toPage } from '../lib/paging'
+import { loadSharedReport } from '../lib/shared-report'
 
 const potholes = new Hono<{ Bindings: Bindings }>()
 
@@ -276,49 +277,10 @@ potholes.get('/top-reporter', async (c) => {
 potholes.get('/:id/share', async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) return c.json({ error: 'Invalid id' }, 400)
-  const p = await c.env.DB.prepare(
-    `SELECT p.id, p.status, p.severity, p.street_ar, p.street_en, p.created_at, p.fixed_at, p.upvotes_count,
-            r.name_ar AS region_name_ar, r.name_en AS region_name_en
-     FROM potholes p JOIN regions r ON r.id = p.region_id WHERE p.id = ? AND p.deleted_at IS NULL`
-  )
-    .bind(id)
-    .first<any>()
-  if (!p) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
-  const photos = await c.env.DB.prepare(
-    `SELECT stage, thumb_key, r2_key FROM pothole_photos WHERE pothole_id = ? AND deleted_at IS NULL ORDER BY created_at ASC`
-  )
-    .bind(id)
-    .all<{ stage: string; thumb_key: string; r2_key: string }>()
-  const pick = (row?: { thumb_key: string; r2_key: string }) => (row ? { thumb_key: row.thumb_key, r2_key: row.r2_key } : null)
-  const before = photos.results.find((ph) => ph.stage === 'before') ?? photos.results.find((ph) => ph.stage === 'report')
-  const after = [...photos.results].reverse().find((ph) => ph.stage === 'after')
-  const campaign = await c.env.DB.prepare(
-    `SELECT c.id, c.status, c.target_millimes,
-       COALESCE((SELECT SUM(d.amount_millimes) FROM donations d WHERE d.campaign_id = c.id AND d.status = 'confirmed'), 0)
-       + COALESCE((SELECT SUM(a.amount_millimes) FROM campaign_allocations a WHERE a.to_campaign_id = c.id), 0) AS raised
-     FROM campaigns c WHERE c.pothole_id = ? AND c.status != 'cancelled' ORDER BY c.id DESC LIMIT 1`
-  )
-    .bind(id)
-    .first<{ id: number; status: string; target_millimes: number; raised: number }>()
+  const shared = await loadSharedReport(c.env.DB, id, new URL(c.req.url).origin)
+  if (!shared) return c.json({ error: 'Not found', error_ar: 'غير موجود' }, 404)
   c.header('Cache-Control', 'public, max-age=300')
-  return c.json({
-    id: p.id,
-    url: `${new URL(c.req.url).origin}/pothole/${p.id}`,
-    status: p.status,
-    severity: p.severity,
-    street_ar: p.street_ar,
-    street_en: p.street_en,
-    region_name_ar: p.region_name_ar,
-    region_name_en: p.region_name_en,
-    created_at: p.created_at,
-    fixed_at: p.fixed_at,
-    upvotes_count: p.upvotes_count,
-    photo_before: pick(before),
-    photo_after: pick(after),
-    campaign: campaign
-      ? { id: campaign.id, status: campaign.status, target_lyd: campaign.target_millimes / 1000, confirmed_lyd: campaign.raised / 1000 }
-      : null,
-  })
+  return c.json(shared)
 })
 
 // ---------------------------------------------------------------------------

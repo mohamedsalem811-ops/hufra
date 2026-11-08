@@ -79,7 +79,7 @@ describe('days', () => {
 
 describe('links', () => {
   it('shares the public report page', () => {
-    expect(shareUrl(42)).toMatch(/^https:\/\/.+\/pothole\/42$/);
+    expect(shareUrl(42)).toMatch(/^https:\/\/.+\/r\/42$/);
   });
 
   it('builds directions for each maps app', () => {
