@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { useId, useState, type ReactNode } from 'react'
 
 import { useApi } from '@/api/api-provider'
-import { Alert, Button, Card, Spinner } from '@/components/ui'
+import { Alert, Button, Card, ScrollArea, Spinner } from '@/components/ui'
 import { Icon } from '@/components/icons'
 import { useI18n } from '@/i18n/i18n'
 import type { MessageKey } from '@/i18n/messages'
@@ -98,7 +98,7 @@ function DashboardView({ d }: { d: Dashboard }) {
           {d.by_region.length === 0 ? (
             <p className="m-0 text-secondary">{t('dash.noRegions')}</p>
           ) : (
-            <div className="relative overflow-x-auto">
+            <ScrollArea labelledBy="dash-regions">
               <table className="w-full min-w-[420px] border-collapse text-sm">
                 <thead>
                   <tr className="text-secondary">
@@ -123,7 +123,7 @@ function DashboardView({ d }: { d: Dashboard }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollArea>
           )}
         </Card>
       </div>

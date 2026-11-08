@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 @import '../../../../packages/brand/dist/tokens.css';
 
-/* Readex Pro (Arabic + Latin), from packages/brand. */
-@font-face { font-family: 'Readex Pro'; font-weight: 400; font-display: swap; src: url('../../../../packages/brand/assets/fonts/ReadexPro-Regular.ttf') format('truetype'); }
-@font-face { font-family: 'Readex Pro'; font-weight: 600; font-display: swap; src: url('../../../../packages/brand/assets/fonts/ReadexPro-SemiBold.ttf') format('truetype'); }
-@font-face { font-family: 'Readex Pro'; font-weight: 700; font-display: swap; src: url('../../../../packages/brand/assets/fonts/ReadexPro-Bold.ttf') format('truetype'); }
+/* Readex Pro (Arabic + Latin), from packages/brand: WOFF2, trimmed to the characters we use (plan 8.6). */
+@font-face { font-family: 'Readex Pro'; font-weight: 400; font-display: swap; src: url('../../../../packages/brand/assets/fonts/web/ReadexPro-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Readex Pro'; font-weight: 600; font-display: swap; src: url('../../../../packages/brand/assets/fonts/web/ReadexPro-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Readex Pro'; font-weight: 700; font-display: swap; src: url('../../../../packages/brand/assets/fonts/web/ReadexPro-Bold.woff2') format('woff2'); }
 
 /* Brand tokens as Tailwind colours (same names as the admin panel). */
 @theme inline {

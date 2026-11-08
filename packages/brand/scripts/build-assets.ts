@@ -249,6 +249,34 @@ png(markSvg, 192, out('web', 'icon-192.png'))
 png(markSvg, 512, out('web', 'icon-512.png'))
 // Maskable: full-bleed background, artwork inside the 80% safe circle
 png(svg1024(`<rect width="1024" height="1024" fill="${SEA}"/><g transform="translate(102.4 102.4) scale(0.8)">${pinAndHole()}</g>`), 512, out('web', 'icon-maskable-512.png'), SEA)
+// Link previews (Open Graph): 1200 x 630, the mark, the names and what HUFRA does (plan 8.6).
+const TAGLINE = shape('ReadexPro-Regular.ttf', 'بلّغ عن الحفر في طرابلس، وتابع إصلاحها خطوة بخطوة')
+function socialCard() {
+  const W = 1200
+  const H = 630
+  const M = 200
+  const arSize = 120
+  const enSize = 40
+  const tagSize = 40
+  const arW = textW(AR, arSize)
+  const enW = textW(EN, enSize)
+  const tagW = textW(TAGLINE, tagSize)
+  const arH = textH(AR, arSize)
+  const enH = textH(EN, enSize)
+  const tagH = textH(TAGLINE, tagSize)
+  const g1 = 36
+  const g2 = 22
+  const g3 = 44
+  const top = (H - (M + g1 + arH + g2 + enH + g3 + tagH)) / 2
+  const body =
+    `<rect width="${W}" height="${H}" fill="${SEA}"/>` +
+    `<g transform="translate(${(W - M) / 2} ${top}) scale(${M / 1024})">${pinAndHole()}</g>` +
+    placeText(AR, arSize, (W - arW) / 2, top + M + g1, WHITE) +
+    placeText(EN, enSize, (W - enW) / 2, top + M + g1 + arH + g2, dark.text.secondary) +
+    placeText(TAGLINE, tagSize, (W - tagW) / 2, top + M + g1 + arH + g2 + enH + g3, WHITE)
+  return svgDoc(W, H, body, undefined, 'HUFRA حفرة')
+}
+pngOpaque(socialCard(), 1200, out('web', 'social-card.png'), SEA)
 record(out('web', '*'))
 
 console.log(`packages/brand: wrote ${written.join(', ')}`)

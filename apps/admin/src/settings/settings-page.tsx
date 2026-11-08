@@ -4,7 +4,7 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react'
 
 import { ApiError } from '@/api/client'
 import { useSession } from '@/auth/session'
-import { Alert, Button, Card, Spinner, TextField } from '@/components/ui'
+import { Alert, Button, Card, ScrollArea, Spinner, TextField } from '@/components/ui'
 import { useI18n } from '@/i18n/i18n'
 import type { MessageKey } from '@/i18n/messages'
 import { dateTime } from '@/lib/format'
@@ -428,7 +428,7 @@ function AuditLog() {
       {log.isError ? <Alert>{t('error.server')}</Alert> : null}
       {log.data && !rows.length ? <p className="m-0 text-secondary">{t('audit.empty')}</p> : null}
       {rows.length ? (
-        <div className="relative overflow-x-auto">
+        <ScrollArea labelledBy={id}>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="text-secondary">
@@ -454,7 +454,7 @@ function AuditLog() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollArea>
       ) : null}
       {log.hasNextPage ? (
         <Button variant="secondary" className="self-start" disabled={log.isFetchingNextPage} onClick={() => void log.fetchNextPage()}>

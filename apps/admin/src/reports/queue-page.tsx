@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useId, useState } from 'react'
 
 import { Icon } from '@/components/icons'
-import { Alert, Button, Spinner, StatusBadge } from '@/components/ui'
+import { Alert, Button, ScrollArea, Spinner, StatusBadge } from '@/components/ui'
 import { useI18n } from '@/i18n/i18n'
 import { age, mediaUrl, pick } from '@/lib/format'
 
@@ -159,7 +159,7 @@ export function QueuePage() {
       {queue.data && rows.length === 0 ? <p className="rounded-lg border border-default bg-surface p-6 text-secondary">{t('queue.empty')}</p> : null}
 
       {rows.length > 0 ? (
-        <div className="relative overflow-x-auto rounded-lg border border-default bg-surface">
+        <ScrollArea className="rounded-lg border border-default bg-surface" label={t('queue.title')}>
           <table className="w-full border-collapse text-[15px]">
             <thead>
               <tr className="text-start text-sm text-secondary">
@@ -188,7 +188,7 @@ export function QueuePage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollArea>
       ) : null}
 
       {total > PAGE_SIZE ? (

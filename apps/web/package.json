@@ -8,7 +8,9 @@
     "dev": "astro dev --port 4321",
     "build": "astro build",
     "preview": "astro preview --port 4321",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "budget": "node scripts/budget.mjs",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@hufra/brand": "*",
@@ -19,6 +21,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.63.0",
     "typescript": "5.9.3"
   }
 }

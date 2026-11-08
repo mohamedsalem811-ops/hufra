@@ -70,6 +70,18 @@ export function Alert({ tone = 'danger', children }: { tone?: 'danger' | 'warnin
   )
 }
 
+/**
+ * A box that scrolls sideways when its table is wider than the screen (plan 8.6).
+ * Focusable and named, so keyboard users can scroll it too (WCAG 2.1.1).
+ */
+export function ScrollArea({ children, className = '', labelledBy, label }: { children: ReactNode; className?: string; labelledBy?: string; label?: string }) {
+  return (
+    <div className={`relative overflow-x-auto ${className}`} tabIndex={0} role="region" aria-labelledby={labelledBy} aria-label={labelledBy ? undefined : label}>
+      {children}
+    </div>
+  )
+}
+
 export function Spinner({ label }: { label: string }) {
   return (
     <div role="status" className="flex items-center justify-center gap-3 p-8 text-secondary">

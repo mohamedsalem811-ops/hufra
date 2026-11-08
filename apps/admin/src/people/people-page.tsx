@@ -3,7 +3,7 @@ import { useId, useState, type FormEvent, type ReactNode } from 'react'
 
 import { ApiError } from '@/api/client'
 import { useSession } from '@/auth/session'
-import { Alert, Button, Card, Spinner } from '@/components/ui'
+import { Alert, Button, Card, ScrollArea, Spinner } from '@/components/ui'
 import { useI18n, type Locale } from '@/i18n/i18n'
 import { age, dateTime, pick } from '@/lib/format'
 
@@ -94,7 +94,7 @@ function AdminsSection({ adding, onAdded }: { adding: boolean; onAdded: () => vo
       {admins.isPending ? <Spinner label={t('loading')} /> : null}
       {admins.isError ? <Alert>{t('error.server')}</Alert> : null}
       {admins.data ? (
-        <div className="relative overflow-x-auto">
+        <ScrollArea labelledBy={titleId}>
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="text-start text-secondary">
@@ -140,7 +140,7 @@ function AdminsSection({ adding, onAdded }: { adding: boolean; onAdded: () => vo
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollArea>
       ) : null}
       {current ? <EditAdmin key={current.id} admin={current} onClose={() => setEditing(null)} /> : null}
     </section>
