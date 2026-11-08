@@ -78,3 +78,45 @@ export const adminReportResponseSchema = z.strictObject({
 export type ReportQueueQuery = z.input<typeof reportQueueQuerySchema>
 export type ReportQueueItem = z.infer<typeof reportQueueItemSchema>
 export type AdminReport = z.infer<typeof adminReportResponseSchema>
+
+// ---------------------------------------------------------------- duplicates (8.2f)
+
+const duplicateSideSchema = z.strictObject({
+  id,
+  status: potholeStatusSchema,
+  severity: severitySchema,
+  street_ar: nullableText,
+  street_en: nullableText,
+  region_name_ar: z.string(),
+  region_name_en: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  upvotes_count: z.number().int(),
+  created_at: timestamp,
+  cover_thumb_key: nullableText,
+})
+
+/** A pair the server found close together. Confirming removes the newer report. */
+export const duplicateFlagSchema = z.strictObject({
+  id,
+  /** The newer report (removed when confirmed). */
+  pothole_id: id,
+  /** The older report it seems to repeat (kept). */
+  duplicate_of_id: id,
+  distance_m: z.number(),
+  created_at: timestamp,
+  newer: duplicateSideSchema,
+  older: duplicateSideSchema,
+})
+export const duplicateListResponseSchema = z.strictObject({ results: z.array(duplicateFlagSchema) })
+
+/** Numbers beside the menu items. */
+export const adminCountsResponseSchema = z.strictObject({
+  /** Reports still waiting for a first look (status "reported"). */
+  new_reports: z.number().int().nonnegative(),
+  duplicates: z.number().int().nonnegative(),
+  donations_to_review: z.number().int().nonnegative(),
+})
+
+export type DuplicateFlag = z.infer<typeof duplicateFlagSchema>
+export type AdminCounts = z.infer<typeof adminCountsResponseSchema>

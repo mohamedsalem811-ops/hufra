@@ -201,7 +201,7 @@ describe('report page', () => {
   it('decides a possible duplicate', async () => {
     const user = userEvent.setup()
     show('/admin/reports/1042')
-    expect(await screen.findByText('الدمج يحذف البلاغ الأحدث (#1050) ويُبقي الأقدم (#1042).')).toBeInTheDocument()
+    expect(await screen.findByText('الدمج يحذف البلاغ الأحدث (\u2066#1050\u2069) ويُبقي الأقدم (\u2066#1042\u2069).')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'ليس مكرراً' }))
     expect(await screen.findByText('تم حفظ القرار.')).toBeInTheDocument()
     expect(calls()).toContain('PATCH /api/admin/duplicates/7')

@@ -1,3 +1,4 @@
+import type { AdminCounts } from '@hufra/contracts'
 import { Link } from '@tanstack/react-router'
 import { useState, type ReactNode } from 'react'
 
@@ -7,14 +8,24 @@ import type { SessionUser } from '@/auth/session'
 import { useSignOut } from '@/auth/session'
 import { useI18n } from '@/i18n/i18n'
 import type { MessageKey } from '@/i18n/messages'
+import { useAdminCounts } from '@/reports/use-duplicates'
 
-export const NAV: { to: string; label: MessageKey; icon: IconName; superOnly?: boolean }[] = [
+/** Waiting citizens and donors stand out in orange; duplicates are housekeeping. */
+const BADGE: Record<Count, string> = {
+  new_reports: 'bg-action text-on-action',
+  duplicates: 'bg-white text-brand-solid',
+  donations_to_review: 'bg-action text-on-action',
+}
+
+type Count = keyof AdminCounts
+
+export const NAV: { to: string; label: MessageKey; icon: IconName; superOnly?: boolean; count?: Count }[] = [
   { to: '/', label: 'nav.dashboard', icon: 'dashboard' },
-  { to: '/reports', label: 'nav.reports', icon: 'reports' },
+  { to: '/reports', label: 'nav.reports', icon: 'reports', count: 'new_reports' },
   { to: '/map', label: 'nav.map', icon: 'map' },
-  { to: '/duplicates', label: 'nav.duplicates', icon: 'duplicates' },
+  { to: '/duplicates', label: 'nav.duplicates', icon: 'duplicates', count: 'duplicates' },
   { to: '/campaigns', label: 'nav.campaigns', icon: 'campaigns' },
-  { to: '/donations', label: 'nav.donations', icon: 'donations' },
+  { to: '/donations', label: 'nav.donations', icon: 'donations', count: 'donations_to_review' },
   { to: '/regions', label: 'nav.regions', icon: 'regions' },
   { to: '/people', label: 'nav.people', icon: 'people' },
   { to: '/partners', label: 'nav.partners', icon: 'partners' },
@@ -23,8 +34,9 @@ export const NAV: { to: string; label: MessageKey; icon: IconName; superOnly?: b
 
 /** Sidebar (wide screens) or a menu button (phones), with the main content beside it. */
 export function Shell({ user, children }: { user: SessionUser; children: ReactNode }) {
-  const { t, locale, setLocale } = useI18n()
+  const { t, locale, setLocale, number } = useI18n()
   const signOut = useSignOut()
+  const counts = useAdminCounts()
   const [open, setOpen] = useState(false)
   const name = user.display_name || user.email
   const initial = name.replace(/^ال/, '').slice(0, 1).toUpperCase()
@@ -67,6 +79,12 @@ export function Shell({ user, children }: { user: SessionUser; children: ReactNo
           >
             <Icon name={item.icon} />
             {t(item.label)}
+            {item.count && counts.data?.[item.count] ? (
+              <span className={`ms-auto flex h-[22px] min-w-6 items-center justify-center rounded-full px-[7px] text-xs font-bold ${BADGE[item.count]}`}>
+                {number(counts.data[item.count])}
+                <span className="sr-only"> {t('nav.waiting')}</span>
+              </span>
+            ) : null}
           </Link>
         ))}
         <div className="mt-auto flex items-center gap-2.5 border-t border-white/20 px-3 pb-1 pt-4">

@@ -65,6 +65,9 @@ function useRefresh() {
   return (id?: number) => {
     void qc.invalidateQueries({ queryKey: ['queue'] })
     void qc.invalidateQueries({ queryKey: ['counters'] })
+    void qc.invalidateQueries({ queryKey: ['duplicates'] })
+    void qc.invalidateQueries({ queryKey: ['admin-counts'] })
+    void qc.invalidateQueries({ queryKey: ['map'] })
     if (id) void qc.invalidateQueries({ queryKey: ['report', id] })
   }
 }
@@ -102,7 +105,7 @@ export function useBulkStatus() {
   })
 }
 
-export function useReviewDuplicate(reportId: number) {
+export function useReviewDuplicate(reportId?: number) {
   const api = useApi()
   const refresh = useRefresh()
   return useMutation({
