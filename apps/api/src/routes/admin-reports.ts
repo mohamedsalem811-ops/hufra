@@ -21,14 +21,8 @@ const SORTS = {
   most_confirmed: 'p.upvotes_count DESC, p.created_at ASC',
 } as const
 
-// ---------------------------------------------------------------------------
-// GET /api/admin/queue - search, filter, sort and page through reports
-// ---------------------------------------------------------------------------
-adminReports.get('/queue', async (c) => {
-  const parsed = reportQueueQuerySchema.safeParse(c.req.query())
-  if (!parsed.success) return c.json({ error: 'Invalid query', error_ar: 'معايير بحث غير صحيحة' }, 400)
-  const { q, status, severity, region_id, duplicates, sort, page, page_size } = parsed.data
-
+/** The queue's filters as SQL (reports "p" joined with regions "r"). Also used by the CSV export. */
+export function queueWhere({ q, status, severity, region_id, duplicates }: Pick<ReturnType<typeof reportQueueQuerySchema.parse>, 'q' | 'status' | 'severity' | 'region_id' | 'duplicates'>) {
   const where = ['p.deleted_at IS NULL']
   const binds: unknown[] = []
   if (status) (where.push('p.status = ?'), binds.push(status))
@@ -45,7 +39,18 @@ adminReports.get('/queue', async (c) => {
       binds.push(like, like, like, like)
     }
   }
-  const whereSql = where.join(' AND ')
+  return { whereSql: where.join(' AND '), binds }
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/admin/queue - search, filter, sort and page through reports
+// ---------------------------------------------------------------------------
+adminReports.get('/queue', async (c) => {
+  const parsed = reportQueueQuerySchema.safeParse(c.req.query())
+  if (!parsed.success) return c.json({ error: 'Invalid query', error_ar: 'معايير بحث غير صحيحة' }, 400)
+  const { sort, page, page_size } = parsed.data
+
+  const { whereSql, binds } = queueWhere(parsed.data)
 
   const total = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM potholes p JOIN regions r ON r.id = p.region_id WHERE ${whereSql}`)
     .bind(...binds)

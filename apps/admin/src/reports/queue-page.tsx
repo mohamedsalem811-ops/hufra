@@ -2,11 +2,12 @@ import { STATUS_ORDER, type PotholeStatus, type ReportQueueItem } from '@hufra/c
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useId, useState } from 'react'
 
+import { Icon } from '@/components/icons'
 import { Alert, Button, Spinner, StatusBadge } from '@/components/ui'
 import { useI18n } from '@/i18n/i18n'
 import { age, mediaUrl, pick } from '@/lib/format'
 
-import { PAGE_SIZE, useBulkStatus, useQueue, useRegions, type QueueFilters } from './use-reports'
+import { PAGE_SIZE, queueQueryString, useBulkStatus, useQueue, useRegions, type QueueFilters } from './use-reports'
 
 const select = 'min-h-11 rounded-[10px] border border-strong bg-surface px-3 text-[15px] text-primary'
 
@@ -50,11 +51,18 @@ export function QueuePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <h1 className="m-0 text-[28px] font-bold">{t('queue.title')}</h1>
-        <p className="m-0 text-sm text-secondary" aria-live="polite">
-          {queue.data ? t('queue.count', { n: number(total) }) : ' '}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 text-[28px] font-bold">{t('queue.title')}</h1>
+          <p className="m-0 text-sm text-secondary" aria-live="polite">
+            {queue.data ? t('queue.count', { n: number(total) }) : ' '}
+          </p>
+        </div>
+        {/* The same filters as the list, every matching report (not only this page). */}
+        <a href={`/api/admin/export/reports.csv?${queueQueryString({ ...search, page: undefined })}`} download className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border-[1.5px] border-brand bg-surface px-4 font-semibold text-brand no-underline hover:bg-brand-tint">
+          <Icon name="download" />
+          {filtered ? t('queue.csvFiltered') : t('dash.csv')}
+        </a>
       </div>
 
       <div role="search" aria-label={t('queue.filters')} className="flex flex-wrap items-end gap-2.5">

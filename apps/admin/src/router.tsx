@@ -5,6 +5,7 @@ import { Alert, Button, Spinner } from '@/components/ui'
 import { useI18n } from '@/i18n/i18n'
 import { Shell } from '@/layout/shell'
 import { DashboardPage } from '@/routes/dashboard'
+import { NotificationsPage } from '@/routes/notifications'
 import { LoginPage } from '@/routes/login'
 import { CampaignPage } from '@/campaigns/campaign-page'
 import { CampaignsPage } from '@/campaigns/campaigns-page'
@@ -69,6 +70,7 @@ const root = createRootRoute({ component: Root, notFoundComponent: NotFound })
 
 const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/', component: DashboardPage }),
+  createRoute({ getParentRoute: () => root, path: '/notifications', component: NotificationsPage }),
   createRoute({ getParentRoute: () => root, path: '/reports', component: QueuePage, validateSearch: parseQueueSearch }),
   createRoute({ getParentRoute: () => root, path: '/reports/$id', component: ReportPage }),
   createRoute({ getParentRoute: () => root, path: '/map', component: MapPage }),

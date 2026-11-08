@@ -120,7 +120,7 @@ describe('panel', () => {
     const api = fakeApi({ signedIn: true })
     const base = api.fetch.getMockImplementation()!
     api.fetch.mockImplementation(async (input, init) =>
-      String(input) === '/api/potholes/counters' ? new Response('{"error":"x"}', { status: 404 }) : base(input, init),
+      String(input).startsWith('/api/admin/dashboard') ? new Response('{"error":"x"}', { status: 404 }) : base(input, init),
     )
     show(api, '/admin/', 'en')
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()

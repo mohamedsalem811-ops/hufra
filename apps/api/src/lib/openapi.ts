@@ -119,6 +119,8 @@ export const ENDPOINTS: Endpoint[] = [
   { method: 'get', path: '/api/admin/notifications', tag: 'Admin', summary: 'Admin inbox', access: 'admin', response: c.notificationListResponseSchema },
   { method: 'post', path: '/api/admin/notifications/read-all', tag: 'Admin', summary: 'Mark the admin inbox read', access: 'admin', response: c.okResponseSchema },
   { method: 'get', path: '/api/admin/duplicates', tag: 'Admin', summary: 'Possible duplicate reports, both reports side by side', access: 'admin', response: c.duplicateListResponseSchema },
+  { method: 'get', path: '/api/admin/dashboard', tag: 'Admin', summary: 'Dashboard numbers for a period (7, 30, 90 or 365 days)', access: 'admin', query: c.dashboardQuerySchema, response: c.dashboardResponseSchema },
+  { method: 'get', path: '/api/admin/export/reports.csv', tag: 'Admin', summary: 'Reports as CSV, with the queue filters and an optional period in days', access: 'admin', query: c.reportQueueQuerySchema, responseType: 'text/csv' },
   { method: 'get', path: '/api/admin/counts', tag: 'Admin', summary: 'Work waiting in each queue (menu badges)', access: 'admin', response: c.adminCountsResponseSchema },
   { method: 'patch', path: '/api/admin/duplicates/:id', tag: 'Admin', summary: 'Merge or keep a possible duplicate', access: 'admin', body: c.duplicateReviewSchema },
   { method: 'get', path: '/api/admin/analytics', tag: 'Admin', summary: 'Numbers for the dashboard', access: 'admin' },

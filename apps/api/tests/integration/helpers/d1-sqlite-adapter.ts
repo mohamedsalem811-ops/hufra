@@ -29,13 +29,15 @@ class MiniStatement {
     return new MiniStatement(this.db, this.sql, params)
   }
 
-  runSync(): { meta: { last_row_id: number; changes: number }; success: boolean } {
+  runSync(): { results: unknown[]; meta: { last_row_id: number; changes: number }; success: boolean } {
     const stmt = this.db.prepare(this.sql)
+    // Like D1, a statement that returns rows (a SELECT, also inside batch()) gives them back.
+    if (stmt.reader) return { results: stmt.all(...(this.params as any[])), meta: { last_row_id: 0, changes: 0 }, success: true }
     const info = stmt.run(...(this.params as any[]))
-    return { meta: { last_row_id: Number(info.lastInsertRowid), changes: info.changes }, success: true }
+    return { results: [], meta: { last_row_id: Number(info.lastInsertRowid), changes: info.changes }, success: true }
   }
 
-  async run(): Promise<{ meta: { last_row_id: number; changes: number }; success: boolean }> {
+  async run(): Promise<{ results: unknown[]; meta: { last_row_id: number; changes: number }; success: boolean }> {
     return this.runSync()
   }
 
