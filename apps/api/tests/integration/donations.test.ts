@@ -305,7 +305,7 @@ describe('app -> website handoff', () => {
     expect(first.headers.get('set-cookie')).toContain('hufra_session=')
     // Used once: a second visit goes to the normal sign-in page.
     const again = await request(t.env, url.pathname + url.search, { redirect: 'manual' })
-    expect(again.headers.get('location')).toBe('/login')
+    expect(again.headers.get('location')).toBe('/sign-in')
     expect(again.headers.get('set-cookie') ?? '').not.toContain('hufra_session=')
   })
 
@@ -313,7 +313,7 @@ describe('app -> website handoff', () => {
     const made = await json(await send('POST', '/api/auth/web-handoff', { next: '/donate/1' }, donor.token))
     await t.db.prepare(`UPDATE web_handoff_tokens SET expires_at = '2000-01-01T00:00:00.000Z'`).run()
     const url = new URL(made.url)
-    expect((await request(t.env, url.pathname + url.search, { redirect: 'manual' })).headers.get('location')).toBe('/login')
+    expect((await request(t.env, url.pathname + url.search, { redirect: 'manual' })).headers.get('location')).toBe('/sign-in')
     expect((await send('POST', '/api/auth/web-handoff', { next: '/donate/1' }, admin.token)).status).toBe(403)
   })
 })

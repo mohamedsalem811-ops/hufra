@@ -70,7 +70,7 @@ function ReportView({ data }: { data: AdminReport }) {
             <Button
               variant="secondary"
               onClick={() => {
-                void navigator.clipboard?.writeText(`${location.origin}/pothole/${p.id}`).then(() => setCopied(true))
+                void navigator.clipboard?.writeText(`${location.origin}/r/${p.id}`).then(() => setCopied(true))
               }}
             >
               {t('report.copyLink')}

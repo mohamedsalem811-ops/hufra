@@ -18,8 +18,17 @@ async function report(lat = 32.8811) {
 }
 
 const row = (id: number) => t.db.prepare('SELECT updated_at, view_count, upvotes_count FROM potholes WHERE id = ?').bind(id).first<any>()
-const upvote = (id: number, ip = '203.0.113.1') =>
-  request(t.env, `/api/potholes/${id}/upvote`, { method: 'POST', headers: { 'CF-Connecting-IP': ip } })
+let people = 0
+/** A new signed-in person's token. */
+async function person() {
+  const email = `n${++people}@example.ly`
+  const send = (path: string, body: unknown) =>
+    request(t.env, path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `10.1.0.${people}` }, body: JSON.stringify(body) })
+  await send('/api/auth/register', { email, password: 'Str0ngP@ssw0rd!', consent: true })
+  return (await json(await send('/api/auth/login', { email, password: 'Str0ngP@ssw0rd!' }))).access_token as string
+}
+const upvote = (id: number, token: string) =>
+  request(t.env, `/api/potholes/${id}/upvote`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '203.0.113.1' } })
 const pause = () => new Promise((r) => setTimeout(r, 5))
 
 /** Count write statements reaching D1 during fn(). */
@@ -54,12 +63,14 @@ describe('report views', () => {
 describe('upvotes', () => {
   it('count once per person, even when sent many times at once', async () => {
     const id = await report()
-    const results = await Promise.all(Array.from({ length: 8 }, () => upvote(id)))
+    const a = await person()
+    const results = await Promise.all(Array.from({ length: 8 }, () => upvote(id, a)))
     expect(results.filter((r) => r.status === 201)).toHaveLength(1)
     expect((await row(id)).upvotes_count).toBe(1)
-    const again = await json(await upvote(id))
+    const again = await json(await upvote(id, a))
     expect(again).toMatchObject({ already_upvoted: true, upvotes_count: 1 })
-    await upvote(id, '203.0.113.2')
+    // A neighbour on the same address counts too.
+    await upvote(id, await person())
     expect((await row(id)).upvotes_count).toBe(2)
   })
 
@@ -67,20 +78,21 @@ describe('upvotes', () => {
     const id = await report()
     const before = (await row(id)).updated_at
     await pause()
-    await upvote(id)
+    await upvote(id, await person())
     expect((await row(id)).updated_at).toBe(before)
   })
 
-  it('are rate limited per IP (30 per hour)', async () => {
+  it('are rate limited per person (60 per hour)', async () => {
     const ids: number[] = []
     for (let i = 0; i < 4; i++) ids.push(await report(32.80 + i * 0.01))
+    const a = await person()
     let last = 0
-    for (let i = 0; i < 31; i++) last = (await upvote(ids[i % 4], '198.51.100.9')).status
+    for (let i = 0; i < 61; i++) last = (await upvote(ids[i % 4], a)).status
     expect(last).toBe(429)
   })
 
   it('return 404 for deleted or missing reports', async () => {
-    expect((await upvote(999)).status).toBe(404)
+    expect((await upvote(999, await person())).status).toBe(404)
   })
 })
 

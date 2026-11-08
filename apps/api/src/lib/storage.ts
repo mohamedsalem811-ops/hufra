@@ -2,8 +2,8 @@
 //
 // Design (see MASTER BUILD PROMPT section 5):
 // - Images are compressed CLIENT-SIDE before upload (resize to <=1600px long
-//   edge, WebP, target 300-500KB) -- see public/static/js/image-compress.js.
-// - The browser also generates a small thumbnail (<=400px, WebP) client-side
+//   edge, WebP, target 300-500KB) -- see apps/mobile/src/features/report/photo-compress.ts.
+// - The app also generates a small thumbnail (<=400px, WebP) client-side
 //   and uploads both variants in the same multipart request. Cloudflare
 //   Workers has no image-processing library available without a paid
 //   add-on, so doing both resizes in the browser (Canvas API) keeps the
@@ -75,7 +75,7 @@ export async function purgeReportPhotos(db: Bindings['DB'], bucket: Bindings['PH
   return rows.results.length
 }
 
-// Server-side limits, matched to what public/static/js/image-compress.js
+// Server-side limits, matched to what the app's photo-compress.ts
 // produces (measured with real camera-sized inputs: a typical road photo is
 // ~130 KB, a worst-case pure-noise image ~220 KB, thumbnails a few KB). The
 // limits leave headroom for real photos while refusing anything that skipped

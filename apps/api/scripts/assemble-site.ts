@@ -1,14 +1,13 @@
 // Plan 9.1: everything the one Worker serves as static files, in one folder
 // (site/, not committed):
 //
-//   public/            the old citizen pages' files (until plan 9.2)
 //   apps/web/dist/     the website, at the root
 //   apps/admin/dist/   the admin panel, under /admin/
 //   _headers           security and caching headers (src/lib/security-headers.ts)
 //
 // Build the website and the admin panel first, or use `npm run build:site`.
-// Any file both the old pages and the website would claim stops the build.
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+// Any file both would claim stops the build.
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -16,7 +15,6 @@ import { staticHeadersFile } from '../src/lib/security-headers'
 
 const api = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SITE = join(api, 'site')
-const LEGACY = join(api, 'public')
 const WEB = join(api, '..', 'web', 'dist')
 const ADMIN = join(api, '..', 'admin', 'dist')
 
@@ -44,15 +42,14 @@ function copy(from: string, to: string, label: string) {
   }
   cpSync(from, join(SITE, to), { recursive: true, filter: (src) => keep(src) && !src.endsWith(`${from}/_headers`) })
 }
-copy(LEGACY, '/', 'the old pages (public/)')
 copy(WEB, '/', 'the website (apps/web/dist)')
 copy(ADMIN, '/admin', 'the admin panel (apps/admin/dist)')
 
-writeFileSync(join(SITE, '_headers'), staticHeadersFile(readFileSync(join(LEGACY, '_headers'), 'utf8')))
+writeFileSync(join(SITE, '_headers'), staticHeadersFile())
 
-for (const required of ['index.html', 'en/index.html', 'r/index.html', 'en/r/index.html', '404.html', 'sitemap.xml', 'robots.txt', 'admin/index.html', '_headers']) {
+for (const required of ['index.html', 'en/index.html', 'r/index.html', 'en/r/index.html', '404.html', 'sitemap.xml', 'robots.txt', 'admin/index.html', 'sw.js', '_headers']) {
   if (!existsSync(join(SITE, required))) throw new Error(`site/${required} is missing`)
 }
 const files = walk(SITE)
 const bytes = files.reduce((n, f) => n + statSync(f).size, 0)
-console.log(`site/: ${files.length} files, ${(bytes / 1024 / 1024).toFixed(1)} MB (old pages, website, admin panel, _headers)`)
+console.log(`site/: ${files.length} files, ${(bytes / 1024 / 1024).toFixed(1)} MB (website, admin panel, _headers)`)

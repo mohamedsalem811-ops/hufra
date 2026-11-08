@@ -56,8 +56,8 @@ export const ENDPOINTS: Endpoint[] = [
   { method: 'get', path: '/api/potholes/mine/list', tag: 'Reports', summary: 'My reports, newest first, paged', access: 'user', query: c.pageQuerySchema, response: c.myPotholesResponseSchema },
   { method: 'get', path: '/api/potholes/:id', tag: 'Reports', summary: 'One report with photos and history', access: 'optional', response: c.publicPotholeDetailResponseSchema },
   { method: 'get', path: '/api/potholes/:id/share', tag: 'Reports', summary: 'Public card for a shared link (never the reporter)', access: 'public', response: c.sharedReportResponseSchema },
-  { method: 'post', path: '/api/potholes', tag: 'Reports', summary: 'Report a pothole (account needed once REPORTS_REQUIRE_ACCOUNT is on)', access: 'optional', body: c.createPotholeSchema, response: c.createPotholeResponseSchema, status: 201 },
-  { method: 'post', path: '/api/potholes/:id/upvote', tag: 'Reports', summary: '"I saw it too" (201 the first time, 200 if already counted)', access: 'optional', response: c.upvoteResponseSchema, status: 201 },
+  { method: 'post', path: '/api/potholes', tag: 'Reports', summary: 'Report a pothole', access: 'user', body: c.createPotholeSchema, response: c.createPotholeResponseSchema, status: 201 },
+  { method: 'post', path: '/api/potholes/:id/upvote', tag: 'Reports', summary: '"I saw it too" (201 the first time, 200 if already counted)', access: 'user', response: c.upvoteResponseSchema, status: 201 },
   { method: 'patch', path: '/api/potholes/:id/status', tag: 'Reports', summary: 'Change the status (notifies the reporter)', access: 'admin', body: c.updateStatusSchema, response: c.statusChangeResponseSchema },
   { method: 'delete', path: '/api/potholes/:id', tag: 'Reports', summary: 'Delete a report', access: 'admin', response: c.okResponseSchema },
   {

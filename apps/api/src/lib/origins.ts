@@ -3,9 +3,6 @@
 // Allowed:
 //   - the site's own origin (whatever domain is serving this request: the
 //     production pages.dev domain, a preview deployment or a custom domain);
-//   - the Capacitor native app shells (iOS: capacitor://localhost, Android:
-//     https://localhost - see capacitor.config.ts), which call the production
-//     API from a bundled page;
 //   - local development servers;
 //   - anything listed in the optional ALLOWED_ORIGINS variable
 //     (comma-separated exact origins, e.g. "https://hufra.ly,https://www.hufra.ly").
@@ -14,8 +11,6 @@
 // wildcard: anyone can publish a site on pages.dev for free.
 
 import type { Bindings } from './types'
-
-const NATIVE_APP_ORIGINS = ['capacitor://localhost', 'ionic://localhost', 'https://localhost', 'http://localhost']
 
 const DEV_ORIGINS = [
   'http://localhost:3000',
@@ -29,7 +24,7 @@ const DEV_ORIGINS = [
   'http://localhost:4331',
 ]
 
-const STATIC_ALLOWED = new Set([...NATIVE_APP_ORIGINS, ...DEV_ORIGINS])
+const STATIC_ALLOWED = new Set(DEV_ORIGINS)
 
 function configuredOrigins(env: Partial<Bindings> | undefined): string[] {
   const raw = env?.ALLOWED_ORIGINS
@@ -75,21 +70,13 @@ export function isForbiddenCrossSiteWrite(
 /**
  * Whether login/refresh responses may include the tokens in the JSON body.
  *
- * - Web pages (any browser request with an Origin other than the native app
- *   shells): NO. They get HttpOnly cookies only, so script running in the
- *   page (e.g. from an XSS bug) can never read or copy a token.
- * - The Capacitor app (capacitor://localhost, https://localhost...): yes. It
- *   cannot use the site's cookies from its own origin.
- * - Requests without an Origin (curl, server scripts, tests): yes.
- *   Browsers always send Origin on POST, so a page cannot pretend to be one.
+ * - Web pages (any browser request with an Origin): NO. They get HttpOnly
+ *   cookies only, so script running in the page (e.g. from an XSS bug) can
+ *   never read or copy a token.
+ * - Requests without an Origin (the native app, curl, server scripts,
+ *   tests): yes. Browsers always send Origin on POST, so a page cannot
+ *   pretend to be one.
  */
-export function tokensInBody(origin: string | undefined, requestUrl: string): boolean {
-  if (!origin) return true
-  try {
-    // A page served by this site itself is always the website.
-    if (origin === new URL(requestUrl).origin) return false
-  } catch {
-    /* unparsable URL: fall through */
-  }
-  return NATIVE_APP_ORIGINS.includes(origin)
+export function tokensInBody(origin: string | undefined): boolean {
+  return !origin
 }

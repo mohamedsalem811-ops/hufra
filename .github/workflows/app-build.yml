@@ -10,7 +10,6 @@ name: App build (Expo · Android APK & iPhone IPA)
 # Run it from GitHub: Actions -> "App build" -> Run workflow, or push a tag app-v*.
 # It also runs on pull requests that change the app (or this workflow), so every step
 # comes with phone builds to install before approving.
-# The old Capacitor build (mobile-build.yml) stays until Phase 9.
 
 on:
   workflow_dispatch:

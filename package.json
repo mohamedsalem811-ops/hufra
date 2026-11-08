@@ -1,7 +1,7 @@
 {
   "name": "hufra",
   "private": true,
-  "description": "HUFRA monorepo: apps/api (backend), apps/mobile (Expo citizen app), later apps/admin, apps/web and shared packages. See docs/EXECUTION_PLAN.md.",
+  "description": "HUFRA monorepo: apps/api (one Cloudflare Worker: API, website, admin panel), apps/web (website), apps/admin (admin panel), apps/mobile (Expo citizen app) and shared packages. See docs/EXECUTION_PLAN.md.",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,16 +11,8 @@
   },
   "scripts": {
     "dev": "npm run dev -w @hufra/api --",
-    "dev:sandbox": "npm run dev:sandbox -w @hufra/api --",
-    "build": "npm run build -w @hufra/api --",
-    "preview": "npm run preview -w @hufra/api --",
     "deploy": "npm run deploy -w @hufra/api --",
-    "mobile:init": "npm run mobile:init -w @hufra/api --",
-    "mobile:sync": "npm run mobile:sync -w @hufra/api --",
-    "mobile:android": "npm run mobile:android -w @hufra/api --",
-    "mobile:ios": "npm run mobile:ios -w @hufra/api --",
     "cf-typegen": "npm run cf-typegen -w @hufra/api --",
-    "clean-port": "npm run clean-port -w @hufra/api --",
     "test": "npm run test -w @hufra/api --",
     "test:coverage": "npm run test:coverage -w @hufra/api --",
     "test:watch": "npm run test:watch -w @hufra/api --",
@@ -31,16 +23,14 @@
     "db:seed": "npm run db:seed -w @hufra/api --",
     "db:reset": "npm run db:reset -w @hufra/api --",
     "admin:set-password": "npm run admin:set-password -w @hufra/api --",
-    "build:app": "npm run build:app -w @hufra/api --",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "brand:build": "npm run build -w @hufra/brand",
-    "test:packages": "npm run typecheck -w @hufra/brand -w @hufra/contracts && npm test -w @hufra/brand -w @hufra/contracts && npm run check -w @hufra/brand && npm run brand:check -w @hufra/api",
-    "dev:worker": "npm run dev:worker -w @hufra/api --",
-    "deploy:worker": "npm run deploy:worker -w @hufra/api --",
+    "test:packages": "npm run typecheck -w @hufra/brand -w @hufra/contracts && npm test -w @hufra/brand -w @hufra/contracts && npm run check -w @hufra/brand",
     "app:start": "npm run start -w @hufra/mobile --",
     "app:android": "npm run android -w @hufra/mobile --",
     "app:ios": "npm run ios -w @hufra/mobile --",
-    "test:mobile": "npm run typecheck -w @hufra/mobile && npm run lint -w @hufra/mobile && npm test -w @hufra/mobile"
+    "test:mobile": "npm run typecheck -w @hufra/mobile && npm run lint -w @hufra/mobile && npm test -w @hufra/mobile",
+    "build": "npm run build:site -w @hufra/api --"
   },
   "overrides": {
     "playwright-core": "1.63.0"

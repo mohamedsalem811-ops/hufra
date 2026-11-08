@@ -218,7 +218,7 @@ auth.post('/login', async (c) => {
 
   const userInfo = { id: user.id, email: user.email, code: user.code, role: user.role, locale: user.locale, display_name: user.display_name }
   // Web pages get HttpOnly cookies only; the native app and API clients also get the tokens.
-  if (!tokensInBody(c.req.header('Origin'), c.req.url)) return c.json({ user: userInfo })
+  if (!tokensInBody(c.req.header('Origin'))) return c.json({ user: userInfo })
   return c.json({ access_token: accessToken, refresh_token: refreshToken, user: userInfo })
 })
 
@@ -294,7 +294,7 @@ auth.post('/refresh', async (c) => {
   }
 
   const { accessToken, refreshToken } = await issueSession(c, currentUser, await hashIp(clientIp(c), c.env.JWT_SECRET))
-  if (!tokensInBody(c.req.header('Origin'), c.req.url)) return c.json({ ok: true })
+  if (!tokensInBody(c.req.header('Origin'))) return c.json({ ok: true })
   return c.json({ access_token: accessToken, refresh_token: refreshToken })
 })
 
@@ -430,8 +430,8 @@ auth.get('/handoff', async (c) => {
   c.header('Cache-Control', 'no-store')
   c.header('Referrer-Policy', 'no-referrer')
   const token = c.req.query('t') ?? ''
-  // An old or used link: sign in on the website instead (the old page without the built website).
-  const fail = () => c.redirect(c.env.ASSETS ? '/sign-in' : '/login', 302)
+  // An old or used link: sign in on the website instead.
+  const fail = () => c.redirect('/sign-in', 302)
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return fail()
   const rl = await checkRateLimit(c.env, 'handoff_use', clientIp(c), 600, 3600) // shared carrier addresses; tokens are unguessable
   if (!rl.allowed) return fail()

@@ -1,6 +1,6 @@
 # HUFRA — Security
 
-> **Repository layout:** the backend now lives in `apps/api/` (npm workspaces, see `docs/EXECUTION_PLAN.md`). File paths in this document such as `src/…`, `public/…`, `migrations/…`, `scripts/…` and `tests/…` are relative to `apps/api/`. Commands like `npm test` still run from the repository root.
+> File paths such as `src/…`, `migrations/…` and `tests/…` are relative to `apps/api/` unless they name another app.
 
 This document covers the current authentication/authorization model, the
 data-protection measures in place, the security headers configuration, and
@@ -51,14 +51,10 @@ admin/super_admin accounts has been removed.** Previously:
   `TOTP_SETUP_TOKEN_TTL_SECONDS` constant were removed (no longer
   reachable).
 - `src/lib/validation.ts` — `loginSchema.totp_code` field removed.
-- `src/pages/admin.ts`, `src/pages/auth-pages.ts`,
-  `public/static/js/auth-pages.js`, `src/index.tsx` — the
-  `/admin/2fa-setup` page, its route, its client script
-  (`admin-2fa-setup.js`, deleted), and the login page's conditional
-  TOTP-code input field were all removed.
-- `src/pages/trust.ts` — the public claim "Administrator accounts require
-  mandatory two-factor authentication" was removed from the Trust page
-  copy (it would otherwise be false).
+- The old website's `/admin/2fa-setup` page, its script and the login
+  page's TOTP-code field were removed, and so was the Trust page's claim
+  that admin accounts require two-factor authentication. (That whole
+  server-rendered website was later replaced and deleted in plan 9.2.)
 - `tests/integration/auth-2fa-bootstrap.test.ts` and the `enrolledAdmin`/
   `makeFullyEnrolledAdmin`/`registerAndPromoteToAdmin` test helpers in
   `tests/integration/{admin-routes,regions,status-transitions}.test.ts`
@@ -91,28 +87,30 @@ this change.
 
 ## 3. Transport & browser security headers
 
-Configured centrally in `src/index.tsx` via `hono/secure-headers`:
+Set per surface by `src/lib/security-headers.ts` (plan 9.1): by the
+middleware in `src/index.tsx` on everything the Worker answers, and through
+`site/_headers` (written at build by `scripts/assemble-site.ts`) on the static
+files, which Cloudflare serves before the Worker code runs.
 
-- **Content-Security-Policy**: `default-src 'self'`, and
-  **`script-src 'self'`** plus `script-src-attr 'none'`. Only script files
-  served by this site can run: no inline `<script>` and no `onclick=` style
-  handlers. Markup injected through a bug (the kind of XSS fixed in
-  `/pothole/:id`) therefore cannot execute; a real-browser check confirmed
-  injected `<script>`, `onerror=` and `srcdoc` payloads are all blocked. The
-  three scripts that used to be inline now live in `public/static/js/boot-early.js`
-  (theme/direction before first paint), `public/static/js/boot.js` (translate, icons,
-  service worker) and a `data-pothole-id` attribute. Keep it this way: new page
-  code must go in a file under `public/static/js/`.
-  Styles still allow `'unsafe-inline'` (style attributes are used for small
-  layout values and by Leaflet). Styles cannot run code, so that is low risk.
-  Everything else (fonts, images, map tiles, Leaflet) is served from this
-  origin; `connect-src` adds Nominatim (address lookup). Also
-  `object-src 'none'`, `frame-ancestors 'self'`, `form-action 'self'`.
-- **Strict-Transport-Security**: `max-age=15552000; includeSubDomains` —
-  safe to always send since Cloudflare Pages terminates TLS at the edge.
-- **X-Frame-Options**: `SAMEORIGIN` — prevents clickjacking via iframe
-  embedding on other origins.
-- **Referrer-Policy**: `strict-origin-when-cross-origin`.
+- **Content-Security-Policy**, website and admin panel: `default-src 'self'`,
+  **`script-src 'self'`** and `script-src-attr 'none'`: only script files from
+  this site run; no inline `<script>`, no `onclick=` handlers, nothing from
+  other sites (fonts, images and map tiles are served from this origin).
+  Styles allow `'unsafe-inline'` for small layout values set by scripts
+  (styles cannot run code). Also `connect-src 'self'`, `worker-src 'none'`,
+  `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`,
+  `frame-ancestors 'none'`. Data from the API is always inserted as text,
+  never as HTML.
+- **Content-Security-Policy**, API, photos and tiles: `default-src 'none'`,
+  so nothing they return can run or be framed.
+- The policy is sent once per response (Cloudflare joins values of matching
+  `_headers` rules, so it is set in one rule for all files).
+- **Strict-Transport-Security**: `max-age=15552000; includeSubDomains`.
+- **X-Frame-Options**: `DENY`; **Cross-Origin-Opener-Policy**: `same-origin`;
+  **Permissions-Policy**: no camera, location, microphone, payment or USB.
+- **Referrer-Policy**: `strict-origin-when-cross-origin`; `X-Content-Type-Options: nosniff`.
+- The admin panel is sent with `X-Robots-Tag: noindex, nofollow`.
+- CI smoke-tests these headers on the live address after every deploy.
 
 ## 4. Data protection
 
@@ -129,7 +127,7 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
   are not recoverable from a database dump alone.
 - **Photo storage**: uploaded photos are stored in R2 object storage, not
   inlined into the D1 database, and are compressed client-side before
-  upload (see `public/static/js/image-compress.js`).
+  upload (see the app's `src/features/report/photo-compress.ts` in `apps/mobile`).
 
 ## 5. Secrets management
 
@@ -162,15 +160,16 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
 ## 7. Cross-origin access (CORS) and CSRF
 
 - `src/lib/origins.ts` decides which browser origins may call `/api/*` with
-  credentials: the site's own domain (production, preview deployments, custom
-  domains), the Capacitor app shells (`capacitor://localhost`,
-  `https://localhost`), local dev servers, and any exact origins listed in the
+  credentials: the site's own domain (the workers.dev address or a custom
+  domain), local dev servers, and any exact origins listed in the
   optional `ALLOWED_ORIGINS` variable. Every other origin gets no
   `Access-Control-Allow-Origin` header, so its pages cannot read API responses.
 - State-changing API calls (`POST`/`PATCH`/`DELETE`) that carry an `Origin`
   header from any other site are refused with 403 before reaching a route.
-  This is the CSRF guard. Requests with no `Origin` (curl, servers, native HTTP
-  clients) are unaffected.
+  This is the CSRF guard. Requests with no `Origin` (the native app, curl,
+  servers) are unaffected. The old Capacitor app's origins
+  (`capacitor://localhost`, `https://localhost`) are no longer trusted since
+  that app was removed (plan 9.2).
 - **History:** the previous CORS config returned the caller's origin in every
   branch together with `Access-Control-Allow-Credentials: true`, so any website
   was trusted. Even the intended rule (`*.pages.dev`) would have trusted sites
@@ -193,9 +192,10 @@ Configured centrally in `src/index.tsx` via `hono/secure-headers`:
   by logout or a password change are refused without signing out other devices.
 - Every refresh token has a random `jti`, so two logins in the same second
   never produce the same token.
-- The web/app client (`public/static/js/api.js`) shares one in-flight refresh
-  between parallel 401s and retries with an already-refreshed access token,
-  so rotation never logs a user out by accident.
+- The app's API client shares one in-flight refresh between parallel 401s and
+  retries with the already-refreshed access token, so rotation never logs a
+  user out by accident; the website renews an expired session once per
+  request (`apps/web/src/scripts/session.ts`).
 - Malformed tokens (bad base64, wrong shape) are treated as "not logged in"
   (401) instead of causing a 500.
 
@@ -246,11 +246,13 @@ before this change still contain the numbers they were given.
   in the page, including injected script from a future XSS bug, cannot read,
   store or exfiltrate it. A page's request is recognised by its `Origin`
   header, which browsers always send on POST and page script cannot remove.
-- The Capacitor app (`capacitor://localhost`, `https://localhost`) cannot use
-  the site's cookies from its own origin, so it still receives the tokens in
-  the body and keeps them in app storage. Requests with no `Origin` (curl,
-  server scripts) also receive them.
-- `public/static/js/api.js` never stores tokens on the website and deletes any
-  that older versions left in `localStorage`. A readable `hufra_auth=1` cookie
-  (no secret) tells the page whether a refresh is worth trying, so logged-out
-  visitors make no refresh calls.
+- The native app sends no `Origin`, so it receives the tokens in the body and
+  keeps them in the phone's secure storage. Other requests with no `Origin`
+  (curl, server scripts) also receive them.
+- The website never handles tokens. A readable `hufra_auth=1` cookie (no
+  secret) tells its pages whether a session exists, so signed-out visitors
+  make no refresh calls.
+- The app opens the website's donation pages already signed in through a
+  one-time link (`POST /api/auth/web-handoff`, then `GET /api/auth/handoff`):
+  random, stored only as a hash, single use, valid 60 seconds, never for
+  admin accounts.

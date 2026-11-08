@@ -24,12 +24,19 @@ describe('CORS on /api/*', () => {
     }
   })
 
-  it('allows the native app shells and local development', async () => {
+  it('allows local development', async () => {
     const { env } = createTestEnv()
-    for (const origin of ['capacitor://localhost', 'https://localhost', 'http://localhost:3000', 'http://127.0.0.1:5173']) {
+    for (const origin of ['http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:4331']) {
       const res = await preflight(env, origin)
       expect(res.headers.get('access-control-allow-origin')).toBe(origin)
       expect(res.headers.get('access-control-allow-credentials')).toBe('true')
+    }
+  })
+
+  it('no longer trusts the old Capacitor app shell origins (removed in plan 9.2)', async () => {
+    const { env } = createTestEnv()
+    for (const origin of ['capacitor://localhost', 'ionic://localhost', 'https://localhost']) {
+      expect((await preflight(env, origin)).headers.get('access-control-allow-origin'), origin).toBeNull()
     }
   })
 
@@ -56,9 +63,9 @@ describe('cross-site write protection (CSRF)', () => {
     expect(n?.n).toBe(0)
   })
 
-  it('still accepts same-origin, native-app and Origin-less requests', async () => {
+  it('still accepts same-origin and Origin-less requests (the native app sends no Origin)', async () => {
     const { env } = createTestEnv()
-    const variants: Record<string, string>[] = [{ Origin: SELF }, { Origin: 'capacitor://localhost' }, {}]
+    const variants: Record<string, string>[] = [{ Origin: SELF }, {}]
     for (const headers of variants) {
       const res = await request(env, '/api/potholes', {
         method: 'POST',

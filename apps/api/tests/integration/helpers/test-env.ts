@@ -24,7 +24,6 @@ export function createTestEnv(): TestEnv {
     KV: kv as unknown as Bindings['KV'],
     PHOTOS: photos as unknown as Bindings['PHOTOS'],
     JWT_SECRET: 'test-secret-do-not-use-in-production',
-    ADMIN_WHATSAPP: '+218000000000',
   }
   return { env, db, kv, photos }
 }

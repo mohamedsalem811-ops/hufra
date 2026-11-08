@@ -1,6 +1,6 @@
 // Plan 7.2: limits tuned for app traffic. Many phones share one carrier
-// address, so signed-in people are limited per account; the per-IP limits
-// stay strict only for signed-out requests.
+// address, so signed-in people are limited per account, with a generous limit
+// per shared address on top.
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ANONYMOUS, createTestEnv, request, json, type TestEnv } from './helpers/test-env'
 
@@ -40,9 +40,8 @@ describe('reports', () => {
     expect((await report(b.token, 20)).status).toBe(201)
   })
 
-  it('keep the strict per-address limit when signed out', async () => {
-    for (let i = 0; i < 10; i++) expect((await report(null, i)).status).toBe(201)
-    expect((await report(null, 10)).status).toBe(429)
+  it('are never taken signed out (plan 9.2), so no address is limited for everyone on it', async () => {
+    expect((await report(null, 0)).status).toBe(401)
   })
 
   it('say when to try again', async () => {
