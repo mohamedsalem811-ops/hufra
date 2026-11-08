@@ -57,6 +57,8 @@ export interface UserRow {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  last_login_at?: string | null
+  suspended_at?: string | null
 }
 
 export interface PotholeRow {

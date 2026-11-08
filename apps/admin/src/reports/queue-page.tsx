@@ -151,7 +151,7 @@ export function QueuePage() {
       {queue.data && rows.length === 0 ? <p className="rounded-lg border border-default bg-surface p-6 text-secondary">{t('queue.empty')}</p> : null}
 
       {rows.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-default bg-surface">
+        <div className="relative overflow-x-auto rounded-lg border border-default bg-surface">
           <table className="w-full border-collapse text-[15px]">
             <thead>
               <tr className="text-start text-sm text-secondary">

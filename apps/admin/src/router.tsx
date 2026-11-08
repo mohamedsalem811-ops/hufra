@@ -16,6 +16,7 @@ import { QueuePage } from '@/reports/queue-page'
 import { ReportPage } from '@/reports/report-page'
 import type { QueueFilters } from '@/reports/use-reports'
 import { PartnersPage } from '@/partners/partners-page'
+import { PeoplePage, RegionsPage } from '@/people/people-page'
 import { ComingSoon, NotFound } from '@/routes/placeholders'
 import { SettingsPage } from '@/settings/settings-page'
 
@@ -83,8 +84,8 @@ const routeTree = root.addChildren([
     component: ReviewPage,
     validateSearch: (s: Record<string, unknown>) => ({ tab: oneOf(s.tab, REVIEW_TABS.filter((k) => k !== 'under_review')), id: positive(s.id) }),
   }),
-  soon('/regions', 'nav.regions'),
-  soon('/people', 'nav.people'),
+  createRoute({ getParentRoute: () => root, path: '/regions', component: RegionsPage }),
+  createRoute({ getParentRoute: () => root, path: '/people', component: PeoplePage }),
   createRoute({
     getParentRoute: () => root,
     path: '/partners',

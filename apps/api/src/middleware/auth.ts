@@ -48,6 +48,19 @@ export async function attachAuth(c: Context<{ Bindings: Bindings }>, next: Next)
     c.set('auth', null)
     return next()
   }
+  // Staff rights are re-read on every request, so removing or suspending an
+  // admin takes effect at once instead of when their token expires.
+  if (payload.role !== 'user') {
+    const current = await c.env.DB.prepare('SELECT role, suspended_at FROM users WHERE id = ? AND deleted_at IS NULL')
+      .bind(payload.sub)
+      .first<{ role: UserRole; suspended_at: string | null }>()
+    if (!current || current.suspended_at) {
+      c.set('auth', null)
+      return next()
+    }
+    c.set('auth', { userId: payload.sub, role: current.role, code: payload.code })
+    return next()
+  }
   c.set('auth', { userId: payload.sub, role: payload.role, code: payload.code })
   return next()
 }

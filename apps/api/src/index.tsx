@@ -20,6 +20,7 @@ import adminReportRoutes from './routes/admin-reports'
 import adminSettingsRoutes from './routes/admin-settings'
 import siteRoutes from './routes/site'
 import { adminPartners, publicPartners } from './routes/partners'
+import adminPeople from './routes/admin-people'
 import tileRoutes from './routes/tiles'
 
 import { renderHomePage } from './pages/home'
@@ -140,6 +141,7 @@ app.route('/api/admin', adminDonationRoutes)
 app.route('/api/admin', adminReportRoutes)
 app.route('/api/admin', adminSettingsRoutes)
 app.route('/api/admin', adminPartners)
+app.route('/api/admin', adminPeople)
 app.route('/api/partners', publicPartners)
 app.route('/api/site', siteRoutes)
 

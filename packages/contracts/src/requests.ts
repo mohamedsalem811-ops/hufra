@@ -111,7 +111,12 @@ export const pushTokenSchema = z.object({
 })
 
 export const duplicateReviewSchema = z.object({ decision: z.enum(['confirmed', 'rejected']) })
-export const promoteAdminSchema = z.object({ email: emailSchema, role: z.enum(['admin', 'super_admin']) })
+export const promoteAdminSchema = z.object({
+  email: emailSchema,
+  role: z.enum(['admin', 'super_admin']),
+  /** Regions an admin looks after; ignored for a super admin. */
+  region_ids: z.array(z.number().int().positive()).max(100).default([]),
+})
 export const demoteAdminSchema = z.object({ email: emailSchema })
 
 export type RegisterInput = z.input<typeof registerSchema>

@@ -428,7 +428,7 @@ function AuditLog() {
       {log.isError ? <Alert>{t('error.server')}</Alert> : null}
       {log.data && !rows.length ? <p className="m-0 text-secondary">{t('audit.empty')}</p> : null}
       {rows.length ? (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="text-secondary">

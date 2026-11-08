@@ -202,8 +202,14 @@ auth.post('/login', async (c) => {
     )
   }
 
+  // Checked after the password, so it tells nothing to someone guessing.
+  if (user.suspended_at) {
+    return c.json({ error: 'This account is suspended', error_ar: 'هذا الحساب موقوف. تواصل مع المشرف العام.', code: 'suspended' }, 403)
+  }
+
   const ipHashed = await hashIp(ip, c.env.JWT_SECRET)
   const { accessToken, refreshToken } = await issueSession(c, user, ipHashed)
+  await c.env.DB.prepare(`UPDATE users SET last_login_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).bind(user.id).run()
   await recordAudit(c.env.DB, { actorId: user.id, action: 'user.login', entity: 'users', entityId: user.id, ipHash: ipHashed })
 
   const userInfo = { id: user.id, email: user.email, code: user.code, role: user.role, locale: user.locale, display_name: user.display_name }
@@ -258,12 +264,15 @@ auth.post('/refresh', async (c) => {
   }
 
   const currentUser = await c.env.DB.prepare(
-    'SELECT id, role, code FROM users WHERE id = ? AND deleted_at IS NULL'
+    'SELECT id, role, code, suspended_at FROM users WHERE id = ? AND deleted_at IS NULL'
   )
     .bind(payload.sub)
-    .first<{ id: number; role: UserRow['role']; code: string }>()
+    .first<{ id: number; role: UserRow['role']; code: string; suspended_at: string | null }>()
   if (!currentUser) {
     return refreshDenied(c, 'User not found', 'المستخدم غير موجود')
+  }
+  if (currentUser.suspended_at) {
+    return refreshDenied(c, 'This account is suspended', 'هذا الحساب موقوف. تواصل مع المشرف العام.')
   }
 
   // Claim the token atomically: if two requests race with the same token,
