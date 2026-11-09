@@ -12,7 +12,7 @@ import {
   MAX_THUMB_LONG_EDGE_PX,
   MAX_PHOTOS_PER_STAGE,
 } from '../lib/storage'
-import { inspectImage, type ImageInfo } from '../lib/image-check'
+import { cleanPhoto, type ImageInfo } from '../lib/image-check'
 import { verifyUploadToken } from '../lib/upload-token'
 import {
   actorLimits,
@@ -46,18 +46,18 @@ async function checkImage(
   if (file.size > maxBytes) {
     return { error: 'Image too large: photos must be compressed by the app before upload', error_ar: 'الصورة كبيرة جداً: يجب ضغطها داخل التطبيق قبل الرفع', status: 413 }
   }
-  const bytes = await file.arrayBuffer()
-  const info = inspectImage(bytes)
-  if (!info || !ALLOWED_IMAGE_TYPES.has(info.type)) {
+  const cleaned = cleanPhoto(await file.arrayBuffer())
+  const info = cleaned?.info
+  if (!cleaned || !info || !ALLOWED_IMAGE_TYPES.has(info.type)) {
     return { error: 'Unsupported or damaged image (WebP or JPEG only)', error_ar: 'صورة غير مدعومة أو تالفة (WebP أو JPEG فقط)', status: 400 }
   }
   if (Math.max(info.width, info.height) > maxEdge) {
     return { error: `Image too large: longest side must be at most ${maxEdge}px`, error_ar: `أبعاد الصورة كبيرة: الحد الأقصى ${maxEdge} بكسل`, status: 413 }
   }
   if (info.hasExif) {
-    return { error: 'Image still contains camera metadata (EXIF); upload it through the app', error_ar: 'الصورة تحتوي بيانات الكاميرا (EXIF)، ارفعها عبر التطبيق', status: 400 }
+    return { error: 'Image contains metadata (EXIF); upload it through the app', error_ar: 'الصورة تحتوي بيانات الكاميرا (EXIF)، ارفعها عبر التطبيق', status: 400 }
   }
-  return { info, bytes }
+  return { info, bytes: cleaned.bytes }
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createTestEnv, request, json, type TestEnv } from './helpers/test-env'
 import { createUploadToken } from '../../src/lib/upload-token'
+import { inspectImage } from '../../src/lib/image-check'
 
 const FIX = path.resolve(__dirname, '../fixtures/photos')
 const fixture = (name: string) => new Uint8Array(fs.readFileSync(path.join(FIX, name)))
@@ -75,12 +76,12 @@ function webpHeader(width: number, height: number, exifFlag = false) {
 }
 
 /** The fixture JPEG with an EXIF (APP1) segment inserted, as a phone camera would write it. */
-function jpegWithExif() {
+function jpegWithExif(source = FULL_JPG) {
   const exif = new Uint8Array([0xff, 0xe1, 0x00, 0x10, ...[...'Exif'].map((ch) => ch.charCodeAt(0)), 0, 0, 0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8])
-  const out = new Uint8Array(FULL_JPG.length + exif.length)
+  const out = new Uint8Array(source.length + exif.length)
   out.set(FULL_JPG.subarray(0, 2), 0)
   out.set(exif, 2)
-  out.set(FULL_JPG.subarray(2), 2 + exif.length)
+  out.set(source.subarray(2), 2 + exif.length)
   return out
 }
 
@@ -166,11 +167,26 @@ describe('only compressed photos are stored', () => {
     expect((await upload(report.id, form(FULL_WEBP, FULL_WEBP, tok))).status).toBe(413) // full-size image as thumb
   })
 
-  it('refuses photos that still carry camera EXIF metadata (GPS, device)', async () => {
+  it('removes metadata from JPEG photos (an iPhone adds an EXIF block) and stores them without it', async () => {
     const report = await createReport()
     const tok = { upload_token: report.upload_token }
-    expect((await upload(report.id, form(jpegWithExif(), THUMB_JPG, tok, 'image/jpeg'))).status).toBe(400)
+    const res = await upload(report.id, form(jpegWithExif(), jpegWithExif(THUMB_JPG), tok, 'image/jpeg'))
+    expect(res.status).toBe(201)
+    const up = await json(res)
+    for (const [key, original] of [[up.r2_key, FULL_JPG], [up.thumb_key, THUMB_JPG]] as const) {
+      const stored = new Uint8Array(await (await t.photos.get(key))!.arrayBuffer())
+      expect(stored).toEqual(original) // exactly the original image, minus the EXIF block
+      expect(inspectImage(stored)?.hasExif).toBe(false)
+    }
+    const row = await t.db.prepare('SELECT size_bytes FROM pothole_photos WHERE id = ?').bind(up.id).first<any>()
+    expect(row.size_bytes).toBe(FULL_JPG.length)
+  })
+
+  it('still refuses a WebP that carries metadata (the apps only send JPEG)', async () => {
+    const report = await createReport()
+    const tok = { upload_token: report.upload_token }
     expect((await upload(report.id, form(webpHeader(1280, 960, true), THUMB_WEBP, tok))).status).toBe(400)
+    expect(t.photos.size).toBe(0)
   })
 
   it('refuses PNG and non-images, whatever type the client declares', async () => {
