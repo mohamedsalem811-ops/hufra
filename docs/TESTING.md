@@ -7,6 +7,7 @@
 | App unit + component tests (Jest), coverage floors in `apps/mobile/jest.config.js` | `apps/mobile/src/**/*.test.ts(x)` | CI on every PR (`npm test -w @hufra/mobile -- --coverage`) |
 | App end-to-end journeys on an Android 14 emulator (Maestro) | `apps/mobile/.maestro` | `.github/workflows/app-e2e.yml`: PRs touching the app, the API or packages, and on demand |
 | Website browser tests (Playwright): every page in both languages with axe, and the whole donation journey (sign-up, transfer, screenshot, review, receipt, cancelling, the app's sign-in link) | `apps/web/e2e` | CI on every PR (`npm run e2e -w @hufra/web`) |
+| The production database has every table, column, index and trigger the migrations build (no rows read) | `apps/api/scripts/check-schema.ts` | CI: a report on every PR; blocks the deploy if anything is missing |
 | By a person on real phones (Android and iPhone, Arabic and English, online and offline) before a release | [DEVICE_TEST_CHECKLIST.md](DEVICE_TEST_CHECKLIST.md) | By hand, plan 9.3 and before each store release |
 
 ## The seeded test API

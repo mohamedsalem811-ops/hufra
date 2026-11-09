@@ -1,7 +1,8 @@
 -- HUFRA / حفرة — Migration 0006: Mobile + Offline Sync, Push Notifications, Upvotes & Default Super Admin
 
 ALTER TABLE potholes ADD COLUMN client_report_uuid TEXT;
-ALTER TABLE potholes ADD COLUMN upvotes_count INTEGER NOT NULL DEFAULT 0;
+-- potholes.upvotes_count moved to 0021: the production database had this
+-- migration applied in an earlier form without it (see 0021).
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_potholes_client_uuid
   ON potholes(client_report_uuid)
