@@ -132,6 +132,72 @@ export function inspectLogo(bytes: ArrayBuffer | Uint8Array): LogoInfo | null {
   return photo ? { type: photo.type, width: photo.width, height: photo.height, hasMetadata: photo.hasExif } : null
 }
 
+/**
+ * Remove metadata blocks from a JPEG without re-encoding it: EXIF and XMP
+ * (APP1), IPTC (APP13) and comments. Phones add some even after resizing (an
+ * iPhone's JPEG encoder writes an EXIF block with the colour space and size),
+ * so instead of refusing the photo the server drops them here, and location or
+ * camera details can never be stored whatever the phone sends. The image data
+ * itself, the colour profile (APP2) and the Adobe colour marker (APP14) are
+ * kept byte for byte. Returns null if the file is not a well-formed JPEG.
+ */
+export function stripJpegMetadata(bytes: ArrayBuffer | Uint8Array): Uint8Array | null {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null
+  const parts: Uint8Array[] = [b.subarray(0, 2)]
+  let o = 2
+  while (o + 4 <= b.length) {
+    if (b[o] !== 0xff) return null
+    const marker = b[o + 1]
+    if (marker === 0xff) {
+      o += 1
+      continue
+    }
+    if (marker === 0xda || marker === 0xd9) {
+      // Start of scan: everything from here on is image data.
+      parts.push(b.subarray(o))
+      o = b.length
+      break
+    }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      parts.push(b.subarray(o, o + 2))
+      o += 2
+      continue
+    }
+    const len = u16be(b, o + 2)
+    if (len < 2 || o + 2 + len > b.length) return null
+    const drop = marker === 0xe1 || marker === 0xed || marker === 0xfe
+    if (!drop) parts.push(b.subarray(o, o + 2 + len))
+    o += 2 + len
+  }
+  if (o < b.length) return null
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0))
+  let at = 0
+  for (const p of parts) {
+    out.set(p, at)
+    at += p.length
+  }
+  return out
+}
+
+/**
+ * Check a photo and make sure no metadata is kept: JPEG metadata is removed
+ * (stripJpegMetadata); a WebP that carries metadata is refused (the app and
+ * the website only send JPEG, so WebP metadata means a hand-made upload).
+ */
+export function cleanPhoto(bytes: ArrayBuffer): { info: ImageInfo; bytes: ArrayBuffer } | null {
+  const info = inspectImage(bytes)
+  if (!info) return null
+  if (info.type !== 'image/jpeg') return { info, bytes }
+  const stripped = stripJpegMetadata(bytes)
+  if (!stripped) return null
+  const again = inspectImage(stripped)
+  if (!again || again.hasExif) return null
+  const copy = new ArrayBuffer(stripped.byteLength)
+  new Uint8Array(copy).set(stripped)
+  return { info: again, bytes: copy }
+}
+
 /** Identify an image from its bytes. Returns null for anything that is not a well-formed WebP or JPEG. */
 export function inspectImage(bytes: ArrayBuffer | Uint8Array): ImageInfo | null {
   const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)

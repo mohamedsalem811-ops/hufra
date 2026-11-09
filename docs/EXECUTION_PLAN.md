@@ -183,6 +183,8 @@ Notes from 9.2b: the old server-rendered pages (`apps/api/src/pages`), their fil
 
 Notes from 9.3: the checklist is [DEVICE_TEST_CHECKLIST.md](DEVICE_TEST_CHECKLIST.md): first start, browsing without an account, accounts, reporting online and with no connection (the outbox, including a cut-off upload and a phone restart), confirming, status changes and push, settings, donating (both open modes, confirm, reject, cancel, a reused screenshot), screen readers, shared links, the website on the phone and odd situations, all in Arabic on both phones, then an English pass, and a clean-up at the end. Builds come from the *App build* workflow on `main`. It is also the list to run before each store release.
 
+Found in the first device pass (#42): iPhone photos were refused because the iPhone's JPEG encoder adds a small EXIF block; the server now removes metadata from JPEG photos itself (location can never be stored). The live database, older than this repository, lacked the "I saw it too" parts of migration 0006 (`potholes.upvotes_count`, `pothole_upvotes`), which broke the admin queue, duplicates and the app's report lists while every test passed on a fresh database; migration 0021 repairs it, and `scripts/check-schema.ts` now compares production's structure with the migrations on every pull request (report) and every deploy (blocking, before the Worker goes live).
+
 ## Phase 10 — Store readiness (only when you decide to publish)
 
 **10.1 Accounts and signing**: Apple Developer ($99/year) and Google Play ($25 once); app signing set up (EAS Build or GitHub Actions signing).

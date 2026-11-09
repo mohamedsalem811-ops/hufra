@@ -12,7 +12,7 @@ import {
   toDonation,
   type DonationRow,
 } from '../lib/donations'
-import { inspectImage } from '../lib/image-check'
+import { cleanPhoto } from '../lib/image-check'
 import { beforeCursor, readPage, toPage } from '../lib/paging'
 import { deferFrom, notifyAdmins } from '../lib/notifications'
 import { checkRateLimit, tooMany } from '../lib/rate-limit'
@@ -100,9 +100,10 @@ donations.post('/:id/proof', requireAuth(), async (c) => {
   if (file.size > DONATION_LIMITS.proof.maxBytes) {
     return bad(c, 413, 'Screenshot too large: it must be compressed before upload', 'الصورة كبيرة جداً، يجب ضغطها قبل الرفع')
   }
-  const bytes = await file.arrayBuffer()
-  const info = inspectImage(bytes)
-  if (!info || !(DONATION_LIMITS.proof.types as readonly string[]).includes(info.type)) {
+  const cleaned = cleanPhoto(await file.arrayBuffer())
+  const info = cleaned?.info
+  const bytes = cleaned?.bytes ?? new ArrayBuffer(0)
+  if (!cleaned || !info || !(DONATION_LIMITS.proof.types as readonly string[]).includes(info.type)) {
     return bad(c, 400, 'Unsupported or damaged image (WebP or JPEG only)', 'صورة غير مدعومة أو تالفة (WebP أو JPEG فقط)')
   }
   if (Math.max(info.width, info.height) > DONATION_LIMITS.proof.maxLongEdgePx) {

@@ -11,7 +11,7 @@ import {
 import { Hono } from 'hono'
 
 import { recordAudit } from '../lib/audit'
-import { inspectImage } from '../lib/image-check'
+import { cleanPhoto } from '../lib/image-check'
 import { verifyPassword } from '../lib/password'
 import { loadRules } from '../lib/site-settings'
 import { invalidatePublicCaches } from '../lib/cache'
@@ -195,9 +195,10 @@ adminDonations.post('/campaigns/:id/receipt', async (c) => {
   const file = form?.get('receipt')
   if (!file || typeof file === 'string') return bad(c, 400, 'Missing receipt', 'صورة الإيصال مفقودة')
   if (file.size > DONATION_LIMITS.receipt.maxBytes) return c.json({ error: 'Receipt too large', error_ar: 'صورة الإيصال كبيرة جداً' }, 413)
-  const bytes = await file.arrayBuffer()
-  const info = inspectImage(bytes)
-  if (!info) return bad(c, 400, 'Unsupported or damaged image (WebP or JPEG only)', 'صورة غير مدعومة أو تالفة (WebP أو JPEG فقط)')
+  const cleaned = cleanPhoto(await file.arrayBuffer())
+  const info = cleaned?.info
+  const bytes = cleaned?.bytes ?? new ArrayBuffer(0)
+  if (!cleaned || !info) return bad(c, 400, 'Unsupported or damaged image (WebP or JPEG only)', 'صورة غير مدعومة أو تالفة (WebP أو JPEG فقط)')
   if (Math.max(info.width, info.height) > DONATION_LIMITS.receipt.maxLongEdgePx) return c.json({ error: 'Receipt dimensions too large', error_ar: 'أبعاد الصورة كبيرة جداً' }, 413)
   if (info.hasExif) return bad(c, 400, 'Image still contains camera metadata (EXIF)', 'الصورة تحتوي بيانات الكاميرا (EXIF)')
 
